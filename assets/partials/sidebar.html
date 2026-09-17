@@ -1,0 +1,265 @@
+<!-- Sidebar -->
+<aside id="app-sidebar"
+       class="fixed inset-y-0 left-0 z-40 w-64 bg-[#0F2C1E] dark:bg-[#0A1F14] text-white flex flex-col
+              h-full xl:h-screen shrink-0 -translate-x-full transition-transform duration-200
+              xl:sticky xl:top-0 xl:translate-x-0">
+
+    <!-- Brand -->
+    <div class="px-5 py-6 flex items-center justify-between border-b border-white/10 shrink-0">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+            </div>
+
+            <div>
+                <div class="font-bold text-sm leading-tight tracking-wide">
+                    STUDY <span class="text-amber-400">PLANNER</span>
+                </div>
+
+                <div class="text-[11px] text-white/50 leading-tight">
+                    Academic Workload Manager
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile close -->
+        <button
+            id="sidebar-close-btn"
+            class="xl:hidden text-white/60 hover:text-white leading-none transition-colors"
+            aria-label="Close menu"
+            type="button"
+        >
+            <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+
+    <!-- Navigation -->
+    <nav
+        class="flex-1 px-3 py-4 overflow-y-auto"
+        data-nav-links
+        aria-label="Main navigation"
+    >
+
+        <!-- PLAN -->
+        <div class="sidebar-nav-section">
+            <div class="sidebar-section-label">
+                PLAN
+            </div>
+
+            <div class="space-y-1.5">
+                <a
+                    data-nav="dashboard"
+                    href="dashboard.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="home" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <a
+                    data-nav="courses"
+                    href="courses.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="book-open" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Courses</span>
+                </a>
+
+                <a
+                    data-nav="tasks"
+                    href="tasks.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="check-square" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Tasks</span>
+                </a>
+
+                <a
+                    data-nav="schedule"
+                    href="schedule.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="calendar-days" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Schedule</span>
+                </a>
+
+                <a
+                    data-nav="deadlines"
+                    href="deadlines.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="clock" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Deadlines</span>
+                </a>
+            </div>
+        </div>
+
+
+        <!-- TRACK -->
+        <div class="sidebar-nav-section">
+            <div class="sidebar-section-label">
+                TRACK
+            </div>
+
+            <div class="space-y-1.5">
+                <a
+                    data-nav="progress"
+                    href="progress.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="bar-chart-2" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Progress</span>
+                </a>
+
+                <a
+                    data-nav="reports"
+                    href="reports.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="file-text" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Reports</span>
+                </a>
+            </div>
+        </div>
+
+
+        <!-- SYSTEM -->
+        <div class="sidebar-nav-section">
+            <div class="sidebar-section-label">
+                SYSTEM
+            </div>
+
+            <div class="space-y-1.5">
+                <a
+                    data-nav="notifications"
+                    href="notifications.php"
+                    class="flex items-center justify-between px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <span class="flex items-center gap-3">
+                        <i data-lucide="bell" class="w-[18px] h-[18px] shrink-0"></i>
+                        <span>Notifications</span>
+                    </span>
+
+                    <span
+                        id="sidebar-unread-badge"
+                        class="hidden bg-red-500 text-white text-[11px] font-bold rounded-full w-5 h-5 items-center justify-center"
+                        aria-label="Unread notifications"
+                    ></span>
+                </a>
+
+                <a
+                    data-nav="settings"
+                    href="settings.php"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/10 transition-all duration-150"
+                >
+                    <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </div>
+
+
+        <!-- AI ASSISTANT -->
+        <div class="sidebar-ai-area">
+            <button
+                id="study-ai-btn"
+                type="button"
+                data-ai-assistant
+                class="study-ai-button w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/90 transition-all duration-200"
+                aria-label="Open Study AI"
+                title="Study AI"
+            >
+                <span class="study-ai-icon">
+                    <i data-lucide="sparkles" class="w-[18px] h-[18px] shrink-0"></i>
+                </span>
+
+                <span class="flex-1 text-left">
+                    <span class="block font-semibold">Study AI</span>
+                    <span class="block text-[10px] text-white/50 mt-0.5">
+                        Your intelligent study assistant
+                    </span>
+                </span>
+
+                <i
+                    data-lucide="chevron-right"
+                    class="study-ai-arrow w-4 h-4 text-white/40 shrink-0"
+                ></i>
+            </button>
+        </div>
+
+    </nav>
+
+
+    <!-- Dark Mode -->
+    <div class="px-4 py-3 border-t border-white/10 shrink-0">
+        <label class="flex items-center justify-between px-1 py-1.5 cursor-pointer select-none">
+            <span class="flex items-center gap-2 text-sm text-white/80">
+                <i data-lucide="moon" class="w-4 h-4"></i>
+                Dark Mode
+            </span>
+
+            <span class="relative inline-block w-10 h-5">
+                <input
+                    type="checkbox"
+                    data-dark-toggle
+                    class="peer sr-only"
+                    aria-label="Toggle dark mode"
+                >
+
+                <span class="absolute inset-0 rounded-full bg-white/20 peer-checked:bg-emerald-500 transition-colors duration-200"></span>
+
+                <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 peer-checked:translate-x-5"></span>
+            </span>
+        </label>
+    </div>
+
+
+    <!-- User -->
+    <div class="px-4 py-4 border-t border-white/10 shrink-0">
+
+        <div class="flex items-center gap-3">
+            <div
+                class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-semibold"
+                data-user-initial
+            >
+                U
+            </div>
+
+            <div class="flex-1 min-w-0">
+                <div
+                    class="text-sm font-medium truncate"
+                    data-user-name
+                >
+                    Loading…
+                </div>
+
+                <div
+                    class="text-[11px] text-white/50 truncate"
+                    data-user-meta
+                >
+                    —
+                </div>
+            </div>
+        </div>
+
+        <a
+            href="#"
+            id="logout-btn"
+            class="flex items-center justify-center gap-1.5 mt-3 text-[12px] text-white/60 hover:text-white/90 text-center border border-white/15 rounded-lg py-1.5 hover:bg-white/10 transition-colors duration-150"
+        >
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            Sign out
+        </a>
+
+    </div>
+
+</aside>
+
+
+<!-- Mobile sidebar backdrop -->
+<div
+    id="sidebar-backdrop"
+    class="hidden fixed inset-0 bg-black/50 z-30 xl:hidden"
+    aria-hidden="true"
+></div>

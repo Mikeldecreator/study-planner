@@ -1,0 +1,50 @@
+STUDY PLANNER - DATABASE/UI DATA FIX
+====================================
+
+Main problem fixed:
+The original schema hard-coded all seed courses, tasks and timetable rows to
+user_id = 1. The app correctly filters every API query by the currently logged
+in user's session user_id, so a newly registered account (user_id 2, 3, etc.)
+could see an empty UI even though the records existed in MySQL.
+
+Changes made:
+1. database/schema.sql
+   - Seed records now use the actual generated demo-user ID via LAST_INSERT_ID().
+   - Task and schedule course references are resolved by course code instead of
+     assuming course IDs 1..8.
+   - The demo password hash now really matches "password123".
+
+2. includes/functions.php
+   - Added a safe legacy-data repair function.
+   - On an empty account, the app copies the bundled demo account's courses,
+     tasks, schedule events, notifications and activity log.
+   - Course IDs and task IDs are remapped so all foreign keys remain valid.
+   - Existing non-empty accounts are NOT overwritten or merged.
+
+3. includes/auth.php
+   - Legacy-data repair runs after successful login and before protected API
+     data is served.
+   - New registrations are seeded immediately.
+
+4. API JOINs
+   - Course/task JOINs now also verify that the joined record belongs to the
+     same user, preventing cross-account data leakage/mismatched labels.
+
+5. database/repair_existing_data.sql
+   - Included as a manual fallback/diagnostic note for old installations.
+   - The normal application login flow performs the safe repair automatically.
+
+Validation performed:
+- All PHP files pass php -l syntax validation.
+- All JavaScript files pass Node syntax validation.
+- No remaining hard-coded seed user_id = 1 values exist in SQL data inserts.
+
+IMPORTANT:
+If your MySQL database contains your own real records under a different user_id
+than the account you are currently logging into, do not blindly reassign them.
+The app intentionally preserves user ownership. Check public/check-session.php
+and compare its User ID with the user_id column in your records.
+
+
+SHARED DATABASE UPDATE:
+The application connection now uses the existing shared MySQL database `study-planner` (with the hyphen), not `study_planner`. The schema no longer creates a separate database. It only selects `study-planner`, so it will not create/drop or rename the shared database.

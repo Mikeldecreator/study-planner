@@ -1,0 +1,17 @@
+# Local configuration and secrets
+config/config.php
+.env
+.env.*
+
+# Dependencies
+/vendor/
+
+# Runtime uploads and generated files
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
