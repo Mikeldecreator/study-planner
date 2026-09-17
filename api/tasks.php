@@ -1047,6 +1047,73 @@ switch ($method) {
                 "You completed {$existing['title']}",
                 'success'
             );
+
+            $stmtNotif = $db->prepare(
+                'UPDATE notifications SET read_at = NOW() WHERE task_id = ? AND user_id = ? AND read_at IS NULL'
+            );
+            $stmtNotif->execute([$id, $userId]);
+
+            // Resolve course code for notification
+            $notifCourseCode = '';
+            $effectiveCid = ownedCourseIdOrNull($db, $body['course_id'] ?? $existing['course_id'], $userId);
+            if ($effectiveCid) {
+                $cStmt = $db->prepare('SELECT code FROM courses WHERE id = ? AND user_id = ?');
+                $cStmt->execute([$effectiveCid, $userId]);
+                $cRow = $cStmt->fetch();
+                if (!empty($cRow['code'])) {
+                    $notifCourseCode = $cRow['code'];
+                }
+            }
+
+            $taskLabel = $notifCourseCode !== ''
+                ? "{$notifCourseCode}: '{$existing['title']}'"
+                : "'{$existing['title']}'";
+
+            $completedTs = strtotime($completedAt ?: 'now');
+            $eventKey = "task_completed_{$id}_{$completedTs}";
+            $notifMsg = "Your {$taskLabel} has been marked as completed.";
+
+            $stmtCheck = $db->prepare('SELECT id FROM notifications WHERE user_id = ? AND event_key = ? LIMIT 1');
+            $stmtCheck->execute([$userId, $eventKey]);
+            if (!$stmtCheck->fetch()) {
+                $stmtIns = $db->prepare(
+                    "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at)
+                     VALUES (?, ?, 'in_app', ?, ?, NOW())"
+                );
+                $stmtIns->execute([$userId, $id, $eventKey, $notifMsg]);
+            }
+        } elseif ($newStatus !== 'completed' && $wasAlreadyCompleted) {
+            logActivity(
+                $userId,
+                "Task reopened: {$existing['title']}",
+                'info'
+            );
+
+            // Resolve course code for reopened notification
+            $notifCourseCode = '';
+            $effectiveCid = ownedCourseIdOrNull($db, $body['course_id'] ?? $existing['course_id'], $userId);
+            if ($effectiveCid) {
+                $cStmt = $db->prepare('SELECT code FROM courses WHERE id = ? AND user_id = ?');
+                $cStmt->execute([$effectiveCid, $userId]);
+                $cRow = $cStmt->fetch();
+                if (!empty($cRow['code'])) {
+                    $notifCourseCode = $cRow['code'];
+                }
+            }
+
+            $taskLabel = $notifCourseCode !== ''
+                ? "{$notifCourseCode}: '{$existing['title']}'"
+                : "'{$existing['title']}'";
+
+            $reopenTs = time();
+            $eventKey = "task_reopened_{$id}_{$reopenTs}";
+            $notifMsg = "Your {$taskLabel} has been moved back to active work.";
+
+            $stmtIns = $db->prepare(
+                "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at)
+                 VALUES (?, ?, 'in_app', ?, ?, NOW())"
+            );
+            $stmtIns->execute([$userId, $id, $eventKey, $notifMsg]);
         }
 
         taskApiJson([
