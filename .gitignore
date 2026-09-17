@@ -15,3 +15,11 @@ public/uploads/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Certificates, keys, logs and scratch data
+*.pem
+*.key
+*.crt
+*.cert
+*.log
+scratch/
