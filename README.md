@@ -23,6 +23,24 @@ the backend. Built to run on XAMPP for local demo/defense. Fully responsive
    Generate a real hash with: `php -r "echo password_hash('yourpassword', PASSWORD_DEFAULT);"`
 5. Visit `http://localhost/study-planner/public/login.php`.
 
+## Docker
+
+Build and run the Apache/PHP container with:
+
+```bash
+docker build -t study-planner .
+docker run --rm -p 8080:80 \
+  -e DB_HOST=host.docker.internal \
+  -e DB_NAME=study-planner \
+  -e DB_USER=root \
+  -e DB_PASS= \
+  study-planner
+```
+
+Import `database/schema.sql` into the MySQL server and open
+`http://localhost:8080/login.php`. Set `RESEND_API_KEY`, VAPID values, and
+other settings with `docker run -e` options when those features are needed.
+
 ## 2. Folder structure
 
 ```

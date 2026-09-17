@@ -1,0 +1,14 @@
+.git
+.gitignore
+.dockerignore
+config/config.php
+.env
+.env.*
+public/uploads/*
+!public/uploads/.gitkeep
+vendor
+README.md
+FIX_NOTES.txt
+diagnose.php
+test-password.php
+vapid-keys.php
