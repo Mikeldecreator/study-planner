@@ -1,5 +1,6 @@
 -- Safe Migration for Aiven MySQL / Cloud Database
--- Purely additive: NEVER runs DROP TABLE, TRUNCATE, or destructive updates.
+-- Purely additive and non-destructive.
+
 
 -- 1. Base Core Tables (IF NOT EXISTS)
 CREATE TABLE IF NOT EXISTS users (

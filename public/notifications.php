@@ -725,6 +725,7 @@ requirePageLogin();
 <script src="../assets/js/nav.js"></script>
 <script src="../assets/js/workload.js"></script>
 <script src="../assets/js/notifications.js"></script>
+<script src="../assets/js/guided-tour.js"></script>
 
 </body>
 </html>
