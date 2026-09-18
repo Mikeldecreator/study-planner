@@ -552,6 +552,17 @@ if (forgotPasswordForm) {
             success.classList.remove(
               'hidden'
             );
+
+            if (data.reset_url) {
+              let testLink = success.querySelector('#dev-reset-link');
+              if (!testLink) {
+                testLink = document.createElement('div');
+                testLink.id = 'dev-reset-link';
+                testLink.className = 'mt-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-800 dark:text-blue-200 break-all';
+                success.appendChild(testLink);
+              }
+              testLink.innerHTML = `<strong>Testing Link:</strong><br><a href="${data.reset_url}" class="underline font-semibold hover:text-blue-600 dark:hover:text-blue-400">Click here to reset password &rarr;</a>`;
+            }
           }
 
 

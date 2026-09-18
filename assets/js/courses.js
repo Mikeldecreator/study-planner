@@ -470,10 +470,13 @@ async function handleExtractCourses() {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
+      if (data.is_scanned) {
+        throw new Error(data.error || "This document appears to be a scanned image or photo. Please paste the course list into the text box below or add them manually.");
+      }
       throw new Error(data.error || "We couldn't extract courses from this file. Try another document or add courses manually.");
     }
 
-    reviewedCoursesList = Array.isArray(data.courses) ? data.courses : [];
+    reviewedCoursesList = Array.isArray(data.courses) ? data.courses : (Array.isArray(data.items) ? data.items : []);
     if (reviewedCoursesList.length === 0) {
       throw new Error("No course codes were identified in this document. Please check the file or add courses manually.");
     }

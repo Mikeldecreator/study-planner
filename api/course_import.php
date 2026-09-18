@@ -39,7 +39,13 @@ try {
         if (!empty($_FILES['document']['tmp_name'])) {
             $file = $_FILES['document'];
             if ($file['error'] !== UPLOAD_ERR_OK) {
-                courseImportJsonError('File upload failed. Please try again.', 422);
+                $uploadErrMessage = match ($file['error']) {
+                    UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the maximum allowed file size. Please choose a smaller file or paste the text.',
+                    UPLOAD_ERR_PARTIAL => 'The file was only partially uploaded. Please try uploading again.',
+                    UPLOAD_ERR_NO_FILE => 'No file was selected for upload.',
+                    default => 'File upload failed. Please try again or paste the course text directly.'
+                };
+                courseImportJsonError($uploadErrMessage, 422);
             }
             if ($file['size'] > 15 * 1024 * 1024) {
                 courseImportJsonError('File size is too large (maximum 15MB).', 422);
@@ -104,6 +110,7 @@ try {
         echo json_encode([
             'ok'          => true,
             'courses'     => $courses,
+            'items'       => $courses,
             'found_count' => count($courses),
         ]);
         exit;

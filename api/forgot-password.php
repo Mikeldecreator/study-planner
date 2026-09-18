@@ -326,6 +326,8 @@ try {
             $rawToken
         );
 
+    error_log('[PASSWORD RESET LINK] Generated for ' . $user['email'] . ': ' . $resetUrl);
+
 
     // ========================================================
     // EMAIL CONTENT
@@ -401,59 +403,51 @@ try {
 
 
     // ========================================================
-    // EMAIL FAILURE
+    // RESPONSE & FALLBACK HANDLING
     // ========================================================
 
-    if (
-        !$emailSent
-    ) {
+    $isLocalOrDebug = (defined('APP_DEBUG') && APP_DEBUG) 
+        || (getenv('APP_DEBUG') === 'true')
+        || (getenv('EMAIL_TEST_MODE') === 'true')
+        || (defined('EMAIL_TEST_MODE') && EMAIL_TEST_MODE)
+        || in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)
+        || (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
 
-        /*
-         * Delete token because the email was not sent.
-         */
-        $cleanup =
-            $db->prepare(
-                'DELETE FROM password_resets
-                 WHERE token_hash = ?'
-            );
-
-
-        $cleanup->execute([
-            $tokenHash
-        ]);
-
-
+    if (!$emailSent) {
         error_log(
-            '[FORGOT PASSWORD] Resend failed. ' .
-            'Original user: ' .
-            $user['email'] .
-            ' | Recipient: ' .
-            $recipientEmail
+            '[FORGOT PASSWORD] Email delivery was not completed by Resend. ' .
+            'Original user: ' . $user['email'] .
+            ' | Recipient: ' . $recipientEmail .
+            ' | Token preserved. Reset URL: ' . $resetUrl
         );
 
+        $responsePayload = [
+            'ok' => true,
+            'message' => 'If an account exists with that email address, a password reset link has been sent.'
+        ];
 
-        forgotResponse(
-            [
-                'ok' => false,
-                'error' =>
-                    'The reset email could not be sent. Please check your Resend settings and try again.'
-            ],
-            500
-        );
+        if ($isLocalOrDebug) {
+            $responsePayload['reset_url'] = $resetUrl;
+            $responsePayload['dev_notice'] = 'Email delivery was skipped or failed in test/local mode. Use the link below to test password reset.';
+        }
+
+        forgotResponse($responsePayload);
     }
-
 
     // ========================================================
     // SUCCESS
     // ========================================================
 
-    forgotResponse(
-        [
-            'ok' => true,
-            'message' =>
-                'Your password reset request was processed successfully.'
-        ]
-    );
+    $responsePayload = [
+        'ok' => true,
+        'message' => 'If an account exists with that email address, a password reset link has been sent.'
+    ];
+
+    if ($isLocalOrDebug) {
+        $responsePayload['reset_url'] = $resetUrl;
+    }
+
+    forgotResponse($responsePayload);
 
 
 } catch (

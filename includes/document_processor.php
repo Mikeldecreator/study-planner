@@ -763,7 +763,7 @@ class DocumentProcessor {
     // DOMAIN PARSER 1: COURSE REGISTRATION FORMS
     // =========================================================================
     public static function parseCourses(string $text, ?PDO $db = null, ?int $userId = null): array {
-        $lines = preg_split("/\n/", $text);
+        $lines = preg_split("/\r\n|\n|\r/", $text);
         $courses = [];
         $seenCodes = [];
 
@@ -773,6 +773,24 @@ class DocumentProcessor {
             $stmt->execute([$userId]);
             $existingCodes = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
         }
+
+        // Blocklist of words that look like course codes but aren't
+        $blockedPrefixes = [
+            'PAGE', 'ROOM', 'SESSION', 'YEAR', 'LEVEL', 'TOTAL', 'SEMESTER', 'DATE',
+            'TIME', 'SLOT', 'WEEK', 'HALL', 'BLDG', 'DEPT', 'FACULTY', 'MATRIC',
+            'TERM', 'GRADE', 'UNITS', 'CREDIT', 'STATUS', 'STEP', 'FORM', 'SLIP',
+            'TABLE', 'REG', 'EXAM', 'TEST', 'S/N', 'SN', 'NO', 'ITEM',
+            'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'SEPT', 'OCT', 'NOV', 'DEC',
+            'SPRING', 'FALL', 'SUMMER', 'WINTER'
+        ];
+        $blockedFlip = array_flip($blockedPrefixes);
+
+        $ignoreKeywords = [
+            'matric', 'semester', 'session', 'student', 'registration', 'course code',
+            'course title', 'total units', 'signature', 'faculty', 'department', 'level',
+            'total units registered', 'page', 'tcpdf', 'university', 'academic calendar',
+            'examination', 'lecturer'
+        ];
 
         // Detect repeated background watermark phrases (e.g. repeated student/form watermarks)
         $trimmedLines = array_filter(array_map('trim', $lines));
@@ -798,30 +816,42 @@ class DocumentProcessor {
             }
         }
 
-        $ignoreKeywords = ['matric', 'semester', 'session', 'student', 'registration', 'course code', 'course title', 'total units', 'signature', 'date', 'faculty', 'department', 'level', 'total 15', 'total units registered', 'page', 'tcpdf'];
-
         $lastCourseIdx = null;
 
         for ($idx = 0; $idx < count($cleanLines); $idx++) {
             $trimmed = $cleanLines[$idx];
             $lower = strtolower($trimmed);
 
+            // Check if pure header line without course codes
             $skip = false;
-            foreach ($ignoreKeywords as $ig) {
-                if (strpos($lower, $ig) !== false && !preg_match('/[a-zA-Z]{2,4}\s*[-]?\s*\d{3}/', $trimmed)) {
-                    $skip = true;
-                    break;
+            $hasCourseCode = (bool) preg_match('/\b([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)\b/i', $trimmed);
+            if (!$hasCourseCode) {
+                foreach ($ignoreKeywords as $ig) {
+                    if (strpos($lower, $ig) !== false) {
+                        $skip = true;
+                        break;
+                    }
                 }
             }
-            if ($skip) continue;
+            if ($skip) {
+                $lastCourseIdx = null;
+                continue;
+            }
 
-            // Match Course Code: e.g. CSC 401, CSC401, CSC-401, MTH 301, PHY 202
-            if (preg_match('/\b([A-Za-z]{2,4})\s*[-]?\s*(\d{3}[A-Za-z]?)\b/i', $trimmed, $codeMatch, PREG_OFFSET_CAPTURE)) {
-                $prefix = strtoupper($codeMatch[1][0]);
-                $number = strtoupper($codeMatch[2][0]);
-                $code = $prefix . ' ' . $number;
+            // Match Course Code: e.g. CSC 401, CSC401, CS 1101, MATH 1010, PSYCH 101, CSC-401, CS.101
+            if (preg_match('/\b([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)\b/i', $trimmed, $codeMatch, PREG_OFFSET_CAPTURE)) {
+                $rawPrefix = strtoupper($codeMatch[1][0]);
+                $rawNumber = strtoupper($codeMatch[2][0]);
 
-                if (isset($seenCodes[$code])) continue;
+                // Filter out false positive prefixes
+                if (isset($blockedFlip[$rawPrefix])) {
+                    continue;
+                }
+
+                $code = $rawPrefix . ' ' . $rawNumber;
+                if (isset($seenCodes[$code])) {
+                    continue;
+                }
 
                 $afterCode = substr($trimmed, $codeMatch[0][1] + strlen($codeMatch[0][0]));
 
@@ -830,18 +860,20 @@ class DocumentProcessor {
                 // Strip trailing page indicator (e.g. Page 1/1)
                 $afterCode = preg_replace('/\bPage\s+\d+(?:\s*\/\s*\d+)?\b/i', '', $afterCode);
 
-                // Status extraction (C: Compulsory, E: Elective, R: Required)
+                // Status extraction (C: Compulsory/Core, E: Elective, R: Required)
                 $status = 'C';
-                if (preg_match('/\b(compulsory|core|elective|required)\b/i', $trimmed, $stMatch)) {
-                    $status = strtoupper($stMatch[1][0]);
+                if (preg_match('/\b(compulsory|core|required)\b/i', $trimmed)) {
+                    $status = 'C';
+                } elseif (preg_match('/\b(elective|optional)\b/i', $trimmed)) {
+                    $status = 'E';
                 } elseif (preg_match('/\b([CERPF])\b\s*$/i', trim($afterCode), $stMatch)) {
                     $status = strtoupper($stMatch[1]);
                 }
 
                 // Unit / Credit detection (Units, Credit, Credit Unit, Credit Hours, CU, CH, cr, hrs)
                 $units = 3;
-                if (preg_match('/\b([1-9])\s*(?:units?|credits?|credit\s*units?|credit\s*hours?|cu|ch|cr|hrs?)\b/i', $trimmed, $uMatch)) {
-                    $units = (int) $uMatch[1];
+                if (preg_match('/\b([1-9](?:\.0|\.5)?)\s*(?:units?|credits?|credit\s*units?|credit\s*hours?|cu|ch|cr|hrs?)\b/i', $trimmed, $uMatch)) {
+                    $units = (int) round((float) $uMatch[1]);
                     $afterCode = preg_replace('/\b' . preg_quote($uMatch[0], '/') . '\b/i', '', $afterCode);
                 } elseif (preg_match('/\b(?:compulsory|core|elective|required)\s+([1-9])\b/i', $afterCode, $uMatch)) {
                     $units = (int) $uMatch[1];
@@ -856,12 +888,13 @@ class DocumentProcessor {
 
                 // Clean title
                 $cleanedTitle = preg_replace('/\b(core|elective|required|compulsory|passed|registered)\b/i', '', $afterCode);
-                // Remove leading serial numbers or punctuation
-                $cleanedTitle = preg_replace('/^\s*[\d\.\-\:\,\)]+\s*/', '', $cleanedTitle);
+                // Remove leading serial numbers, pipes, tabs, or punctuation
+                $cleanedTitle = preg_replace('/^[\s\d\.\-\:\,\)\|\t]+/u', '', $cleanedTitle);
                 $cleanedTitle = trim($cleanedTitle, " \t\n\r\0\x0B-|:,.");
                 $cleanedTitle = preg_replace('/\s+/', ' ', $cleanedTitle);
 
-                if (strlen($cleanedTitle) < 3) {
+                $hasRealTitle = (strlen($cleanedTitle) >= 3);
+                if (!$hasRealTitle) {
                     $cleanedTitle = $code . ' Course';
                 }
 
@@ -873,31 +906,64 @@ class DocumentProcessor {
                     'credits'        => $units,
                     'status'         => $status,
                     'already_exists' => $alreadyExists,
+                    'is_placeholder' => !$hasRealTitle,
                 ];
                 $seenCodes[$code] = true;
                 $lastCourseIdx = count($courses) - 1;
             } elseif ($lastCourseIdx !== null) {
-                // Check for multi-line title wrapping in tables (e.g. "Environment")
-                if (!preg_match('/[A-Za-z]{2,4}\s*[-]?\s*\d{3}/', $trimmed) && strlen($trimmed) < 40) {
-                    if (preg_match('/\bpage\b/i', $trimmed) || preg_match('/\b\d+\s*\/\s*\d+\b/', $trimmed) || preg_match('/\b(?:form|course|registration|hostel|library)\b/i', $trimmed)) {
-                        $lastCourseIdx = null;
-                        continue;
+                // Multi-line course formats: Check if next line contains title, units, or status
+                $trimmedWrap = trim($trimmed);
+                $lowerWrap = strtolower($trimmedWrap);
+
+                // If this line contains units (e.g. "3 Units", "4 Credits")
+                if (preg_match('/^([1-9](?:\.0|\.5)?)\s*(?:units?|credits?|credit\s*units?|cu|ch|cr|hrs?)?$/i', $trimmedWrap, $uMatch)) {
+                    $courses[$lastCourseIdx]['credits'] = (int) round((float) $uMatch[1]);
+                    continue;
+                }
+
+                // If this line contains status (e.g. "Compulsory", "Elective", "C", "E")
+                if (preg_match('/^(?:compulsory|core|required|c)$/i', $trimmedWrap)) {
+                    $courses[$lastCourseIdx]['status'] = 'C';
+                    continue;
+                } elseif (preg_match('/^(?:elective|optional|e)$/i', $trimmedWrap)) {
+                    $courses[$lastCourseIdx]['status'] = 'E';
+                    continue;
+                }
+
+                // Check if this line is a continuation or real title
+                $isIgnore = false;
+                foreach ($ignoreKeywords as $ig) {
+                    if (strpos($lowerWrap, $ig) !== false) {
+                        $isIgnore = true;
+                        break;
                     }
-                    $lowerWrap = strtolower($trimmed);
-                    $isWrap = true;
-                    foreach ($ignoreKeywords as $ig) {
-                        if (strpos($lowerWrap, $ig) !== false) {
-                            $isWrap = false;
-                            break;
+                }
+
+                if (!$isIgnore && strlen($trimmedWrap) < 120 && !preg_match('/^\d+$/', $trimmedWrap) && !preg_match('/^[\_\-\=\s\|]+$/', $trimmedWrap)) {
+                    // If previous course had a placeholder title, replace it!
+                    if (!empty($courses[$lastCourseIdx]['is_placeholder'])) {
+                        $cleanWrap = preg_replace('/^[\s\d\.\-\:\,\)\|\t]+/u', '', $trimmedWrap);
+                        $cleanWrap = trim($cleanWrap, " \t\n\r\0\x0B-|:,.");
+                        if (strlen($cleanWrap) >= 3) {
+                            $courses[$lastCourseIdx]['name'] = ucwords(strtolower($cleanWrap));
+                            $courses[$lastCourseIdx]['is_placeholder'] = false;
                         }
+                    } else {
+                        // Otherwise append wrapped title line
+                        $courses[$lastCourseIdx]['name'] .= ' ' . ucwords(strtolower($trimmedWrap));
+                        $lastCourseIdx = null; // Only wrap title continuation once
                     }
-                    if ($isWrap && !preg_match('/^\d+$/', $trimmed) && !preg_match('/^[\_\-\=\s]+$/', $trimmed)) {
-                        $courses[$lastCourseIdx]['name'] .= ' ' . ucwords(strtolower($trimmed));
-                        $lastCourseIdx = null; // Only wrap once
-                    }
+                } else {
+                    $lastCourseIdx = null;
                 }
             }
         }
+
+        // Clean up temporary internal flags before returning
+        foreach ($courses as &$c) {
+            unset($c['is_placeholder']);
+        }
+        unset($c);
 
         return $courses;
     }
