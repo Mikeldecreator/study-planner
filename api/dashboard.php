@@ -21,13 +21,50 @@ $todaySchedule = $stmt->fetchAll();
 
 $nowTime = date('H:i:s');
 $nextClass = null;
+$completedSessionsCount = 0;
+$upcomingSessionsCount = 0;
+$nextSession = null;
+
 foreach ($todaySchedule as &$ev) {
     $ev['start_label'] = date('g:i A', strtotime($ev['start_time']));
     $ev['end_label']   = date('g:i A', strtotime($ev['end_time']));
+    $ev['is_study_session'] = ($ev['event_type'] === 'study');
+
+    $isCompleted = !empty($ev['is_completed']);
+    if ($isCompleted) {
+        $ev['timeline_status'] = 'completed';
+        $ev['timeline_label'] = 'Completed';
+        $completedSessionsCount++;
+    } elseif ($ev['end_time'] < $nowTime) {
+        $ev['timeline_status'] = 'missed';
+        $ev['timeline_label'] = 'Missed';
+    } elseif ($ev['start_time'] <= $nowTime && $nowTime <= $ev['end_time']) {
+        $ev['timeline_status'] = 'in_progress';
+        $ev['timeline_label'] = 'In Progress';
+        if ($nextSession === null) {
+            $nextSession = $ev;
+        }
+    } else {
+        $ev['timeline_status'] = 'upcoming';
+        $ev['timeline_label'] = 'Upcoming';
+        $upcomingSessionsCount++;
+        if ($nextSession === null) {
+            $nextSession = $ev;
+        }
+    }
+
     if ($nextClass === null && $ev['start_time'] >= $nowTime) {
         $nextClass = $ev;
     }
 }
+unset($ev);
+
+$scheduleSummary = [
+    'total_sessions'     => count($todaySchedule),
+    'completed_sessions' => $completedSessionsCount,
+    'upcoming_sessions'  => $upcomingSessionsCount,
+    'next_session'       => $nextSession,
+];
 
 // Upcoming deadlines — next 4 incomplete tasks
 $stmt = $db->prepare(
@@ -97,15 +134,21 @@ $todaySummary = sprintf(
 
 // Centralized Academic Context for focus and states
 $aiContext = getAIAcademicContext($db, $userId);
-$todayCtx = $aiContext['today_context'] ?? [];
+$todayCtx = $aiContext['today'] ?? ($aiContext['today_context'] ?? []);
+$planningContext = $aiContext['personal_planning'] ?? getPersonalPlanningContext($db, $userId);
 $todaysFocus = $todayCtx['todays_focus'] ?? null;
 $priorityActions = $todayCtx['priority_actions'] ?? [];
 $academicState = $todayCtx['academic_state'] ?? ($todaysFocus ? 'on_track' : ($totalTasks === 0 ? 'empty' : 'all_completed'));
 $contextSummary = [
-    'headline'      => $todayCtx['headline'] ?? '',
-    'message'       => $todayCtx['message'] ?? '',
-    'active_tasks'  => $activeTasksCount,
-    'overdue_tasks' => $overdueTasksCount,
+    'headline'                 => $todayCtx['headline'] ?? '',
+    'message'                  => $todayCtx['message'] ?? '',
+    'total_tasks'              => $totalTasks,
+    'active_tasks'             => $activeTasksCount,
+    'overdue_tasks'            => $overdueTasksCount,
+    'remaining_workload_hours' => (float)($todayCtx['remaining_workload_hours'] ?? 0),
+    'weekly_goal_hours'        => (float)($planningContext['weekly_goal_hours'] ?? 0),
+    'weekly_logged_hours'      => (float)($planningContext['logged_study_hours'] ?? 0),
+    'goal_progress_percent'    => (int)($planningContext['goal_progress_percent'] ?? 0),
 ];
 
 // Contextual Smart Suggestions in simple student language
@@ -176,6 +219,8 @@ echo json_encode([
     'priority_actions'       => $priorityActions,
     'academic_state'         => $academicState,
     'context_summary'        => $contextSummary,
+    'personal_planning'      => $planningContext,
+    'schedule_summary'       => $scheduleSummary,
     'total_courses'          => $totalCourses,
     'total_classes'          => $totalClasses,
     'total_tasks'            => $totalTasks,

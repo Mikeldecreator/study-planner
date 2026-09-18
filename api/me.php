@@ -39,6 +39,10 @@ if ($tagline === '') {
 echo json_encode([
     'id' => $userId,
 
+    'full_name' =>
+        $row['full_name']
+        ?? $sessionUserName,
+
     'name' =>
         $row['full_name']
         ?? $sessionUserName,

@@ -40,6 +40,7 @@ define(
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../cron/Mailer.php';
 
 
@@ -206,6 +207,26 @@ try {
 
 
     // ========================================================
+    // RATE LIMIT (max 3 requests per 15 minutes)
+    // ========================================================
+
+    $rateId = getClientIp() . '|' . $email;
+
+    if (isRateLimited('forgot_password', $rateId, 3)) {
+        forgotResponse(
+            [
+                'ok' => false,
+                'error' =>
+                    'Too many password reset requests. Please try again in 15 minutes.'
+            ],
+            429
+        );
+    }
+
+    recordRateLimitHit('forgot_password', $rateId, 900);
+
+
+    // ========================================================
     // DATABASE
     // ========================================================
 
@@ -326,7 +347,11 @@ try {
             $rawToken
         );
 
-    error_log('[PASSWORD RESET LINK] Generated for ' . $user['email'] . ': ' . $resetUrl);
+    if (defined('APP_DEBUG') && APP_DEBUG) {
+        error_log('[PASSWORD RESET LINK] [DEV ONLY] Generated for ' . $user['email'] . ': ' . $resetUrl);
+    } else {
+        error_log('[PASSWORD RESET] Reset token generated for user ID ' . $user['id']);
+    }
 
 
     // ========================================================
@@ -406,19 +431,15 @@ try {
     // RESPONSE & FALLBACK HANDLING
     // ========================================================
 
-    $isLocalOrDebug = (defined('APP_DEBUG') && APP_DEBUG) 
-        || (getenv('APP_DEBUG') === 'true')
-        || (getenv('EMAIL_TEST_MODE') === 'true')
-        || (defined('EMAIL_TEST_MODE') && EMAIL_TEST_MODE)
-        || in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)
-        || (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
+    $isLocalOrDebug = (defined('APP_DEBUG') && APP_DEBUG);
 
     if (!$emailSent) {
         error_log(
             '[FORGOT PASSWORD] Email delivery was not completed by Resend. ' .
             'Original user: ' . $user['email'] .
             ' | Recipient: ' . $recipientEmail .
-            ' | Token preserved. Reset URL: ' . $resetUrl
+            ' | Token preserved.' .
+            ($isLocalOrDebug ? ' Reset URL: ' . $resetUrl : '')
         );
 
         $responsePayload = [

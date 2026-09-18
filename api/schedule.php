@@ -100,6 +100,7 @@ switch ($method) {
         $todayDow = (int) date('w');
         $freePeriodsToday = detectFreeStudyPeriods($db, $userId, $todayDow);
         $recommendedStudyPlan = generateRecommendedStudyPlan($db, $userId, $todayDow);
+        $planningContext = getPersonalPlanningContext($db, $userId);
 
         echo json_encode([
             'events'                 => $events,
@@ -107,6 +108,7 @@ switch ($method) {
             'courses'                => $courses,
             'free_periods_today'     => $freePeriodsToday,
             'recommended_study_plan' => $recommendedStudyPlan,
+            'planning_context'       => $planningContext,
             'stats'                  => [
                 'total_sessions'     => $totalSessions,
                 'scheduled_hours'    => round($scheduledHours, 1),

@@ -252,6 +252,24 @@ try {
 
 
     /* --------------------------------------------------------
+     * Rate limit check (max 5 failed attempts per 15 minutes)
+     * -------------------------------------------------------- */
+
+    $rateId = getClientIp() . '|' . $email;
+
+    if (isRateLimited('login', $rateId, 5)) {
+        loginResponse(
+            [
+                'ok' => false,
+                'error' =>
+                    'Too many failed login attempts. Please try again in 15 minutes.'
+            ],
+            429
+        );
+    }
+
+
+    /* --------------------------------------------------------
      * Attempt login
      * -------------------------------------------------------- */
 
@@ -269,6 +287,8 @@ try {
         !$loggedIn
     ) {
 
+        recordRateLimitHit('login', $rateId, 900);
+
         loginResponse(
             [
                 'ok' => false,
@@ -284,6 +304,8 @@ try {
      * LOGIN SUCCESS
      * ======================================================== */
 
+    clearRateLimit('login', $rateId);
+
     loginResponse(
         [
             'ok' => true,
@@ -295,6 +317,11 @@ try {
                 'id' =>
                     (int) (
                         $_SESSION['user_id'] ?? 0
+                    ),
+
+                'full_name' =>
+                    (string) (
+                        $_SESSION['user_name'] ?? ''
                     ),
 
                 'name' =>

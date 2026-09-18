@@ -26,6 +26,12 @@ function getDb(): PDO
             PDO::ATTR_TIMEOUT            => 10,
         ];
 
+        // Persistent connection pooling for cloud/remote deployments to eliminate repeated TLS handshake penalty
+        $persistent = defined('DB_PERSISTENT') ? (bool) DB_PERSISTENT : (getenv('DB_PERSISTENT') === '1' || (!empty($sslCa) || !empty($sslCaContent) || ($host !== 'localhost' && $host !== '127.0.0.1')));
+        if ($persistent) {
+            $options[PDO::ATTR_PERSISTENT] = true;
+        }
+
         // SSL / TLS Support for Aiven MySQL and cloud providers
         $sslCa = defined('DB_SSL_CA') ? DB_SSL_CA : (getenv('DB_SSL_CA') ?: '');
         $sslCaContent = defined('DB_SSL_CA_CONTENT') ? DB_SSL_CA_CONTENT : (getenv('DB_SSL_CA_CONTENT') ?: '');

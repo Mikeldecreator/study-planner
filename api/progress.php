@@ -47,7 +47,7 @@ $sessionTotal = count($sessions);
 // switches between Week / Month / Semester.
 $courseTaskFilter = str_replace('due_at', 't.due_at', $dateFilter);
 $stmt = $db->prepare(
-    "SELECT c.id, c.code, c.name, c.icon, c.color,
+    "SELECT c.id, c.code, c.name, c.icon, c.color, c.credits, c.grade_point,
         COUNT(t.id) AS task_count,
         SUM(t.status = 'completed') AS completed_count
      FROM courses c
@@ -67,13 +67,58 @@ foreach ($courses as &$c) {
     $pct = $count > 0 ? round($completed / $count * 100) : 0;
     $c['progress'] = $pct;
     $c['rating'] = $pct >= 70 ? 'Good' : ($pct >= 40 ? 'Average' : 'Needs Improvement');
+
+    $credits = (int) ($c['credits'] ?? 3);
+    $gradePoint = $c['grade_point'] !== null ? (float) $c['grade_point'] : null;
+    $courseRisk = courseRiskScore($gradePoint, $credits);
+    $c['course_risk_score'] = $courseRisk;
+    $c['course_risk_label'] = $courseRisk >= 80 ? 'Critical Risk' : ($courseRisk >= 60 ? 'High Risk' : ($courseRisk >= 35 ? 'Moderate Risk' : 'Low Risk'));
+
+    // Foundation 5: Remaining workload and academic pressure context
+    $courseId = (int) $c['id'];
+    $workloadHours = calculateCourseWorkload($db, $userId, $courseId);
+    $c['remaining_workload_hours'] = $workloadHours;
+
+    $stmtOverdue = $db->prepare(
+        "SELECT COUNT(*) FROM tasks 
+         WHERE user_id = ? AND course_id = ? AND status != 'completed' AND due_at < NOW()"
+    );
+    $stmtOverdue->execute([$userId, $courseId]);
+    $overdueCount = (int) $stmtOverdue->fetchColumn();
+    $c['overdue_tasks_count'] = $overdueCount;
+
+    $pendingCount = max(0, $count - $completed);
+    $c['pending_tasks_count'] = $pendingCount;
+
+    $pressure = determineCoursePressure($courseRisk, $workloadHours, $overdueCount, $pendingCount);
+    $c['course_pressure'] = $pressure;
+
+    if ($overdueCount > 0) {
+        $c['context_message'] = "{$overdueCount} overdue • {$workloadHours}h remaining • {$c['course_risk_label']}";
+    } elseif ($pendingCount > 0) {
+        $c['context_message'] = "{$pendingCount} pending task" . ($pendingCount === 1 ? '' : 's') . " • {$workloadHours}h remaining";
+    } else {
+        $c['context_message'] = 'All tasks completed • On track';
+    }
 }
 unset($c);
 
+$tasksSummary = [
+    'completed' => $taskCompleted,
+    'pending'   => $taskPending,
+    'overdue'   => $taskOverdue,
+    'total'     => $taskTotal,
+];
+
+$progressInsights = computeProgressInsights($db, $userId, $courses, $tasksSummary, $range);
+$planningContext = getPersonalPlanningContext($db, $userId);
+
 echo json_encode([
-    'range' => $range,
-    'overall_progress' => $overallProgress,
-    'tasks' => ['completed' => $taskCompleted, 'pending' => $taskPending, 'overdue' => $taskOverdue, 'total' => $taskTotal],
-    'study_sessions' => ['completed' => $sessionCompleted, 'scheduled' => $sessionTotal],
-    'courses' => $courses,
+    'range'             => $range,
+    'overall_progress'  => $overallProgress,
+    'tasks'             => $tasksSummary,
+    'study_sessions'    => ['completed' => $sessionCompleted, 'scheduled' => $sessionTotal],
+    'courses'           => $courses,
+    'progress_insights' => $progressInsights,
+    'personal_planning' => $planningContext,
 ]);

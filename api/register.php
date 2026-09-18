@@ -283,6 +283,12 @@ try {
                         0
                     ),
 
+                'full_name' =>
+                    (string) (
+                        $_SESSION['user_name'] ??
+                        $name
+                    ),
+
                 'name' =>
                     (string) (
                         $_SESSION['user_name'] ??

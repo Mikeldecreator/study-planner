@@ -102,3 +102,80 @@ function requirePageLogin(): void
         exit;
     }
 }
+
+/**
+ * Resolve client IP address safely.
+ */
+function getClientIp(): string
+{
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    // If multiple comma-separated IPs in forwarded header, pick the first
+    if (str_contains($ip, ',')) {
+        $parts = explode(',', $ip);
+        $ip = trim($parts[0]);
+    }
+    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '127.0.0.1';
+}
+
+/**
+ * Check if a specific action and identifier combination is rate limited.
+ * Returns true if attempts >= maxAttempts within the unexpired window.
+ */
+function isRateLimited(string $action, string $identifier, int $maxAttempts): bool
+{
+    $rateKey = hash('sha256', strtolower($action . ':' . trim($identifier)));
+    $db = getDb();
+
+    // Probabilistic cleanup of expired limits (1 in 20 requests)
+    if (random_int(1, 20) === 1) {
+        try {
+            $db->exec("DELETE FROM rate_limits WHERE expires_at < NOW()");
+        } catch (Throwable $e) {}
+    }
+
+    try {
+        $stmt = $db->prepare('SELECT attempts FROM rate_limits WHERE rate_key = ? AND expires_at > NOW() LIMIT 1');
+        $stmt->execute([$rateKey]);
+        $row = $stmt->fetch();
+        if ($row && (int)$row['attempts'] >= $maxAttempts) {
+            return true;
+        }
+    } catch (Throwable $e) {
+        // Fail open if rate_limits is temporarily unreachable
+    }
+
+    return false;
+}
+
+/**
+ * Record a failed attempt or request hit against the rate limit window.
+ */
+function recordRateLimitHit(string $action, string $identifier, int $decaySeconds): void
+{
+    $rateKey = hash('sha256', strtolower($action . ':' . trim($identifier)));
+    $db = getDb();
+    $expiresAt = date('Y-m-d H:i:s', time() + $decaySeconds);
+
+    try {
+        $stmt = $db->prepare('
+            INSERT INTO rate_limits (rate_key, attempts, expires_at)
+            VALUES (?, 1, ?)
+            ON DUPLICATE KEY UPDATE
+                attempts = attempts + 1,
+                expires_at = IF(expires_at > VALUES(expires_at), expires_at, VALUES(expires_at))
+        ');
+        $stmt->execute([$rateKey, $expiresAt]);
+    } catch (Throwable $e) {}
+}
+
+/**
+ * Clear rate limit records upon successful authentication.
+ */
+function clearRateLimit(string $action, string $identifier): void
+{
+    $rateKey = hash('sha256', strtolower($action . ':' . trim($identifier)));
+    try {
+        $stmt = getDb()->prepare('DELETE FROM rate_limits WHERE rate_key = ?');
+        $stmt->execute([$rateKey]);
+    } catch (Throwable $e) {}
+}

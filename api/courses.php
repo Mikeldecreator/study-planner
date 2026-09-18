@@ -194,8 +194,9 @@ try {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $stmt->execute([$userId, $fields['code'], $fields['name'], $fields['lecturer'] ?: null, $fields['credits'], $fields['semester'] ?: null, $fields['icon'], $fields['color'], $fields['grade_point'], $fields['status'], $fields['progress_percent'], $fields['estimated_hours']]);
+            $newCourseId = (int) $db->lastInsertId();
             logActivity($userId, "New course added: {$fields['code']} — {$fields['name']}", 'success');
-            echo json_encode(['ok' => true, 'id' => $db->lastInsertId()]);
+            echo json_encode(['ok' => true, 'id' => $newCourseId]);
             break;
 
         case 'PUT':

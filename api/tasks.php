@@ -851,9 +851,15 @@ switch ($method) {
                 SELECT
                     id,
                     title,
+                    description,
+                    type,
+                    priority,
                     status,
+                    progress_percent,
+                    duration_hours,
                     completed_at,
-                    due_at
+                    due_at,
+                    course_id
                 FROM tasks
                 WHERE id = ?
                 AND user_id = ?
@@ -1031,7 +1037,7 @@ switch ($method) {
 
             ownedCourseIdOrNull(
                 $db,
-                $body['course_id'] ?? null,
+                array_key_exists('course_id', $body) ? $body['course_id'] : ($existing['course_id'] ?? null),
                 $userId
             ),
 

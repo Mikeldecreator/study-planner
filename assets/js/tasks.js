@@ -5051,6 +5051,620 @@ function bindCompletionAndDeletionEvents() {
   });
 }
 
+/* =========================================================
+   FOCUS TIMER (FOUNDATION 8B)
+========================================================= */
+
+let CURRENT_FOCUS_SESSION = null;
+let TIMER_SELECTED_TASK_ID = null;
+let FOCUS_TICKER_INTERVAL = null;
+let FOCUS_CLIENT_START_TIME = 0;
+let FOCUS_BASE_ELAPSED_SEC = 0;
+let IS_TIMER_BUSY = false;
+
+function formatHms(totalSeconds) {
+  const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function formatDurationHuman(totalSeconds) {
+  const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  if (s < 60) {
+    return `${s}s`;
+  }
+  const mins = Math.floor(s / 60);
+  if (mins < 60) {
+    return `${mins}m`;
+  }
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+}
+
+function setTimerFeedback(message, type = 'info') {
+  const el = getEl('timer-feedback');
+  if (!el) return;
+  if (!message) {
+    el.className = 'hidden';
+    el.textContent = '';
+    return;
+  }
+  let colorClasses = 'bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40';
+  if (type === 'success') {
+    colorClasses = 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40';
+  } else if (type === 'error') {
+    colorClasses = 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800/40';
+  } else if (type === 'warning') {
+    colorClasses = 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
+  }
+  el.className = `mb-3 text-xs px-3 py-2 rounded-lg ${colorClasses}`;
+  el.textContent = message;
+}
+
+async function studySessionApi(method, params = {}, body = null) {
+  let url = `${API}/study-sessions.php`;
+  if (method === 'GET' && Object.keys(params).length) {
+    url += '?' + new URLSearchParams(params).toString();
+  }
+  const options = {
+    method,
+    headers: {
+      Accept: 'application/json'
+    }
+  };
+  if (body) {
+    options.headers['Content-Type'] = 'application/json';
+    options.headers['X-CSRF-Token'] = window.CSRF_TOKEN || '';
+    if (!body.csrf_token) {
+      body.csrf_token = window.CSRF_TOKEN || '';
+    }
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    ...options
+  });
+  const data = await response.json().catch(() => ({}));
+  return {
+    ok: response.ok,
+    status: response.status,
+    data
+  };
+}
+
+function startFocusTicker(baseSeconds) {
+  clearInterval(FOCUS_TICKER_INTERVAL);
+  FOCUS_BASE_ELAPSED_SEC = Math.max(0, Math.floor(Number(baseSeconds) || 0));
+  FOCUS_CLIENT_START_TIME = Date.now();
+  const digitsEl = getEl('timer-digits');
+  if (digitsEl) {
+    digitsEl.textContent = formatHms(FOCUS_BASE_ELAPSED_SEC);
+  }
+  FOCUS_TICKER_INTERVAL = setInterval(() => {
+    const elapsedNow = FOCUS_BASE_ELAPSED_SEC + Math.floor((Date.now() - FOCUS_CLIENT_START_TIME) / 1000);
+    if (digitsEl) {
+      digitsEl.textContent = formatHms(elapsedNow);
+    }
+  }, 1000);
+}
+
+function stopFocusTicker() {
+  if (FOCUS_TICKER_INTERVAL) {
+    clearInterval(FOCUS_TICKER_INTERVAL);
+    FOCUS_TICKER_INTERVAL = null;
+  }
+}
+
+function setTimerUIState(status) {
+  const card = getEl('focus-timer-card');
+  const badge = getEl('timer-status-badge');
+  const dot = getEl('timer-status-dot');
+  const text = getEl('timer-status-text');
+  const iconWrap = getEl('timer-icon-wrap');
+  const sub = getEl('timer-digits-sub');
+  const btnStart = getEl('timer-btn-start');
+  const activeControls = getEl('timer-active-controls');
+  const btnPause = getEl('timer-btn-pause');
+  const btnResume = getEl('timer-btn-resume');
+  const btnStop = getEl('timer-btn-stop');
+  const btnComplete = getEl('timer-btn-complete');
+  const select = getEl('timer-task-select');
+
+  if (card) {
+    card.classList.remove('is-running', 'is-paused');
+  }
+
+  if (status === 'running') {
+    if (card) card.classList.add('is-running');
+    if (badge) badge.className = 'inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300';
+    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+    if (text) text.textContent = 'Running';
+    if (iconWrap) iconWrap.className = 'w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center transition-all animate-pulse';
+    if (sub) sub.textContent = 'Active Session Elapsed';
+    if (btnStart) btnStart.classList.add('hidden');
+    if (activeControls) activeControls.classList.remove('hidden');
+    if (btnPause) btnPause.classList.remove('hidden');
+    if (btnResume) btnResume.classList.add('hidden');
+    if (btnStop) btnStop.classList.remove('hidden');
+    if (btnComplete) btnComplete.classList.remove('hidden');
+    if (select) select.disabled = true;
+  } else if (status === 'paused') {
+    if (card) card.classList.add('is-paused');
+    if (badge) badge.className = 'inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
+    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
+    if (text) text.textContent = 'Paused';
+    if (iconWrap) iconWrap.className = 'w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center transition-all';
+    if (sub) sub.textContent = 'Session Paused';
+    if (btnStart) btnStart.classList.add('hidden');
+    if (activeControls) activeControls.classList.remove('hidden');
+    if (btnPause) btnPause.classList.remove('hidden');
+    if (btnResume) btnResume.classList.remove('hidden');
+    if (btnStop) btnStop.classList.remove('hidden');
+    if (btnComplete) btnComplete.classList.remove('hidden');
+    if (select) select.disabled = true;
+  } else {
+    // idle
+    if (badge) badge.className = 'inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300';
+    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-gray-400';
+    if (text) text.textContent = 'Idle';
+    if (iconWrap) iconWrap.className = 'w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center transition-all';
+    if (sub) sub.textContent = 'Session Duration';
+    if (btnStart) {
+      btnStart.classList.remove('hidden');
+      btnStart.disabled = !TIMER_SELECTED_TASK_ID;
+    }
+    if (activeControls) activeControls.classList.add('hidden');
+    if (select) select.disabled = false;
+  }
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function populateTimerTaskDropdown() {
+  const select = getEl('timer-task-select');
+  if (!select) return;
+
+  const currentVal = select.value || (TIMER_SELECTED_TASK_ID ? String(TIMER_SELECTED_TASK_ID) : '');
+
+  select.innerHTML = '<option value="">— Select a task to focus —</option>';
+
+  const pendingOrInProgress = ALL_TASKS.filter(t => t.status !== 'completed');
+  const completed = ALL_TASKS.filter(t => t.status === 'completed');
+
+  const countHint = getEl('timer-task-count-hint');
+  if (countHint) {
+    countHint.textContent = `${pendingOrInProgress.length} active`;
+  }
+
+  if (pendingOrInProgress.length) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = 'Active & Pending Tasks';
+    pendingOrInProgress.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = String(t.id);
+      const prefix = t.course_code ? `[${t.course_code}] ` : '';
+      opt.textContent = `${prefix}${t.title}`;
+      optgroup.appendChild(opt);
+    });
+    select.appendChild(optgroup);
+  }
+
+  if (completed.length) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = 'Completed Tasks';
+    completed.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = String(t.id);
+      const prefix = t.course_code ? `[${t.course_code}] ` : '';
+      opt.textContent = `${prefix}${t.title} (Completed)`;
+      optgroup.appendChild(opt);
+    });
+    select.appendChild(optgroup);
+  }
+
+  if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+    select.value = currentVal;
+  } else if (!currentVal && pendingOrInProgress.length && !TIMER_SELECTED_TASK_ID) {
+    selectTaskForTimer(pendingOrInProgress[0].id, false);
+  }
+}
+
+async function updateTimerTaskMeta(task, cachedMetrics = null) {
+  const metaBox = getEl('timer-task-meta');
+  if (!metaBox || !task) return;
+
+  metaBox.classList.remove('hidden');
+
+  const titleEl = getEl('timer-task-title');
+  if (titleEl) {
+    titleEl.textContent = task.title || 'Untitled Task';
+    titleEl.title = task.title || '';
+  }
+
+  const courseBadge = getEl('timer-course-badge');
+  if (courseBadge) {
+    courseBadge.textContent = task.course_code || task.course_name || 'General';
+  }
+
+  const priorityEl = getEl('timer-task-priority');
+  if (priorityEl) {
+    priorityEl.textContent = `• ${capitalizeSafe(task.priority || 'Medium')}`;
+  }
+
+  const estEl = getEl('timer-task-estimated');
+  if (estEl) {
+    estEl.textContent = task.duration_hours && Number(task.duration_hours) > 0
+      ? `${Number(task.duration_hours)} hrs`
+      : 'No estimate';
+  }
+
+  const applyMetrics = metrics => {
+    const focusedEl = getEl('timer-task-focused');
+    if (focusedEl) {
+      focusedEl.textContent = formatDurationHuman(metrics.total_focused_seconds || 0);
+    }
+    const pctEl = getEl('timer-progress-pct');
+    const barEl = getEl('timer-progress-bar');
+    const pct = metrics.time_progress?.time_progress_percent ?? 0;
+    if (pctEl) {
+      pctEl.textContent = `${pct}%`;
+    }
+    if (barEl) {
+      barEl.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    }
+  };
+
+  if (cachedMetrics) {
+    applyMetrics(cachedMetrics);
+  } else {
+    try {
+      const res = await studySessionApi('GET', { task_id: task.id });
+      if (res.ok && res.data) {
+        applyMetrics(res.data);
+      }
+    } catch (_) {}
+  }
+}
+
+async function selectTaskForTimer(taskId, shouldScroll = false) {
+  if (!taskId) {
+    TIMER_SELECTED_TASK_ID = null;
+    const metaBox = getEl('timer-task-meta');
+    if (metaBox) metaBox.classList.add('hidden');
+    const select = getEl('timer-task-select');
+    if (select) select.value = '';
+    const btnStart = getEl('timer-btn-start');
+    if (btnStart) btnStart.disabled = true;
+    return false;
+  }
+
+  // Prevent switching if session is active on a different task
+  if (CURRENT_FOCUS_SESSION && (CURRENT_FOCUS_SESSION.status === 'running' || CURRENT_FOCUS_SESSION.status === 'paused')) {
+    if (String(CURRENT_FOCUS_SESSION.task_id) !== String(taskId)) {
+      const activeTitle = CURRENT_FOCUS_SESSION.task_title || 'another task';
+      setTimerFeedback(`A session is active for "${activeTitle}". Please pause, stop, or complete it before switching tasks.`, 'warning');
+      if (shouldScroll) {
+        getEl('focus-timer-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return false;
+    }
+  }
+
+  TIMER_SELECTED_TASK_ID = Number(taskId);
+
+  const select = getEl('timer-task-select');
+  if (select && select.value !== String(taskId)) {
+    select.value = String(taskId);
+  }
+
+  const btnStart = getEl('timer-btn-start');
+  if (btnStart && (!CURRENT_FOCUS_SESSION || CURRENT_FOCUS_SESSION.status === 'stopped' || CURRENT_FOCUS_SESSION.status === 'completed')) {
+    btnStart.disabled = false;
+  }
+
+  let task = ALL_TASKS.find(t => String(t.id) === String(taskId));
+  if (task) {
+    await updateTimerTaskMeta(task);
+  } else {
+    try {
+      const res = await studySessionApi('GET', { task_id: taskId });
+      if (res.ok && res.data) {
+        updateTimerTaskMeta({
+          id: taskId,
+          title: res.data.task_title,
+          course_code: '',
+          duration_hours: res.data.time_progress?.estimated_hours || 0,
+          priority: 'medium'
+        }, res.data);
+      }
+    } catch (_) {}
+  }
+
+  if (shouldScroll) {
+    const card = getEl('focus-timer-card');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('focus-timer-highlight');
+      setTimeout(() => {
+        card.classList.remove('focus-timer-highlight');
+      }, 1500);
+    }
+  }
+
+  return true;
+}
+
+async function handleTimerStart() {
+  if (IS_TIMER_BUSY) return;
+
+  if (!TIMER_SELECTED_TASK_ID) {
+    setTimerFeedback('Please select a task to focus on first.', 'warning');
+    getEl('timer-task-select')?.focus();
+    return;
+  }
+
+  if (CURRENT_FOCUS_SESSION && (CURRENT_FOCUS_SESSION.status === 'running' || CURRENT_FOCUS_SESSION.status === 'paused')) {
+    setTimerFeedback('A session is already active.', 'warning');
+    return;
+  }
+
+  IS_TIMER_BUSY = true;
+  const btnStart = getEl('timer-btn-start');
+  setButtonBusy(btnStart, true, 'Starting…');
+  setTimerFeedback('');
+
+  try {
+    const res = await studySessionApi('POST', {}, {
+      action: 'start',
+      task_id: TIMER_SELECTED_TASK_ID
+    });
+
+    if (res.ok && res.data.session) {
+      CURRENT_FOCUS_SESSION = res.data.session;
+      setTimerUIState('running');
+      startFocusTicker(0);
+      setTimerFeedback('Focus session started! Stay focused.', 'success');
+      toast('Focus session started', 'success');
+    } else if (res.status === 409) {
+      setTimerFeedback(res.data.error || 'An active session is already in progress.', 'warning');
+      await recoverActiveFocusSession();
+    } else {
+      setTimerFeedback(res.data.error || 'Could not start study session.', 'error');
+    }
+  } catch (err) {
+    setTimerFeedback('Network error while starting session.', 'error');
+  } finally {
+    IS_TIMER_BUSY = false;
+    setButtonBusy(btnStart, false, 'Start Focus Session');
+  }
+}
+
+async function handleTimerPause() {
+  if (IS_TIMER_BUSY || !CURRENT_FOCUS_SESSION) return;
+
+  IS_TIMER_BUSY = true;
+  const btnPause = getEl('timer-btn-pause');
+  setButtonBusy(btnPause, true, 'Pausing…');
+  setTimerFeedback('');
+
+  try {
+    const res = await studySessionApi('POST', {}, {
+      action: 'pause',
+      session_id: CURRENT_FOCUS_SESSION.id
+    });
+
+    if (res.ok && res.data.session) {
+      stopFocusTicker();
+      CURRENT_FOCUS_SESSION = res.data.session;
+      const digitsEl = getEl('timer-digits');
+      if (digitsEl) {
+        digitsEl.textContent = formatHms(res.data.session.duration_seconds);
+      }
+      setTimerUIState('paused');
+      setTimerFeedback('Session paused.', 'info');
+      toast('Focus session paused', 'info');
+    } else {
+      setTimerFeedback(res.data.error || 'Could not pause session.', 'error');
+    }
+  } catch (err) {
+    setTimerFeedback('Network error while pausing session.', 'error');
+  } finally {
+    IS_TIMER_BUSY = false;
+    setButtonBusy(btnPause, false, 'Pause');
+  }
+}
+
+async function handleTimerResume() {
+  if (IS_TIMER_BUSY || !CURRENT_FOCUS_SESSION) return;
+
+  IS_TIMER_BUSY = true;
+  const btnResume = getEl('timer-btn-resume');
+  setButtonBusy(btnResume, true, 'Resuming…');
+  setTimerFeedback('');
+
+  try {
+    const res = await studySessionApi('POST', {}, {
+      action: 'resume',
+      session_id: CURRENT_FOCUS_SESSION.id
+    });
+
+    if (res.ok && res.data.session) {
+      CURRENT_FOCUS_SESSION = res.data.session;
+      setTimerUIState('running');
+      startFocusTicker(res.data.session.duration_seconds || 0);
+      setTimerFeedback('Session resumed. Keep going!', 'success');
+      toast('Focus session resumed', 'success');
+    } else {
+      setTimerFeedback(res.data.error || 'Could not resume session.', 'error');
+    }
+  } catch (err) {
+    setTimerFeedback('Network error while resuming session.', 'error');
+  } finally {
+    IS_TIMER_BUSY = false;
+    setButtonBusy(btnResume, false, 'Resume');
+  }
+}
+
+async function handleTimerStop() {
+  if (IS_TIMER_BUSY || !CURRENT_FOCUS_SESSION) return;
+
+  IS_TIMER_BUSY = true;
+  const btnStop = getEl('timer-btn-stop');
+  setButtonBusy(btnStop, true, 'Stopping…');
+  setTimerFeedback('');
+
+  try {
+    const res = await studySessionApi('POST', {}, {
+      action: 'stop',
+      session_id: CURRENT_FOCUS_SESSION.id
+    });
+
+    if (res.ok && res.data.session) {
+      stopFocusTicker();
+      const finalSec = res.data.session.duration_seconds || 0;
+      const taskId = CURRENT_FOCUS_SESSION.task_id;
+      CURRENT_FOCUS_SESSION = null;
+
+      const digitsEl = getEl('timer-digits');
+      if (digitsEl) digitsEl.textContent = '00:00:00';
+
+      setTimerUIState('idle');
+      const humanDur = formatDurationHuman(finalSec);
+      setTimerFeedback(`Session stopped. ${humanDur} recorded.`, 'info');
+      toast(`Study session stopped (${humanDur} recorded)`, 'info');
+
+      if (taskId) {
+        selectTaskForTimer(taskId, false);
+      }
+    } else {
+      setTimerFeedback(res.data.error || 'Could not stop session.', 'error');
+    }
+  } catch (err) {
+    setTimerFeedback('Network error while stopping session.', 'error');
+  } finally {
+    IS_TIMER_BUSY = false;
+    setButtonBusy(btnStop, false, 'Stop');
+  }
+}
+
+async function handleTimerComplete() {
+  if (IS_TIMER_BUSY || !CURRENT_FOCUS_SESSION) return;
+
+  IS_TIMER_BUSY = true;
+  const btnComplete = getEl('timer-btn-complete');
+  setButtonBusy(btnComplete, true, 'Completing…');
+  setTimerFeedback('');
+
+  try {
+    const res = await studySessionApi('POST', {}, {
+      action: 'complete',
+      session_id: CURRENT_FOCUS_SESSION.id
+    });
+
+    if (res.ok && res.data.session) {
+      stopFocusTicker();
+      const finalSec = res.data.session.duration_seconds || 0;
+      const taskId = CURRENT_FOCUS_SESSION.task_id;
+      CURRENT_FOCUS_SESSION = null;
+
+      const digitsEl = getEl('timer-digits');
+      if (digitsEl) digitsEl.textContent = '00:00:00';
+
+      setTimerUIState('idle');
+      const humanDur = formatDurationHuman(finalSec);
+      setTimerFeedback(`Study session completed! ${humanDur} recorded.`, 'success');
+      toast(`Study session completed (${humanDur} recorded)`, 'success');
+
+      if (taskId) {
+        selectTaskForTimer(taskId, false);
+      }
+    } else {
+      setTimerFeedback(res.data.error || 'Could not complete session.', 'error');
+    }
+  } catch (err) {
+    setTimerFeedback('Network error while completing session.', 'error');
+  } finally {
+    IS_TIMER_BUSY = false;
+    setButtonBusy(btnComplete, false, 'Complete Session');
+  }
+}
+
+async function recoverActiveFocusSession() {
+  try {
+    const res = await studySessionApi('GET', { active: 1 });
+    if (res.ok && res.data.active_session) {
+      const session = res.data.active_session;
+      CURRENT_FOCUS_SESSION = session;
+      TIMER_SELECTED_TASK_ID = Number(session.task_id);
+
+      const select = getEl('timer-task-select');
+      if (select) {
+        select.value = String(session.task_id);
+      }
+
+      updateTimerTaskMeta({
+        id: session.task_id,
+        title: session.task_title || 'Focus Task',
+        course_code: session.course_code || '',
+        course_name: session.course_name || '',
+        duration_hours: session.task_duration_hours || 0,
+        priority: 'medium'
+      }, {
+        total_focused_seconds: session.task_total_focused_seconds,
+        time_progress: session.time_progress
+      });
+
+      if (session.status === 'running') {
+        setTimerUIState('running');
+        startFocusTicker(session.current_elapsed_seconds || 0);
+      } else if (session.status === 'paused') {
+        setTimerUIState('paused');
+        const digitsEl = getEl('timer-digits');
+        if (digitsEl) {
+          digitsEl.textContent = formatHms(session.duration_seconds || 0);
+        }
+      }
+    } else {
+      CURRENT_FOCUS_SESSION = null;
+      setTimerUIState('idle');
+    }
+  } catch (err) {
+    console.warn('Could not recover active focus session:', err);
+    setTimerUIState('idle');
+  }
+}
+
+function bindFocusTimer() {
+  getEl('timer-task-select')?.addEventListener('change', e => {
+    const val = e.target.value;
+    selectTaskForTimer(val, false);
+  });
+
+  getEl('timer-btn-start')?.addEventListener('click', handleTimerStart);
+  getEl('timer-btn-pause')?.addEventListener('click', handleTimerPause);
+  getEl('timer-btn-resume')?.addEventListener('click', handleTimerResume);
+  getEl('timer-btn-stop')?.addEventListener('click', handleTimerStop);
+  getEl('timer-btn-complete')?.addEventListener('click', handleTimerComplete);
+
+  getEl('task-modal-focus-btn')?.addEventListener('click', () => {
+    const form = getEl('task-form');
+    const taskId = form?.elements?.id?.value;
+    if (taskId) {
+      closeModal();
+      selectTaskForTimer(taskId, true);
+    }
+  });
+}
+
+
+/* =========================================================
+   INITIALIZE
+========================================================= */
+
 function initializeTasksPage() {
 
   bindTabs();
@@ -5063,6 +5677,8 @@ function initializeTasksPage() {
 
   bindImport();
 
+  bindFocusTimer();
+
   setActiveTabUI();
 
   if (window.lucide) {
@@ -5071,6 +5687,7 @@ function initializeTasksPage() {
 
   startTaskLiveClock();
   bindCompletionAndDeletionEvents();
+  recoverActiveFocusSession();
 }
 
 

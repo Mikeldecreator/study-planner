@@ -152,9 +152,11 @@ function getUserProfileRow(int $userId): array
 
         $row = $stmt->fetch();
 
-        return $row
+        $result = $row
             ? array_merge($defaults, $row)
             : $defaults;
+        $cache[$userId] = $result;
+        return $result;
     }
 }         
 
@@ -1007,6 +1009,35 @@ function decorateTask(array $task): array
 }
 
 /**
+ * Compute total estimated remaining workload hours for unfinished tasks across all courses for a user.
+ * Single batched query prevents N+1 query amplification.
+ */
+function getCoursesWorkloadMap(PDO $db, int $userId): array
+{
+    $stmt = $db->prepare(
+        "SELECT id, user_id, course_id, duration_hours, type, title, description, progress_percent, status, due_at 
+         FROM tasks 
+         WHERE user_id = ? AND status != 'completed' AND course_id IS NOT NULL"
+    );
+    $stmt->execute([$userId]);
+    $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $courseWorkload = [];
+    foreach ($tasks as $t) {
+        $cId = (int)$t['course_id'];
+        $intel = buildTaskIntelligence($t);
+        $hrs = (float)($intel['remaining_hours'] ?? 0);
+        $courseWorkload[$cId] = ($courseWorkload[$cId] ?? 0.0) + $hrs;
+    }
+
+    foreach ($courseWorkload as $cId => $hrs) {
+        $courseWorkload[$cId] = round($hrs, 1);
+    }
+
+    return $courseWorkload;
+}
+
+/**
  * Compute total estimated remaining workload hours for unfinished tasks in a course.
  */
 function calculateCourseWorkload(PDO $db, int $userId, int $courseId): float
@@ -1017,12 +1048,14 @@ function calculateCourseWorkload(PDO $db, int $userId, int $courseId): float
     );
     $stmt->execute([$userId, $courseId]);
     $tasks = $stmt->fetchAll();
-    $totalHours = 0.0;
-    foreach ($tasks as $t) {
-        $intel = buildTaskIntelligence($t);
-        $totalHours += (float)($intel['remaining_hours'] ?? 0);
+
+    $workload = 0.0;
+    foreach ($tasks as $task) {
+        $intel = buildTaskIntelligence($task);
+        $workload += (float) ($intel['remaining_hours'] ?? 0);
     }
-    return round($totalHours, 1);
+
+    return round($workload, 1);
 }
 
 /**
@@ -1957,12 +1990,7 @@ function syncContextualNotifications(PDO $db, int $userId): array
     // 5. Study goal progress
     $weeklyGoal = (float)($user['weekly_goal_hours'] ?? 0);
     if ($weeklyGoal > 0) {
-        $stmt = $db->prepare(
-            'SELECT SUM(TIME_TO_SEC(TIMEDIFF(end_time, start_time))) / 3600 AS hrs 
-             FROM schedule_events WHERE user_id = ? AND is_completed = 1'
-        );
-        $stmt->execute([$userId]);
-        $loggedHours = round((float)($stmt->fetch()['hrs'] ?? 0), 1);
+        $loggedHours = getUserCompletedStudyHours($db, $userId);
 
         if ($loggedHours >= $weeklyGoal) {
             if (!notificationExists($db, $userId, null, '%Goal Achieved: You reached your weekly study goal%', 72)) {
@@ -1989,6 +2017,19 @@ function syncContextualNotifications(PDO $db, int $userId): array
 }
 
 /**
+ * Compute study hours completed by the user with request-level memoization.
+ */
+function getUserCompletedStudyHours(PDO $db, int $userId): float
+{
+    $stmt = $db->prepare(
+        'SELECT SUM(TIME_TO_SEC(TIMEDIFF(end_time, start_time))) / 3600 AS hrs 
+         FROM schedule_events WHERE user_id = ? AND is_completed = 1'
+    );
+    $stmt->execute([$userId]);
+    return round((float)($stmt->fetch()['hrs'] ?? 0), 1);
+}
+
+/**
  * Retrieve the full personal planning context for a user.
  * Integrates weekly goal, logged hours, preferred study times, preferred days, and timetable alignment.
  */
@@ -1998,12 +2039,7 @@ function getPersonalPlanningContext(PDO $db, int $userId): array
     $weeklyGoal = (float)($user['weekly_goal_hours'] ?? 15.0);
 
     // Compute study hours completed this week (from schedule_events)
-    $stmt = $db->prepare(
-        'SELECT SUM(TIME_TO_SEC(TIMEDIFF(end_time, start_time))) / 3600 AS hrs
-         FROM schedule_events WHERE user_id = ? AND is_completed = 1'
-    );
-    $stmt->execute([$userId]);
-    $loggedHours = round((float)($stmt->fetch()['hrs'] ?? 0), 1);
+    $loggedHours = getUserCompletedStudyHours($db, $userId);
     $goalPct = $weeklyGoal > 0 ? (int)min(100, round(($loggedHours / $weeklyGoal) * 100)) : 0;
 
     $preferredTime = (string)($user['preferred_study_time'] ?? 'flexible');
@@ -2094,6 +2130,20 @@ function getAIAcademicContext(PDO $db, int $userId): array
     $stmt->execute([$userId]);
     $rawCourses = $stmt->fetchAll();
 
+    // Batch overdue task counts across all courses in a single query to eliminate N+1 amplification
+    $stmtOverdue = $db->prepare(
+        "SELECT course_id, COUNT(*) AS overdue_count
+         FROM tasks
+         WHERE user_id = ? AND status != 'completed' AND due_at < NOW() AND course_id IS NOT NULL
+         GROUP BY course_id"
+    );
+    $stmtOverdue->execute([$userId]);
+    $overdueMap = [];
+    while ($row = $stmtOverdue->fetch(PDO::FETCH_ASSOC)) {
+        $overdueMap[(int)$row['course_id']] = (int)$row['overdue_count'];
+    }
+    $workloadMap = getCoursesWorkloadMap($db, $userId);
+
     $courses = [];
     foreach ($rawCourses as $c) {
         $courseId = (int)$c['id'];
@@ -2106,13 +2156,8 @@ function getAIAcademicContext(PDO $db, int $userId): array
         $riskScore = courseRiskScore($gradePoint, $credits);
         $riskLabel = $riskScore >= 80 ? 'Critical Risk' : ($riskScore >= 60 ? 'High Risk' : ($riskScore >= 35 ? 'Moderate Risk' : 'Low Risk'));
 
-        $workloadHours = calculateCourseWorkload($db, $userId, $courseId);
-
-        $stmtOverdue = $db->prepare(
-            "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND course_id = ? AND status != 'completed' AND due_at < NOW()"
-        );
-        $stmtOverdue->execute([$userId, $courseId]);
-        $overdueCount = (int)$stmtOverdue->fetchColumn();
+        $workloadHours = (float)($workloadMap[$courseId] ?? 0.0);
+        $overdueCount = $overdueMap[$courseId] ?? 0;
 
         $pendingCount = max(0, $count - $completed);
         $pressure = determineCoursePressure($riskScore, $workloadHours, $overdueCount, $pendingCount);
@@ -2485,8 +2530,7 @@ function getAIAcademicContext(PDO $db, int $userId): array
         'attention_course'        => $reportComparisons['attention_course'],
     ];
 
-    // --- 9. NOTIFICATIONS ---
-    syncContextualNotifications($db, $userId);
+    // --- 9. NOTIFICATIONS (Read-only active contextual alerts) ---
 
     $stmt = $db->prepare(
         "SELECT n.id, n.task_id, n.channel, n.message, n.send_at, n.read_at, n.created_at,
@@ -2556,9 +2600,17 @@ function getAIAcademicContext(PDO $db, int $userId): array
 ============================================================ */
 
 /**
+ * Obtain a map of total focused seconds for all tasks of a user in a single query.
+ * Prevents N+1 query amplification across task lists and academic intelligence.
+ */
+function getUserTasksFocusedSecondsMap(PDO $db, int $userId): array
+{
+    return getUsersTasksFocusedSeconds($db, $userId);
+}
+
+/**
  * Compute total focused seconds spent on a specific task by the user.
- * Includes duration from completed/paused/stopped sessions plus live elapsed seconds
- * if a session is currently running.
+ * Direct query guarantees authoritative fresh values for the requested task.
  */
 function getTaskTotalFocusedSeconds(PDO $db, int $userId, int $taskId): int
 {
@@ -2569,7 +2621,7 @@ function getTaskTotalFocusedSeconds(PDO $db, int $userId, int $taskId): int
                     WHEN status = 'running' THEN duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW()))
                     ELSE duration_seconds 
                 END
-            ), 0) AS total_seconds
+            ), 0)
          FROM task_work_sessions
          WHERE user_id = ? AND task_id = ?"
     );

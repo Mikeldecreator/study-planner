@@ -353,10 +353,23 @@ class DocumentProcessor {
                 $streamLength = (int)$lm[1];
             }
 
-            if ($streamLength !== null && $streamStart + $streamLength <= strlen($pdfData)) {
+            // Parse filter chain (array or single identifier)
+            $filters = [];
+            if (preg_match('/\/Filter\s*\[(.*?)\]/s', $dict, $fm)) {
+                if (preg_match_all('/\/([A-Za-z0-9]+)/', $fm[1], $flm)) {
+                    $filters = $flm[1];
+                }
+            } elseif (preg_match('/\/Filter\s*\/([A-Za-z0-9]+)/', $dict, $fm)) {
+                $filters = [$fm[1]];
+            }
+
+            $endPos = stripos($pdfData, 'endstream', $streamStart);
+            if (empty($filters) && $endPos !== false) {
+                $streamBytes = substr($pdfData, $streamStart, $endPos - $streamStart);
+                $streamBytes = rtrim($streamBytes, "\r\n");
+            } elseif ($streamLength !== null && $streamStart + $streamLength <= strlen($pdfData)) {
                 $streamBytes = substr($pdfData, $streamStart, $streamLength);
             } else {
-                $endPos = stripos($pdfData, 'endstream', $streamStart);
                 if ($endPos === false) $endPos = strlen($pdfData);
                 $streamBytes = substr($pdfData, $streamStart, $endPos - $streamStart);
                 $streamBytes = rtrim($streamBytes, "\r\n");
@@ -369,16 +382,6 @@ class DocumentProcessor {
                 $objKey = md5($docKey . pack('V', $objNum)[0] . pack('V', $objNum)[1] . pack('V', $objNum)[2] . pack('v', $genNum), true);
                 $objKey = substr($objKey, 0, min($keyLength + 5, 16));
                 $streamBytes = self::rc4($objKey, $streamBytes);
-            }
-
-            // Parse filter chain (array or single identifier)
-            $filters = [];
-            if (preg_match('/\/Filter\s*\[(.*?)\]/s', $dict, $fm)) {
-                if (preg_match_all('/\/([A-Za-z0-9]+)/', $fm[1], $flm)) {
-                    $filters = $flm[1];
-                }
-            } elseif (preg_match('/\/Filter\s*\/([A-Za-z0-9]+)/', $dict, $fm)) {
-                $filters = [$fm[1]];
             }
 
             $decoded = $streamBytes;

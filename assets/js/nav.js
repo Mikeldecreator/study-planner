@@ -5,7 +5,7 @@ window.APP_READY = (async function bootstrap() {
   const sidebarSlot = document.getElementById('sidebar-slot');
 
   if (sidebarSlot) {
-    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v4');
+    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v5');
     if (cachedSidebar) {
       sidebarSlot.outerHTML = cachedSidebar;
       requestAnimationFrame(() => {
@@ -18,7 +18,7 @@ window.APP_READY = (async function bootstrap() {
         const response = await fetch('../assets/partials/sidebar.html');
         if (response.ok) {
           const html = await response.text();
-          sessionStorage.setItem('app_sidebar_html_v4', html);
+          sessionStorage.setItem('app_sidebar_html_v5', html);
           sidebarSlot.outerHTML = html;
           requestAnimationFrame(() => {
             if (window.lucide) {
