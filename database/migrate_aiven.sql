@@ -104,7 +104,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY (user_id)   REFERENCES users(id)   ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
     INDEX idx_user_due (user_id, due_at),
-    INDEX idx_user_status (user_id, status)
+    INDEX idx_user_status (user_id, status),
+    INDEX idx_tasks_user_status_due (user_id, status, due_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 7. Schedule Events (child of users, courses, tasks)
@@ -177,7 +178,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     INDEX idx_user_unread (user_id, read_at),
-    INDEX idx_pending_send (sent_at, send_at)
+    INDEX idx_pending_send (sent_at, send_at),
+    INDEX idx_notif_user_channel_send (user_id, channel, read_at, send_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 11. Activity Log

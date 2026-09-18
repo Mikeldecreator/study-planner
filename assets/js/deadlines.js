@@ -1112,8 +1112,8 @@ function openDeadlineModal(deadline) {
     ${deadline.smart_priority_label || deadline.priority_reason ? `
       <div class="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/10">
         <div class="flex items-center justify-between text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wide">
-          <span>Smart Priority</span>
-          <span>Score: ${Math.round(deadline.smart_priority_score || 0)}/100</span>
+          <span>Suggested Study Order</span>
+          <span>${Number(deadline.smart_priority_score) >= 70 ? 'Study this first' : 'On track'}</span>
         </div>
         <div class="text-xs font-semibold text-gray-800 dark:text-gray-200 mt-0.5">${escapeHtml(deadline.smart_priority_label || 'Calculated Priority')}${deadline.deadline_pressure ? ` • Pressure: ${escapeHtml(deadline.deadline_pressure)}` : ''}</div>
         ${deadline.priority_reason ? `<div class="text-[11px] text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(deadline.priority_reason)}</div>` : ''}
@@ -1123,8 +1123,8 @@ function openDeadlineModal(deadline) {
     ${deadline.task_risk && deadline.task_risk !== 'low' ? `
       <div class="p-2.5 rounded-xl bg-amber-50/50 dark:bg-amber-500/5 border border-amber-100 dark:border-amber-500/10">
         <div class="flex items-center justify-between text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wide">
-          <span>Academic Risk Analysis</span>
-          <span>${escapeHtml(deadline.risk_label || deadline.task_risk)} (${Math.round(deadline.task_risk_score || 0)})</span>
+          <span>Status & Urgency</span>
+          <span>${(deadline.task_risk === 'high' || deadline.task_risk === 'critical') ? 'Needs attention' : 'On track'}</span>
         </div>
         ${deadline.recommended_action ? `
           <div class="text-[11px] text-gray-700 dark:text-gray-300 mt-1 flex items-center gap-1.5">

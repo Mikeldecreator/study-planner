@@ -87,6 +87,7 @@ try {
     $db = getDb();
     switch ($method) {
         case 'GET':
+            session_write_close();
             $stmt = $db->prepare(
                 "SELECT c.*,
                     COUNT(t.id) AS task_count,

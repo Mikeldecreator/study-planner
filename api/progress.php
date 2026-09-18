@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 requireLogin();
 
 $userId = currentUserId();
+session_write_close();
 $db = getDb();
 
 // ?range=week|month|semester (default: semester = all-time, since there's

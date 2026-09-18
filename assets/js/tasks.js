@@ -1967,10 +1967,10 @@ function renderTable(tasks) {
                       : `
                         <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                           ${task.remaining_hours !== undefined && task.remaining_hours !== null && Number(task.remaining_hours) > 0
-                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300" title="Estimated remaining workload"><i data-lucide="clock" class="w-3 h-3"></i> ${task.remaining_hours}h left</span>`
+                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300" title="Estimated remaining study time"><i data-lucide="clock" class="w-3 h-3"></i> ~${task.remaining_hours} hrs left</span>`
                             : ''}
                           ${task.task_risk && task.task_risk !== 'low'
-                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${task.task_risk === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : task.task_risk === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'}" title="Academic risk score: ${task.task_risk_score || ''}"><i data-lucide="shield-alert" class="w-3 h-3"></i> ${task.risk_label || capitalizeSafe(task.task_risk)} Risk</span>`
+                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${task.task_risk === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : task.task_risk === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'}" title="Priority evaluation: ${task.task_risk_score || ''}"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Needs attention</span>`
                             : ''}
                           ${task.recommended_action
                             ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 truncate max-w-[280px]" title="${esc(task.priority_reason || task.recommended_action)}"><i data-lucide="sparkles" class="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400"></i> ${esc(task.recommended_action)}</span>`
@@ -2064,8 +2064,8 @@ function renderTable(tasks) {
                   ? `
                     <div
                       class="text-[10px] text-[#78918B] dark:text-gray-400 font-medium mt-0.5"
-                      title="Smart Priority score: ${Math.round(task.smart_priority_score || 0)}/100">
-                      Smart: ${esc(task.smart_priority_label)} (${Math.round(task.smart_priority_score || 0)})
+                      title="Priority score: ${Math.round(task.smart_priority_score || 0)}/100">
+                      ${task.smart_priority_score >= 70 ? 'Study this first' : esc(task.smart_priority_label || 'Normal')}
                     </div>
                   `
                   : ''
@@ -3847,20 +3847,18 @@ function openEditTask(id) {
     } else {
       if (priorityLabelEl) {
         const pLabel = esc(task.smart_priority_label || capitalizeSafe(task.priority || 'Medium'));
-        const pScore = Math.round(Number(task.smart_priority_score) || 0);
-        priorityLabelEl.textContent = `Smart Priority: ${pLabel} (${pScore}/100)`;
+        priorityLabelEl.textContent = Number(task.smart_priority_score) >= 70 ? 'Study this first' : `${pLabel} Priority`;
       }
       if (reasonEl) {
-        reasonEl.textContent = task.priority_reason || 'Academic priority evaluated based on deadline, course weight, and workload.';
+        reasonEl.textContent = task.priority_reason || 'Academic priority evaluated based on deadline, course weight, and required prep.';
       }
       if (workloadEl) {
         const rem = task.remaining_hours !== undefined && task.remaining_hours !== null ? task.remaining_hours : 0;
-        workloadEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>${rem}h workload left`;
+        workloadEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>${rem > 0 ? `~${rem} hrs left` : 'Under 1 hr left'}`;
       }
       if (riskEl) {
-        const rLabel = esc(task.risk_label || capitalizeSafe(task.task_risk || 'Low'));
-        workloadEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>${task.remaining_hours !== undefined && task.remaining_hours !== null ? task.remaining_hours : 0}h workload left`;
-        riskEl.innerHTML = `<i data-lucide="shield-alert" class="w-3 h-3 inline mr-1"></i>${rLabel} Risk`;
+        const isUrgent = (task.task_risk === 'high' || task.task_risk === 'critical');
+        riskEl.innerHTML = `<i data-lucide="${isUrgent ? 'alert-triangle' : 'shield-check'}" class="w-3 h-3 inline mr-1"></i>${isUrgent ? 'Needs attention' : 'On track'}`;
       }
       if (actionEl) {
         actionEl.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3 inline mr-1"></i>Action: ${esc(task.recommended_action || 'Review and take action')}`;

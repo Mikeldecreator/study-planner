@@ -434,10 +434,10 @@ function renderDashboardSmartFocus(input) {
                                 <i data-lucide="book-open" class="w-4 h-4 text-emerald-600"></i>
                             </div>
                             <div class="text-sm font-bold text-[#073b35] dark:text-white">Add Courses</div>
-                            <p class="text-xs text-[#628098] dark:text-gray-400 mt-1">Add the courses and subjects you are enrolled in this term.</p>
+                            <p class="text-xs text-[#628098] dark:text-gray-400 mt-1">Add the courses and subjects you are enrolled in this semester.</p>
                         </div>
                         <div class="mt-4 pt-3 border-t border-gray-100 dark:border-white/10 flex flex-col gap-1.5">
-                            <a href="courses.php?import_form=1" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-between">
+                            <a href="courses.php?open_form=1" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-between">
                                 <span>Upload Course Form</span>
                                 <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
                             </a>
@@ -448,47 +448,47 @@ function renderDashboardSmartFocus(input) {
                         </div>
                     </div>
 
-                    <!-- Step 2: Add Semester Calendar -->
+                    <!-- Step 2: Add Classes -->
                     <div class="p-4 rounded-xl border border-emerald-200/80 dark:border-white/10 bg-white dark:bg-white/[0.03] flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <span class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-center">2</span>
-                                <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
+                                <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600"></i>
                             </div>
-                            <div class="text-sm font-bold text-[#073b35] dark:text-white">Semester Calendar</div>
-                            <p class="text-xs text-[#628098] dark:text-gray-400 mt-1">Set academic weeks to know when teaching, revision, and exams occur.</p>
+                            <div class="text-sm font-bold text-[#073b35] dark:text-white">Add Classes</div>
+                            <p class="text-xs text-[#628098] dark:text-gray-400 mt-1">Set up your weekly timetable or import your class schedule.</p>
                         </div>
                         <div class="mt-4 pt-3 border-t border-gray-100 dark:border-white/10 flex flex-col gap-1.5">
-                            <a href="courses.php?open_curriculum=1" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-between">
-                                <span>Upload Curriculum</span>
-                                <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
+                            <a href="schedule.php?import=1" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-between">
+                                <span>Import Timetable</span>
+                                <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
                             </a>
-                            <a href="courses.php?open_calendar=1" class="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-semibold flex items-center justify-between">
-                                <span>Add Manually</span>
+                            <a href="schedule.php" class="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-semibold flex items-center justify-between">
+                                <span>Add Class</span>
                                 <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                             </a>
                         </div>
                     </div>
 
-                    <!-- Step 3: Add Classes & Work -->
+                    <!-- Step 3: Add Work -->
                     <div class="p-4 rounded-xl border border-emerald-200/80 dark:border-white/10 bg-white dark:bg-white/[0.03] flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <span class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-center">3</span>
                                 <i data-lucide="check-square" class="w-4 h-4 text-emerald-600"></i>
                             </div>
-                            <div class="text-sm font-bold text-[#073b35] dark:text-white">Add Classes & Work</div>
-                            <p class="text-xs text-[#628098] dark:text-gray-400 mt-1">Add your lecture schedule and assignments or study sessions.</p>
+                            <div class="text-sm font-bold text-[#073b35] dark:text-white">Add Work</div>
+                            <p class="text-xs text-[#628098] dark:text-gray-400 mt-1">Create upcoming assignments, projects, and study sessions.</p>
                         </div>
                         <div class="mt-4 pt-3 border-t border-gray-100 dark:border-white/10 flex flex-col gap-1.5">
-                            <a href="schedule.php" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-between">
-                                <span>Add My Classes</span>
-                                <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i>
-                            </a>
-                            <button type="button" id="open-add-task-focus" class="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-semibold flex items-center justify-between">
-                                <span>Add My Work</span>
+                            <button type="button" id="open-add-task-focus" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold flex items-center justify-between">
+                                <span>Add New Task</span>
                                 <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                             </button>
+                            <a href="tasks.php" class="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-semibold flex items-center justify-between">
+                                <span>View My Work</span>
+                                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -561,9 +561,9 @@ function renderDashboardSmartFocus(input) {
     }
 
     const remainingHours = Number(todaysFocus.remaining_hours) || 0;
-    const remainingText = remainingHours > 0 ? `${remainingHours}h remaining` : 'Under 1h remaining';
+    const remainingText = remainingHours > 0 ? `~${remainingHours} hrs left` : 'Under 1 hr left';
     const dueDisplay = dashboardEscape(todaysFocus.due_label || todaysFocus.due_at_display || 'Upcoming');
-    const reason = dashboardEscape(todaysFocus.priority_reason || 'Identified as your top academic priority based on deadline proximity and course workload.');
+    const reason = dashboardEscape(todaysFocus.priority_reason || 'Recommended as your top study priority based on deadline timing and required prep.');
     const action = dashboardEscape(todaysFocus.recommended_action || 'Start a focused study session to make solid progress.');
     const isOverdue = (todaysFocus.urgency === 'overdue' || Number(todaysFocus.hours_remaining) < 0);
     const timeProgress = Math.round(Number(todaysFocus.system_progress !== undefined ? todaysFocus.system_progress : (todaysFocus.time_progress_percent !== undefined ? todaysFocus.time_progress_percent : todaysFocus.progress_percent || 0)));
@@ -583,7 +583,7 @@ function renderDashboardSmartFocus(input) {
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2 mb-1">
                             <span class="text-[10px] uppercase font-extrabold tracking-wider ${isOverdue ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}">
-                                ${isOverdue ? 'NEEDS ATTENTION • OVERDUE' : "TODAY'S FOCUS • STUDY FIRST"}
+                                ${isOverdue ? 'PAST DUE • NEEDS ATTENTION' : "STUDY THIS FIRST • HIGH PRIORITY"}
                             </span>
                             ${courseInfo}
                         </div>
@@ -671,7 +671,7 @@ function renderDashboardSmartFocus(input) {
                                         ${dashboardEscape(actionItem.title)}
                                     </a>
                                     <div class="flex items-center justify-between text-[10px] text-[#628098] dark:text-gray-400 mt-1">
-                                        <span>${itemHours > 0 ? `${itemHours}h remaining` : '<1h'}</span>
+                                        <span>${itemHours > 0 ? `~${itemHours} hrs left` : '<1h left'}</span>
                                         <a href="tasks.php?focus_task_id=${actionItem.id}" class="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline">Start Studying →</a>
                                     </div>
                                 </div>
@@ -681,8 +681,8 @@ function renderDashboardSmartFocus(input) {
                 </div>
                 ${contextSummary && contextSummary.remaining_workload_hours > 0 ? `
                     <div class="mt-3 pt-2.5 border-t border-gray-100 dark:border-white/10 text-[11px] text-[#58768a] dark:text-gray-400 flex items-center justify-between">
-                        <span>Active workload:</span>
-                        <strong class="text-[#073b35] dark:text-white font-bold">${contextSummary.remaining_workload_hours} hrs</strong>
+                        <span>Total study needed:</span>
+                        <strong class="text-[#073b35] dark:text-white font-bold">~${contextSummary.remaining_workload_hours} hrs</strong>
                     </div>
                 ` : ''}
             </div>

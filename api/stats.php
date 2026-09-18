@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 requireLogin();
 
 $userId = currentUserId();
+session_write_close();
 $db = getDb();
 
 // ---- Top stat cards: total / due soon / overdue / completion % ----

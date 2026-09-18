@@ -8,6 +8,8 @@ header('Content-Type: application/json; charset=utf-8');
 requireLogin();
 
 $userId = currentUserId();
+$sessionUserName = $_SESSION['user_name'] ?? 'Student';
+session_write_close();
 
 $row = getUserProfileRow($userId);
 
@@ -39,7 +41,7 @@ echo json_encode([
 
     'name' =>
         $row['full_name']
-        ?? ($_SESSION['user_name'] ?? 'Student'),
+        ?? $sessionUserName,
 
     'email' =>
         $row['email'] ?? '',

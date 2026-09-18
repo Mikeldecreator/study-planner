@@ -5,6 +5,8 @@ header('Content-Type: application/json');
 requireLogin();
 
 $userId = currentUserId();
+$userName = $_SESSION['user_name'] ?? 'Student';
+session_write_close();
 $db = getDb();
 
 // Today's schedule
@@ -53,7 +55,7 @@ $hour = (int) date('H');
 $greeting = $hour < 12 ? 'morning' : ($hour < 17 ? 'afternoon' : 'evening');
 
 echo json_encode([
-    'user_name'      => $_SESSION['user_name'],
+    'user_name'      => $userName,
     'greeting'       => $greeting,
     'today_schedule' => $todaySchedule,
     'upcoming'       => $upcoming,

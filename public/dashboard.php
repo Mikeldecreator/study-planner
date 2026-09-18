@@ -1099,6 +1099,14 @@ requirePageLogin();
 
 
             <!-- =================================================
+                 FIRST-TIME STUDENT ONBOARDING (3-STEP SETUP)
+            ================================================= -->
+            <section
+                id="dashboard-onboarding"
+                class="hidden"
+            ></section>
+
+            <!-- =================================================
                  ACADEMIC FOCUS BANNER
             ================================================= -->
             <section

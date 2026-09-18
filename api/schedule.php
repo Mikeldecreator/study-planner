@@ -29,6 +29,7 @@ function ownedTaskIdOrNull(PDO $db, $taskId, int $userId): ?int {
 switch ($method) {
 
     case 'GET':
+        session_write_close();
         $stmt = $db->prepare(
             'SELECT
                 se.*,

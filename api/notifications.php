@@ -9,6 +9,7 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
+    session_write_close();
     if (function_exists('syncContextualNotifications')) {
         try {
             syncContextualNotifications($db, $userId);

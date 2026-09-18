@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 requireLogin();
 
 $userId = currentUserId();
+session_write_close();
 $db = getDb();
 
 // Everything not yet completed — this page is specifically about deadlines

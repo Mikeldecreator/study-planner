@@ -5,26 +5,30 @@ window.APP_READY = (async function bootstrap() {
   const sidebarSlot = document.getElementById('sidebar-slot');
 
   if (sidebarSlot) {
-    try {
-      const response = await fetch('../assets/partials/sidebar.html');
-
-      if (!response.ok) {
-        throw new Error('Could not load sidebar');
-      }
-
-      const html = await response.text();
-      sidebarSlot.outerHTML = html;
-
-      // Wait until the sidebar is actually in the DOM,
-      // then create the Lucide icons.
+    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v3');
+    if (cachedSidebar) {
+      sidebarSlot.outerHTML = cachedSidebar;
       requestAnimationFrame(() => {
         if (window.lucide) {
           window.lucide.createIcons();
         }
       });
-
-    } catch (error) {
-      console.error('Sidebar loading failed:', error);
+    } else {
+      try {
+        const response = await fetch('../assets/partials/sidebar.html');
+        if (response.ok) {
+          const html = await response.text();
+          sessionStorage.setItem('app_sidebar_html_v3', html);
+          sidebarSlot.outerHTML = html;
+          requestAnimationFrame(() => {
+            if (window.lucide) {
+              window.lucide.createIcons();
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Sidebar loading failed:', error);
+      }
     }
   }
 
@@ -34,52 +38,88 @@ window.APP_READY = (async function bootstrap() {
   wireDarkToggleInputs();
   wireStudyAI();
 
-  let meRes;
+  let me = null;
 
   try {
-    meRes = await fetch(`${API}/me.php`, {
-      credentials: 'same-origin'
-    });
-  } catch (error) {
-    window.location.href = 'login.php';
-    return null;
-  }
-
-  if (meRes.status === 401) {
-    window.location.href = 'login.php';
-    return null;
-  }
-
-  if (!meRes.ok) {
-    window.location.href = 'login.php';
-    return null;
-  }
-
-  let me;
-
-  try {
-    me = await meRes.json();
-  } catch (error) {
-    window.location.href = 'login.php';
-    return null;
-  }
-
-  let csrf;
-
-  try {
-    const csrfRes = await fetch(`${API}/csrf.php`, {
+    const bootRes = await fetch(`${API}/bootstrap.php`, {
       credentials: 'same-origin'
     });
 
-    if (csrfRes.ok) {
-      csrf = await csrfRes.json();
-      window.CSRF_TOKEN = csrf.csrf_token;
+    if (bootRes.status === 401) {
+      window.location.href = 'login.php';
+      return null;
     }
-  } catch (error) {
-    console.error('CSRF request failed:', error);
+
+    if (bootRes.ok) {
+      const bootData = await bootRes.json();
+      me = bootData.user;
+      window.CSRF_TOKEN = bootData.csrf_token;
+      window.CURRENT_USER = me;
+
+      // Synchronize unread badge immediately
+      const unreadCount = bootData.unread_notifications || 0;
+      const sidebarBadge = document.getElementById('sidebar-unread-badge');
+      if (sidebarBadge) {
+        if (unreadCount > 0) {
+          sidebarBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+          sidebarBadge.classList.remove('hidden');
+          sidebarBadge.classList.add('flex');
+        } else {
+          sidebarBadge.classList.add('hidden');
+          sidebarBadge.classList.remove('flex');
+          sidebarBadge.textContent = '';
+        }
+      }
+      const bellBadge = document.getElementById('bell-badge');
+      if (bellBadge) {
+        if (unreadCount > 0) {
+          bellBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+          bellBadge.classList.remove('hidden');
+          bellBadge.classList.add('flex');
+        } else {
+          bellBadge.classList.add('hidden');
+          bellBadge.classList.remove('flex');
+          bellBadge.textContent = '';
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Bootstrap endpoint fallback to legacy auth:', err);
   }
 
-  window.CURRENT_USER = me;
+  // Fallback if bootstrap was not available
+  if (!me) {
+    let meRes;
+    try {
+      meRes = await fetch(`${API}/me.php`, { credentials: 'same-origin' });
+    } catch (error) {
+      window.location.href = 'login.php';
+      return null;
+    }
+
+    if (!meRes.ok) {
+      window.location.href = 'login.php';
+      return null;
+    }
+
+    try {
+      me = await meRes.json();
+      window.CURRENT_USER = me;
+    } catch (error) {
+      window.location.href = 'login.php';
+      return null;
+    }
+
+    try {
+      const csrfRes = await fetch(`${API}/csrf.php`, { credentials: 'same-origin' });
+      if (csrfRes.ok) {
+        const csrf = await csrfRes.json();
+        window.CSRF_TOKEN = csrf.csrf_token;
+      }
+    } catch (error) {
+      console.error('CSRF request failed:', error);
+    }
+  }
 
   document.querySelectorAll('[data-user-name]').forEach(el => {
     el.textContent = me.name || 'Student';
@@ -96,29 +136,6 @@ window.APP_READY = (async function bootstrap() {
   });
 
   syncDarkModeUI(me.dark_mode);
-
-  try {
-    const notifRes = await fetch(`${API}/notifications.php`, { credentials: 'same-origin' });
-    if (notifRes.ok) {
-      const notifData = await notifRes.json();
-      const notifs = Array.isArray(notifData) ? notifData : (notifData.notifications || []);
-      const unreadCount = notifs.filter(n => !n.is_read).length;
-      const sidebarBadge = document.getElementById('sidebar-unread-badge');
-      if (sidebarBadge) {
-        if (unreadCount > 0) {
-          sidebarBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
-          sidebarBadge.classList.remove('hidden');
-          sidebarBadge.classList.add('flex');
-        } else {
-          sidebarBadge.classList.add('hidden');
-          sidebarBadge.classList.remove('flex');
-          sidebarBadge.textContent = '';
-        }
-      }
-    }
-  } catch (e) {
-    // Non-blocking notification fetch
-  }
 
   return me;
 })();

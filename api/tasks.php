@@ -125,6 +125,7 @@ function decorateTask(
 switch ($method) {
 
     case 'GET':
+        session_write_close();
 
         $sql = '
             SELECT
