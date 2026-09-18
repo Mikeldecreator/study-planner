@@ -1134,6 +1134,15 @@
                 me
             );
 
+            if (
+                typeof window.updateUserAvatars ===
+                'function'
+            ) {
+                window.updateUserAvatars(
+                    me
+                );
+            }
+
 
             showToast(
                 'Profile photo updated.',

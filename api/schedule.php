@@ -97,18 +97,24 @@ switch ($method) {
 
         $weeklyGoal = (float) (getUserProfileRow($userId)['weekly_goal_hours'] ?? 0);
 
+        $todayDow = (int) date('w');
+        $freePeriodsToday = detectFreeStudyPeriods($db, $userId, $todayDow);
+        $recommendedStudyPlan = generateRecommendedStudyPlan($db, $userId, $todayDow);
+
         echo json_encode([
-            'events' => $events,
-            'tasks' => $tasks,
-            'courses' => $courses,
-            'stats' => [
-                'total_sessions' => $totalSessions,
-                'scheduled_hours' => round($scheduledHours, 1),
-                'completed' => $completed,
+            'events'                 => $events,
+            'tasks'                  => $tasks,
+            'courses'                => $courses,
+            'free_periods_today'     => $freePeriodsToday,
+            'recommended_study_plan' => $recommendedStudyPlan,
+            'stats'                  => [
+                'total_sessions'     => $totalSessions,
+                'scheduled_hours'    => round($scheduledHours, 1),
+                'completed'          => $completed,
                 'weekly_utilization' => $weeklyGoal > 0 ? min(100, round($scheduledHours / $weeklyGoal * 100)) : 0,
-                'daily_goal_met' => count($daysWithCompletion),
-                'weekly_goal_hours' => $weeklyGoal,
-                'time_distribution' => $byType,
+                'daily_goal_met'     => count($daysWithCompletion),
+                'weekly_goal_hours'  => $weeklyGoal,
+                'time_distribution'  => $byType,
             ],
         ]);
         break;

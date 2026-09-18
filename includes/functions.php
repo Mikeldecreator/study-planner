@@ -1973,7 +1973,7 @@ function syncContextualNotifications(PDO $db, int $userId): array
                 ]);
                 $generated++;
             }
-        } elseif ($todayDow >= 4 && $loggedHours < ($weeklyGoal * 0.5)) {
+        } elseif ($todayDow >= 4 && $loggedHours < ($weeklyGoal * 0.5) && (!empty($courses) || !empty($studySessions))) {
             if (!notificationExists($db, $userId, null, '%Study Goal Reminder: You have logged%', 72)) {
                 $insertStmt->execute([
                     $userId,

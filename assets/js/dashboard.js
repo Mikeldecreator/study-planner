@@ -378,8 +378,12 @@ function renderDashboardSmartFocus(input) {
         document.getElementById(
             'dashboard-smart-focus'
         );
+    const onboardingContainer =
+        document.getElementById(
+            'dashboard-onboarding'
+        );
 
-    if (!container) return;
+    if (!container && !onboardingContainer) return;
 
     let todaysFocus = null;
     let priorityActions = [];
@@ -405,8 +409,13 @@ function renderDashboardSmartFocus(input) {
 
     // State 1: No tasks in system
     if (academicState === 'empty' && !todaysFocus) {
-        container.classList.remove('hidden');
-        container.innerHTML = `
+        const target = onboardingContainer || container;
+        target.classList.remove('hidden');
+        if (onboardingContainer && container && container !== onboardingContainer) {
+            container.innerHTML = '';
+            container.classList.add('hidden');
+        }
+        target.innerHTML = `
             <div class="dash-smart-focus p-5 sm:p-6">
                 <div class="flex items-start gap-3.5 min-w-0 mb-4">
                     <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
@@ -520,6 +529,10 @@ function renderDashboardSmartFocus(input) {
 
     // State 2: All tasks completed
     if (academicState === 'all_completed' && !todaysFocus) {
+        if (onboardingContainer) {
+            onboardingContainer.innerHTML = '';
+            onboardingContainer.classList.add('hidden');
+        }
         container.classList.remove('hidden');
         container.innerHTML = `
             <div class="dash-smart-focus flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -551,6 +564,11 @@ function renderDashboardSmartFocus(input) {
         `;
         if (window.lucide) window.lucide.createIcons();
         return;
+    }
+
+    if (onboardingContainer) {
+        onboardingContainer.innerHTML = '';
+        onboardingContainer.classList.add('hidden');
     }
 
     // State 3: Active Task Focus

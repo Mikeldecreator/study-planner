@@ -78,6 +78,7 @@ $method=$_SERVER['REQUEST_METHOD'];
 if(!in_array($method,['GET','POST'],true)) timerError('Method not allowed.',405);
 
 if($method==='GET') {
+    session_write_close();
     $type=validItemType($_GET['item_type']??''); $id=(int)($_GET['item_id']??0); $item=ownedItem($db,$type,$id,$userId);
     if(!$item) timerError('Work item not found.',404);
     $stmt=$db->prepare('SELECT * FROM work_timers WHERE user_id=? AND item_type=? AND item_id=? LIMIT 1'); $stmt->execute([$userId,$type,$id]); $timer=$stmt->fetch();

@@ -18,6 +18,7 @@ function curriculumJsonError(string $message, int $status = 400): never {
 try {
     switch ($method) {
         case 'GET':
+            session_write_close();
             if (!empty($_GET['context'])) {
                 $context = getSemesterContext($db, $userId);
                 echo json_encode(['ok' => true, 'context' => $context]);

@@ -88,6 +88,7 @@ function normalizeTaskPriority(
         : 'medium';
 }
 
+if (!function_exists('decorateTask')) {
 function decorateTask(
     array $task
 ): array {
@@ -120,6 +121,7 @@ function decorateTask(
             : null;
 
     return $task;
+}
 }
 
 switch ($method) {

@@ -135,10 +135,73 @@ window.APP_READY = (async function bootstrap() {
     element.textContent = me.email || '';
   });
 
+  updateUserAvatars(me);
+
   syncDarkModeUI(me.dark_mode);
 
   return me;
 })();
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function resolveAvatarUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
+    return path;
+  }
+  try {
+    return new URL(
+      path,
+      window.location.origin +
+      window.location.pathname.replace(/\/public\/[^/]*$/, '/public/')
+    ).pathname;
+  } catch (e) {
+    return path;
+  }
+}
+
+window.resolveAvatarUrl = resolveAvatarUrl;
+
+function updateUserAvatars(user) {
+  if (!user) return;
+  const name = user.name || user.full_name || 'Student';
+  const initial = name ? name.charAt(0).toUpperCase() : '?';
+  const avatarPath = user.avatar_path ? resolveAvatarUrl(user.avatar_path) : '';
+
+  const containers = document.querySelectorAll('[data-top-avatar], [data-user-avatar], #app-sidebar [data-user-initial]');
+  containers.forEach(container => {
+    container.classList.add('overflow-hidden');
+    if (avatarPath) {
+      const img = document.createElement('img');
+      img.src = avatarPath;
+      img.alt = name;
+      img.className = 'w-full h-full object-cover rounded-full';
+      img.onerror = () => {
+        container.innerHTML = `<span data-user-initial>${escapeHtml(initial)}</span>`;
+      };
+      container.innerHTML = '';
+      container.appendChild(img);
+    } else {
+      container.innerHTML = `<span data-user-initial>${escapeHtml(initial)}</span>`;
+    }
+  });
+
+  document.querySelectorAll('[data-user-initial]').forEach(el => {
+    if (!el.closest('[data-top-avatar], [data-user-avatar], #app-sidebar')) {
+      el.textContent = initial;
+    }
+  });
+}
+
+window.updateUserAvatars = updateUserAvatars;
 
 function highlightActiveNavLink() {
   const page = document.body.dataset.page;

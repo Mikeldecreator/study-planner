@@ -63,6 +63,49 @@ try {
     if (array_key_exists('weekly_goal_hours', $body)) runPreferenceUpdate($db, 'UPDATE users SET weekly_goal_hours = ? WHERE id = ?', [(float)$body['weekly_goal_hours'], $userId]);
     if (array_key_exists('notifications_enabled', $body)) runPreferenceUpdate($db, 'UPDATE users SET notifications_enabled = ? WHERE id = ?', [$body['notifications_enabled'] ? 1 : 0, $userId]);
     if (array_key_exists('week_start_day', $body)) runPreferenceUpdate($db, 'UPDATE users SET week_start_day = ? WHERE id = ?', [((int)$body['week_start_day'] === 0 ? 0 : 1), $userId]);
+    if (array_key_exists('preferred_study_time', $body)) {
+        $time = strtolower(trim((string)$body['preferred_study_time']));
+        if (!in_array($time, ['morning', 'afternoon', 'evening', 'flexible'], true)) {
+            $time = 'flexible';
+        }
+        runPreferenceUpdate($db, 'UPDATE users SET preferred_study_time = ? WHERE id = ?', [$time, $userId]);
+    }
+    if (array_key_exists('preferred_study_days', $body)) {
+        $days = is_array($body['preferred_study_days'])
+            ? implode(',', array_filter(array_map('intval', $body['preferred_study_days']), fn($d) => $d >= 0 && $d <= 6))
+            : preg_replace('/[^0-6,]/', '', (string)$body['preferred_study_days']);
+        runPreferenceUpdate($db, 'UPDATE users SET preferred_study_days = ? WHERE id = ?', [$days, $userId]);
+    }
+    if (array_key_exists('notification_preferences', $body)) {
+        $prefs = is_array($body['notification_preferences'])
+            ? json_encode($body['notification_preferences'])
+            : (string)$body['notification_preferences'];
+        runPreferenceUpdate($db, 'UPDATE users SET notification_preferences = ? WHERE id = ?', [$prefs, $userId]);
+    }
+    if (array_key_exists('tagline', $body)) {
+        $tagline = mb_substr(trim((string)$body['tagline']), 0, 160);
+        runPreferenceUpdate($db, 'UPDATE users SET tagline = ? WHERE id = ?', [$tagline, $userId]);
+    }
+    if (array_key_exists('tour_completed', $body)) {
+        runPreferenceUpdate($db, 'UPDATE users SET tour_completed = ? WHERE id = ?', [$body['tour_completed'] ? 1 : 0, $userId]);
+    }
+
+    if (isset($body['action']) && $body['action'] === 'dismiss_tip') {
+        $tipId = trim((string)($body['tip_id'] ?? ''));
+        if ($tipId !== '') {
+            $stmt = $db->prepare('SELECT dismissed_tips FROM users WHERE id = ?');
+            $stmt->execute([$userId]);
+            $raw = $stmt->fetchColumn();
+            $existingTips = json_decode((string)$raw, true);
+            if (!is_array($existingTips)) $existingTips = [];
+            if (!in_array($tipId, $existingTips, true)) {
+                $existingTips[] = $tipId;
+                runPreferenceUpdate($db, 'UPDATE users SET dismissed_tips = ? WHERE id = ?', [json_encode($existingTips), $userId]);
+            }
+        }
+        echo json_encode(['ok' => true]);
+        exit;
+    }
 
     if (isset($body['action']) && $body['action'] === 'password') {
         $current = (string)($body['current_password'] ?? '');

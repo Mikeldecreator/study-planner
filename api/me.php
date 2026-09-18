@@ -69,4 +69,16 @@ echo json_encode([
 
     'week_start_day' =>
         (int)($row['week_start_day'] ?? 1),
+
+    'tour_completed' =>
+        !empty($row['tour_completed']),
+
+    'dismissed_tips' =>
+        !empty($row['dismissed_tips']) ? (json_decode((string)$row['dismissed_tips'], true) ?: []) : [],
+
+    'preferred_study_time' =>
+        $row['preferred_study_time'] ?? 'flexible',
+
+    'preferred_study_days' =>
+        $row['preferred_study_days'] ?? '1,2,3,4,5',
 ]);

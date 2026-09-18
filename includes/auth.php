@@ -24,9 +24,7 @@ function requireLogin(): void
 
 function currentUserId(): int
 {
-    $id = (int) ($_SESSION['user_id'] ?? 0);
-    error_log('CURRENT USER ID: ' . $id);
-    return $id;
+    return (int) ($_SESSION['user_id'] ?? 0);
 }
 
 /** Generate (or reuse) a CSRF token for this session. */

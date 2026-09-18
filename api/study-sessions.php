@@ -39,6 +39,7 @@ switch ($method) {
     // GET: Query study sessions and focus time metrics
     // ------------------------------------------------------------------------
     case 'GET':
+        session_write_close();
 
         // 1. Current active session (?active=1)
         if (isset($_GET['active'])) {

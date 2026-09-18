@@ -4060,25 +4060,20 @@ if (modal) {
 
 /* Dashboard deep-link */
 
+const scheduleParams = new URLSearchParams(window.location.search);
 if (
-    new URLSearchParams(
-        window.location.search
-    ).get('add') === '1'
+    scheduleParams.get('add') === '1' ||
+    scheduleParams.get('new') === '1' ||
+    scheduleParams.get('open_add') === '1'
 ) {
-
-    document
-        .getElementById(
-            'open-add-session'
-        )
-        ?.click();
-
-
-    window.history.replaceState(
-        {},
-        '',
-        'schedule.php'
-    );
-
+    document.getElementById('open-add-session')?.click();
+    window.history.replaceState({}, '', 'schedule.php');
+} else if (
+    scheduleParams.get('import') === '1' ||
+    scheduleParams.get('open_import') === '1'
+) {
+    document.getElementById('open-import-timetable')?.click();
+    window.history.replaceState({}, '', 'schedule.php');
 }
 
 
@@ -5159,6 +5154,35 @@ window.APP_READY.then(
 
 
         initLucide();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('add') === '1') {
+            document.getElementById('open-add-session')?.click();
+            const sessionForm = document.getElementById('session-form');
+            if (sessionForm) {
+                const cId = urlParams.get('course_id');
+                const tId = urlParams.get('task_id');
+                if (cId) {
+                    sessionForm.course_id.value = cId;
+                }
+                if (tId) {
+                    sessionForm.task_id.value = tId;
+                    const linkedTask = ALL_TASKS.find(t => String(t.id) === String(tId));
+                    if (linkedTask) {
+                        if (!sessionForm.title.value || sessionForm.title.value === 'Study Session') {
+                            sessionForm.title.value = `Study: ${linkedTask.title}`;
+                        }
+                        if (linkedTask.course_id && !sessionForm.course_id.value) {
+                            sessionForm.course_id.value = linkedTask.course_id;
+                        }
+                    }
+                }
+            }
+            window.history.replaceState({}, '', 'schedule.php');
+        }
+        if (urlParams.get('import') === '1' || urlParams.get('open_import') === '1') {
+            document.getElementById('open-import-timetable')?.click();
+        }
 
     }
 );

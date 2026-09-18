@@ -29,6 +29,7 @@ if ($method !== 'GET') {
 }
 
 $userId = currentUserId();
+session_write_close();
 $db = getDb();
 
 $academicContext = getAIAcademicContext($db, $userId);

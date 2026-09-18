@@ -151,11 +151,17 @@ function renderCourseCards(courses) {
         <div class="course-icon" style="background:${safeColor(c.color)}">${esc(c.icon || '📘')}</div>
         <div class="min-w-0 flex-1">
           <div class="flex items-start justify-between gap-2"><div class="min-w-0 flex-1"><h4 class="font-bold text-sm">${esc(c.code)}</h4><p class="text-sm mt-1 break-words">${esc(c.name)}</p><p class="text-xs text-[#63817A] dark:text-gray-400 mt-1">${esc(c.lecturer || 'No lecturer set')}</p></div><span class="credit-pill shrink-0">${esc(c.credits)} Credit${Number(c.credits) === 1 ? '' : 's'}</span></div>
-          <div class="flex items-center gap-2 mt-4"><div class="flex-1 h-1.5 bg-[#E7EEEC] dark:bg-white/10 rounded-full overflow-hidden"><div class="h-full rounded-full" data-work-progress-item="course:${esc(c.id)}" style="width:${progress}%;background:${PROGRESS_COLOR(progress)}"></div></div><span class="text-[11px] font-semibold">${progress}%</span></div>
-          <div class="flex items-center justify-between mt-3 gap-2"><span class="semester-pill">${esc(c.semester || 'Current Semester')}</span><span class="text-xs text-[#486C64] dark:text-gray-400 flex items-center gap-1"><i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>${Number(c.task_count || 0)} Task${Number(c.task_count || 0) === 1 ? '' : 's'}</span></div>
+          <a href="progress.php" class="flex items-center gap-2 mt-4 group" title="View in Progress tracker"><div class="flex-1 h-1.5 bg-[#E7EEEC] dark:bg-white/10 rounded-full overflow-hidden"><div class="h-full rounded-full" data-work-progress-item="course:${esc(c.id)}" style="width:${progress}%;background:${PROGRESS_COLOR(progress)}"></div></div><span class="text-[11px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">${progress}%</span></a>
+          <div class="flex items-center justify-between mt-3 gap-2"><span class="semester-pill">${esc(c.semester || 'Current Semester')}</span><a href="tasks.php?course_id=${esc(c.id)}" class="text-xs text-[#486C64] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-1 font-semibold" title="View tasks for ${esc(c.code)}"><i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>${Number(c.task_count || 0)} Task${Number(c.task_count || 0) === 1 ? '' : 's'}</a></div>
         </div>
       </div>
-      <div class="course-card-actions"><button class="course-action timer-course-btn text-emerald-700 dark:text-emerald-300" data-work-item-type="course" data-work-item-id="${esc(c.id)}" data-work-item-title="${esc(c.code)} — ${esc(c.name)}" data-work-complete="${progress >= 100 ? 'true' : 'false'}"><i data-lucide="timer"></i><span data-work-label>${progress >= 100 ? 'Completed' : 'Start'}</span></button><button class="course-action edit-course-btn" data-id="${esc(c.id)}"><i data-lucide="pencil"></i>Edit</button><button class="course-action delete-course-btn danger" data-id="${esc(c.id)}"><i data-lucide="trash-2"></i>Delete</button></div>
+      <div class="course-card-actions">
+        <a href="tasks.php?course_id=${esc(c.id)}" class="course-action" title="View tasks for ${esc(c.code)}"><i data-lucide="list-todo"></i>Tasks</a>
+        <a href="tasks.php?course_id=${esc(c.id)}&add_task=1" class="course-action" title="Add task for ${esc(c.code)}"><i data-lucide="plus"></i>+ Task</a>
+        <button class="course-action timer-course-btn text-emerald-700 dark:text-emerald-300" data-work-item-type="course" data-work-item-id="${esc(c.id)}" data-work-item-title="${esc(c.code)} — ${esc(c.name)}" data-work-complete="${progress >= 100 ? 'true' : 'false'}"><i data-lucide="timer"></i><span data-work-label>${progress >= 100 ? 'Completed' : 'Start'}</span></button>
+        <button class="course-action edit-course-btn" data-id="${esc(c.id)}"><i data-lucide="pencil"></i>Edit</button>
+        <button class="course-action delete-course-btn danger" data-id="${esc(c.id)}"><i data-lucide="trash-2"></i>Delete</button>
+      </div>
     </article>`;
   }).join('');
   grid.querySelectorAll('.edit-course-btn').forEach(btn => btn.addEventListener('click', () => openEditCourse(btn.dataset.id)));
@@ -1003,8 +1009,10 @@ function checkUrlParams() {
   const p = new URLSearchParams(window.location.search);
   if (p.get('open_curriculum') === '1' || p.get('open_calendar') === '1') {
     openCurriculumModal();
-  } else if (p.get('import_form') === '1') {
+  } else if (p.get('import_form') === '1' || p.get('open_form') === '1' || p.get('import') === '1') {
     openCourseImportModal();
+  } else if (p.get('add') === '1' || p.get('new') === '1' || p.get('open_add') === '1') {
+    openAddCourse();
   }
 }
 
