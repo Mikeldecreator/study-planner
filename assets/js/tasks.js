@@ -1,5 +1,6 @@
 
 let ALL_TASKS = [];
+let ALL_LOADED_COMPLETED_TASKS = [];
 let ACTIVE_TAB = 'all';
 let COURSES_CACHE = [];
 let CURRENT_PAGE = 1;
@@ -162,7 +163,10 @@ function clampNumber(value, min, max, fallback = 0) {
 
 function getLiveTaskState(task, nowMs = Date.now()) {
   const due = localDate(task?.due_at);
-  const progress = clampNumber(task?.progress_percent, 0, 100, 0);
+  const rawProgress = task?.system_progress !== undefined
+    ? task.system_progress
+    : (task?.time_progress_percent !== undefined ? task.time_progress_percent : task?.progress_percent);
+  const progress = clampNumber(rawProgress, 0, 100, 0);
   const duration = Math.max(0, Number(task?.duration_hours) || 0);
   const backendRemaining = Number(task?.remaining_hours);
 
@@ -180,8 +184,9 @@ function getLiveTaskState(task, nowMs = Date.now()) {
       )
     : progressRemaining;
 
+  const rawStatus = String(task?.system_status || task?.status || '');
   const completed =
-    String(task?.status || '') === 'completed' ||
+    rawStatus === 'completed' ||
     progress >= 100;
 
   const timeRemainingMs =
@@ -983,6 +988,10 @@ async function loadTasks() {
 
     CURRENT_PAGE = 1;
 
+    renderSmartTaskFocus(
+      ALL_TASKS
+    );
+
     renderStatCards(
       data.summary || {}
     );
@@ -991,7 +1000,15 @@ async function loadTasks() {
       data.summary || {}
     );
 
+    if (ACTIVE_TAB === 'all' || !ALL_LOADED_COMPLETED_TASKS.length) {
+      ALL_LOADED_COMPLETED_TASKS = ALL_TASKS.filter(t => (t.system_status || t.status) === 'completed');
+    }
+
     renderTable(
+      ALL_TASKS
+    );
+
+    renderCompletedTasks(
       ALL_TASKS
     );
 
@@ -1002,11 +1019,16 @@ async function loadTasks() {
     renderUpcoming();
 
     startTaskLiveClock();
+  bindCompletionAndDeletionEvents();
 
     updateLiveTaskDisplays({
       rerenderUpcoming:
         true
     });
+
+    if (typeof populateTimerTaskDropdown === 'function') {
+      populateTimerTaskDropdown();
+    }
 
   } catch (error) {
 
@@ -1059,6 +1081,19 @@ async function loadTasks() {
 
               </button>
 
+              <a
+                href="schedule.php?add=1&task_id=${esc(task.id)}${task.course_id ? `&course_id=${esc(task.course_id)}` : ''}"
+                class="task-action-btn mr-1 inline-flex items-center justify-center text-gray-500 hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-300"
+                title="Schedule study for this task"
+                aria-label="Schedule study for ${esc(task.title)}">
+
+                <i
+                  data-lucide="calendar-plus"
+                  class="w-4 h-4">
+                </i>
+
+              </a>
+
             </div>
 
           </td>
@@ -1102,6 +1137,237 @@ async function loadTasks() {
 
 
 /* =========================================================
+   SMART TASK FOCUS
+========================================================= */
+
+function renderSmartTaskFocus(tasks) {
+  const container = getEl('smart-task-focus-card');
+  if (!container) return;
+
+  const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(t => {
+    const rawStatus = String(t.system_status || t.status);
+    const prog = Number(t.system_progress !== undefined ? t.system_progress : (t.time_progress_percent !== undefined ? t.time_progress_percent : (t.progress_percent || 0)));
+    return rawStatus !== 'completed' && prog < 100;
+  });
+
+  if (!activeTasks.length) {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+    return;
+  }
+
+  const topTask = [...activeTasks].sort((a, b) => {
+    const scoreA = Number(a.smart_priority_score) || 0;
+    const scoreB = Number(b.smart_priority_score) || 0;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    const dueA = localDate(a.due_at)?.getTime() || Infinity;
+    const dueB = localDate(b.due_at)?.getTime() || Infinity;
+    return dueA - dueB;
+  })[0];
+
+  if (!topTask) {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+    return;
+  }
+
+  const priorityScore = Math.round(Number(topTask.smart_priority_score) || 0);
+  const priorityLabel = esc(topTask.smart_priority_label || capitalizeSafe(topTask.priority || 'medium'));
+  const riskLabel = esc(topTask.risk_label || 'Low');
+  const remainingHours = Number(topTask.remaining_hours) || 0;
+  const remainingText = remainingHours > 0 ? `${remainingHours}h remaining workload` : 'Under 1h remaining';
+  const dueDisplay = esc(topTask.deadline_display || topTask.due_label || 'Upcoming');
+  const reason = esc(topTask.priority_reason || 'Identified as your top academic priority based on deadline proximity and course weight.');
+  const action = esc(topTask.recommended_action || 'Review and take action on this task.');
+
+  container.classList.remove('hidden');
+  container.innerHTML = `
+    <div class="smart-task-focus">
+      <div class="smart-task-focus-icon">
+        <i data-lucide="target" class="w-6 h-6"></i>
+      </div>
+      <div class="smart-task-focus-content">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="smart-task-focus-eyebrow">
+            RECOMMENDED ACADEMIC FOCUS • ${priorityLabel.toUpperCase()} PRIORITY (${priorityScore}/100)
+          </div>
+          <button type="button" class="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1" onclick="openEditTask(${topTask.id})">
+            Edit Task <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <h3 class="smart-task-focus-title">
+          ${esc(topTask.title)}
+          ${topTask.course_code ? `<span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">${esc(topTask.course_code)}</span>` : ''}
+        </h3>
+        <p class="smart-task-focus-reason">${reason}</p>
+        <div class="smart-task-focus-meta">
+          <span><i data-lucide="clock" class="w-3 h-3 mr-1 text-emerald-600"></i> ${remainingText}</span>
+          <span><i data-lucide="calendar" class="w-3 h-3 mr-1 text-emerald-600"></i> Due: ${dueDisplay}</span>
+          <span><i data-lucide="shield-alert" class="w-3 h-3 mr-1 ${topTask.task_risk === 'high' || topTask.task_risk === 'critical' ? 'text-red-500' : 'text-amber-500'}"></i> ${riskLabel} Risk</span>
+          <span class="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800/40 font-bold">
+            <i data-lucide="sparkles" class="w-3 h-3 mr-1 text-emerald-600"></i> Action: ${action}
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+
+/* =========================================================
+   COMPLETED TASKS (ARCHIVE / HISTORY)
+========================================================= */
+
+function renderCompletedTasks(tasks) {
+  const tbody = getEl('completed-tasks-table-body');
+  const countBadge = getEl('completed-tasks-count-badge');
+  if (!tbody) return;
+
+  let completed = (Array.isArray(tasks) ? tasks : []).filter(t => {
+    const s = String(t.system_status || t.status || '');
+    return s === 'completed';
+  });
+
+  if (!completed.length && ALL_LOADED_COMPLETED_TASKS.length && ACTIVE_TAB !== 'completed') {
+    completed = ALL_LOADED_COMPLETED_TASKS;
+  }
+
+  if (countBadge) {
+    countBadge.textContent = String(completed.length);
+  }
+
+  if (!completed.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="py-10 text-center">
+          <div class="task-empty-state">
+            <i data-lucide="archive" class="w-7 h-7 text-gray-400 dark:text-gray-500"></i>
+            <strong class="text-xs">No completed tasks yet</strong>
+            <span class="text-[11px] text-gray-500 dark:text-gray-400">Tasks you finish will be archived here with recorded focus time and progress history.</span>
+          </div>
+        </td>
+      </tr>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+    return;
+  }
+
+  tbody.innerHTML = completed.map(task => {
+    const rawProgress = task.system_progress !== undefined
+      ? task.system_progress
+      : (task.time_progress_percent !== undefined ? task.time_progress_percent : 100);
+    const progress = Math.min(100, Math.max(0, Number(rawProgress) || 100));
+
+    const totalSec = Number(task.total_focused_seconds || task.focused_seconds || 0);
+    const focusedText = totalSec > 0 ? formatDurationHuman(totalSec) : '0m';
+
+    const compDate = localDate(task.completed_at || task.updated_at);
+    const compText = compDate
+      ? compDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+        ' ' + compDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : 'Completed';
+
+    return `
+      <tr class="completed-task-row" data-task-id="${esc(task.id)}">
+        <!-- Task Title -->
+        <td class="py-3 px-3.5">
+          <div class="flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"></i>
+            <span class="completed-task-title font-semibold text-xs text-[#183E36] dark:text-gray-200 truncate max-w-[260px]" title="${esc(task.title)}">
+              ${esc(task.title)}
+            </span>
+          </div>
+        </td>
+
+        <!-- Course -->
+        <td class="py-3 px-3.5">
+          ${task.course_code ? `
+            <span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+              ${esc(task.course_code)}
+            </span>
+          ` : `
+            <span class="text-[11px] text-gray-400 dark:text-gray-500">General</span>
+          `}
+        </td>
+
+        <!-- Completion Status -->
+        <td class="py-3 px-3.5">
+          <span class="completed-task-badge">
+            <i data-lucide="check" class="w-3 h-3"></i>
+            Completed
+          </span>
+          ${task.progress_discrepancy ? `
+            <div class="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1" title="${esc(task.discrepancy_note || 'Study-time records are lower than expected')}">
+              <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
+              <span>Study time lower than estimate</span>
+            </div>
+          ` : ''}
+        </td>
+
+        <!-- System Progress -->
+        <td class="py-3 px-3.5">
+          <div class="flex items-center gap-2 min-w-[110px]">
+            <div class="flex-1 h-1.5 bg-[#E7EFED] dark:bg-white/10 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-600 rounded-full" style="width: ${progress}%"></div>
+            </div>
+            <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">${progress}%</span>
+          </div>
+        </td>
+
+        <!-- Focused Time -->
+        <td class="py-3 px-3.5">
+          <span class="text-xs font-semibold text-[#183E36] dark:text-gray-300 flex items-center gap-1">
+            <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+            ${focusedText} focused
+          </span>
+        </td>
+
+        <!-- Completion Date / Time -->
+        <td class="py-3 px-3.5 text-xs text-[#64807A] dark:text-gray-400">
+          ${compText}
+        </td>
+
+        <!-- Actions (Undo & Delete) -->
+        <td class="py-3 px-3.5 text-center">
+          <div class="flex items-center justify-center gap-1.5">
+            <button
+              type="button"
+              class="task-action-btn undo-task-btn text-gray-500 hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-300"
+              data-id="${esc(task.id)}"
+              title="Undo completion (move back to active)"
+              aria-label="Undo completion for ${esc(task.title)}">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </button>
+            <button
+              type="button"
+              class="task-action-btn delete-completed-task-btn text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+              data-id="${esc(task.id)}"
+              title="Delete this completed work"
+              aria-label="Delete completed work for ${esc(task.title)}">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('.undo-task-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleUndoComplete(btn.dataset.id));
+  });
+
+  tbody.querySelectorAll('.delete-completed-task-btn').forEach(btn => {
+    btn.addEventListener('click', () => openDeleteCompletedTaskModal(btn.dataset.id));
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+
+/* =========================================================
    STAT CARDS
 ========================================================= */
 
@@ -1112,7 +1378,7 @@ function renderStatCards(s) {
       'square-check-big',
       'emerald',
       Number(s.total || 0),
-      'Total Tasks',
+      'My Work',
       'All work currently tracked'
     ],
 
@@ -1144,7 +1410,7 @@ function renderStatCards(s) {
       'circle-check-big',
       'green',
       Number(s.completed || 0),
-      'Completed',
+      'Done',
       'Successfully finished'
     ]
   ];
@@ -1302,13 +1568,14 @@ function renderTabCounts(s) {
       total,
 
     pending:
-      Math.max(
-        0,
-        total -
-        completed -
-        inProgress -
-        overdue
-      ),
+      s.pending !== undefined
+        ? Number(s.pending)
+        : Math.max(
+            0,
+            total -
+            completed -
+            inProgress
+          ),
 
     in_progress:
       inProgress,
@@ -1431,75 +1698,104 @@ function renderTable(tasks) {
     return;
   }
 
-  const visible =
-    filteredForPage(
-      tasks
-    );
-
   const selectAll =
     getEl(
       'select-all-tasks'
     );
 
   if (selectAll) {
-
     selectAll.checked =
       false;
-
     selectAll.indeterminate =
       false;
   }
 
-  if (!tasks.length) {
+  if (ACTIVE_TAB === 'completed') {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" class="py-14 text-center">
+          <div class="task-empty-state">
+            <i data-lucide="archive" class="w-8 h-8 text-emerald-600"></i>
+            <strong>Viewing Completed Tasks Archive</strong>
+            <span>Completed tasks are listed in the Completed Tasks section below.</span>
+          </div>
+        </td>
+      </tr>
+    `;
+    const resultLabel = getEl('task-results-label');
+    if (resultLabel) resultLabel.textContent = 'Showing completed tasks archive below';
+    renderPagination(0);
+    if (window.lucide) window.lucide.createIcons();
+    return;
+  }
+
+  const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(t => {
+    const s = String(t.system_status || t.status || '');
+    return s !== 'completed';
+  });
+
+  const visible =
+    filteredForPage(
+      activeTasks
+    );
+
+  if (!activeTasks.length) {
+    const hasAnyCompleted = (Array.isArray(tasks) ? tasks : []).some(t => String(t.system_status || t.status || '') === 'completed');
+    const isSystemEmpty = !ALL_TASKS.length;
+
+    let emptyIcon = 'clipboard-list';
+    let emptyTitle = 'Nothing to study yet';
+    let emptySub = 'Add your first assignment, reading, or prep to study.';
+    let emptyButton = `
+      <button
+        type="button"
+        id="empty-add-task-btn"
+        class="inline-flex items-center gap-1.5 px-4 py-2 mt-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm transition">
+        <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> + Add Work
+      </button>
+    `;
+
+    if (hasAnyCompleted) {
+      emptyIcon = 'check-circle-2';
+      emptyTitle = 'All active tasks completed!';
+      emptySub = 'All tasks in this view are completed. Check the Completed Tasks section below.';
+      emptyButton = '';
+    } else if (!isSystemEmpty) {
+      emptyIcon = 'filter';
+      emptyTitle = 'No work matches your filters';
+      emptySub = 'Try clearing your search or filters to see your work.';
+      emptyButton = `
+        <button
+          type="button"
+          id="clear-task-filters"
+          class="mt-2 text-emerald-700 dark:text-emerald-400 font-semibold text-xs hover:underline">
+          Clear filters
+        </button>
+      `;
+    }
 
     tbody.innerHTML = `
       <tr>
-        <td
-          colspan="9"
-          class="py-16 text-center">
-
+        <td colspan="9" class="py-16 text-center">
           <div class="task-empty-state">
-
-            <i
-              data-lucide="clipboard-list"
-              class="w-8 h-8">
-            </i>
-
-            <strong>
-              No tasks found
-            </strong>
-
-            <span>
-              No tasks match your current filters.
-            </span>
-
-            <button
-              type="button"
-              id="clear-task-filters"
-              class="mt-2 text-emerald-700
-                     dark:text-emerald-400
-                     font-semibold">
-
-              Clear filters
-
-            </button>
-
+            <i data-lucide="${emptyIcon}" class="w-8 h-8 ${hasAnyCompleted ? 'text-emerald-600' : 'text-gray-400'}"></i>
+            <strong>${emptyTitle}</strong>
+            <span>${emptySub}</span>
+            ${emptyButton}
           </div>
-
         </td>
       </tr>
     `;
 
-    getEl(
-      'clear-task-filters'
-    )?.addEventListener(
-      'click',
-      resetFilters
-    );
+    getEl('clear-task-filters')?.addEventListener('click', resetFilters);
+    getEl('empty-add-task-btn')?.addEventListener('click', openAddTask);
 
-    renderPagination(
-      0
-    );
+    const resultLabel = getEl('task-results-label');
+    if (resultLabel) {
+      resultLabel.textContent = hasAnyCompleted ? '0 active tasks (completed tasks archived below)' : 'Showing 0 work items';
+    }
+
+    renderPagination(0);
 
     if (window.lucide) {
       window.lucide.createIcons();
@@ -1513,13 +1809,17 @@ function renderTable(tasks) {
       .map(
         task => {
 
+          const rawProgress = task.system_progress !== undefined
+            ? task.system_progress
+            : (task.time_progress_percent !== undefined ? task.time_progress_percent : task.progress_percent);
+
           const progress =
             Math.min(
               100,
               Math.max(
                 0,
                 Number(
-                  task.progress_percent
+                  rawProgress
                 ) || 0
               )
             );
@@ -1557,12 +1857,14 @@ function renderTable(tasks) {
               task.priority
             );
 
+          const rawStatus = task.system_status || task.status;
+
           const status =
             STATUS_LABELS[
-              task.status
+              rawStatus
             ] ||
             capitalizeSafe(
-              task.status
+              rawStatus
             );
 
           const type =
@@ -1572,23 +1874,29 @@ function renderTable(tasks) {
             task.type ||
             'Other';
 
+          const isCompleted =
+            String(rawStatus) === 'completed' ||
+            progress >= 100;
+
           const accent =
-            task.urgency ===
-              'overdue'
-              ? 'bg-red-500'
-              : task.priority ===
-                'high'
-                ? 'bg-emerald-600'
-                : 'bg-blue-500';
+            isCompleted
+              ? 'bg-emerald-300 dark:bg-emerald-700/50'
+              : task.urgency === 'overdue'
+                ? 'bg-red-500'
+                : Number(task.smart_priority_score) >= 70
+                  ? 'bg-emerald-600'
+                  : task.priority === 'high'
+                    ? 'bg-amber-500'
+                    : 'bg-blue-500';
 
           const deadlineClass =
-            task.urgency ===
-              'overdue'
-              ? 'text-red-600 dark:text-red-400'
-              : task.urgency ===
-                  'due_soon'
-                ? 'text-amber-600 dark:text-amber-400'
-                : 'text-[#8AA09B] dark:text-gray-500';
+            isCompleted
+              ? 'text-gray-400 dark:text-gray-500'
+              : task.urgency === 'overdue'
+                ? 'text-red-600 dark:text-red-400'
+                : task.urgency === 'due_soon'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-[#8AA09B] dark:text-gray-500';
 
           return `
           <tr
@@ -1649,6 +1957,28 @@ function renderTable(tasks) {
                       : ''
                   }
 
+                  ${
+                    isCompleted
+                      ? `
+                        <div class="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 font-semibold mt-1">
+                          <i data-lucide="check-circle-2" class="w-3 h-3"></i> Completed
+                        </div>
+                      `
+                      : `
+                        <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          ${task.remaining_hours !== undefined && task.remaining_hours !== null && Number(task.remaining_hours) > 0
+                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300" title="Estimated remaining workload"><i data-lucide="clock" class="w-3 h-3"></i> ${task.remaining_hours}h left</span>`
+                            : ''}
+                          ${task.task_risk && task.task_risk !== 'low'
+                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${task.task_risk === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : task.task_risk === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'}" title="Academic risk score: ${task.task_risk_score || ''}"><i data-lucide="shield-alert" class="w-3 h-3"></i> ${task.risk_label || capitalizeSafe(task.task_risk)} Risk</span>`
+                            : ''}
+                          ${task.recommended_action
+                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 truncate max-w-[280px]" title="${esc(task.priority_reason || task.recommended_action)}"><i data-lucide="sparkles" class="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400"></i> ${esc(task.recommended_action)}</span>`
+                            : ''}
+                        </div>
+                      `
+                  }
+
                 </div>
 
               </div>
@@ -1664,10 +1994,11 @@ function renderTable(tasks) {
                        text-[#315B52]
                        dark:text-gray-300">
 
-                ${esc(
-                  task.course_code ||
-                  '—'
-                )}
+                ${
+                  task.course_id
+                    ? `<a href="courses.php" class="hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors" title="View in Courses">${esc(task.course_code || '—')}</a>`
+                    : esc(task.course_code || '—')
+                }
 
               </div>
 
@@ -1728,6 +2059,18 @@ function renderTable(tasks) {
 
               </span>
 
+              ${
+                !isCompleted && task.smart_priority_label
+                  ? `
+                    <div
+                      class="text-[10px] text-[#78918B] dark:text-gray-400 font-medium mt-0.5"
+                      title="Smart Priority score: ${Math.round(task.smart_priority_score || 0)}/100">
+                      Smart: ${esc(task.smart_priority_label)} (${Math.round(task.smart_priority_score || 0)})
+                    </div>
+                  `
+                  : ''
+              }
+
             </td>
 
 
@@ -1736,15 +2079,19 @@ function renderTable(tasks) {
               class="py-3.5 px-3"
               data-task-deadline-id="${esc(task.id)}">
 
-              <div
+              <a
+                href="deadlines.php"
                 class="text-xs font-semibold
                        text-[#315B52]
                        dark:text-gray-300
-                       whitespace-nowrap">
+                       hover:text-emerald-700
+                       dark:hover:text-emerald-400
+                       whitespace-nowrap block transition-colors"
+                title="View in Deadlines">
 
                 ${dateText}
 
-              </div>
+              </a>
 
               <div
                 class="text-[10px]
@@ -1752,14 +2099,19 @@ function renderTable(tasks) {
                        ${deadlineClass}"
                 data-task-countdown>
 
-                ${timeText}
-                ·
-                ${esc(
-                  task.due_label ||
-                  ''
-                )}
+                ${isCompleted ? 'Finished' : `${timeText} · ${esc(task.due_label || '')}`}
 
               </div>
+
+              ${
+                !isCompleted && (task.deadline_pressure === 'urgent' || task.deadline_pressure === 'critical')
+                  ? `
+                    <span class="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 mt-1 rounded ${task.deadline_pressure === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'}">
+                      <i data-lucide="flame" class="w-2.5 h-2.5"></i> ${esc(capitalizeSafe(task.deadline_pressure))} Pressure
+                    </span>
+                  `
+                  : ''
+              }
 
             </td>
 
@@ -1814,6 +2166,9 @@ function renderTable(tasks) {
                 class="task-status-pill
                        ${
                          STATUS_CLASSES[
+                           rawStatus
+                         ] ||
+                         STATUS_CLASSES[
                            task.status
                          ] ||
                          STATUS_CLASSES.not_started
@@ -1822,6 +2177,11 @@ function renderTable(tasks) {
                 ${esc(status)}
 
               </span>
+              ${task.progress_discrepancy ? `
+                <div class="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1" title="${esc(task.discrepancy_note || 'Progress discrepancy detected')}">
+                  <i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i> Discrepancy
+                </div>
+              ` : ''}
 
             </td>
 
@@ -1841,6 +2201,20 @@ function renderTable(tasks) {
                 title="Start or pause timer">
                 <i data-lucide="timer" class="w-4 h-4"></i>
               </button>`}
+
+              <button
+                type="button"
+                class="task-action-btn focus-task-btn mr-1"
+                data-id="${esc(task.id)}"
+                title="Focus on this task"
+                aria-label="Focus on ${esc(task.title)}">
+
+                <i
+                  data-lucide="timer"
+                  class="w-4 h-4">
+                </i>
+
+              </button>
 
               <button
                 type="button"
@@ -1878,6 +2252,28 @@ function renderTable(tasks) {
         }
       )
       .join('');
+
+
+  /* Focus buttons */
+
+  tbody
+    .querySelectorAll(
+      '.focus-task-btn'
+    )
+    .forEach(
+      btn => {
+
+        btn.addEventListener(
+          'click',
+          () =>
+            selectTaskForTimer(
+              btn.dataset.id,
+              true
+            )
+        );
+
+      }
+    );
 
 
   /* Edit buttons */
@@ -1948,7 +2344,7 @@ function renderTable(tasks) {
   const end =
     Math.min(
       CURRENT_PAGE * PAGE_SIZE,
-      tasks.length
+      activeTasks.length
     );
 
   const resultLabel =
@@ -1959,11 +2355,11 @@ function renderTable(tasks) {
   if (resultLabel) {
 
     resultLabel.textContent =
-      `Showing ${start}–${end} of ${tasks.length} tasks`;
+      `Showing ${start}–${end} of ${activeTasks.length} active tasks`;
   }
 
   renderPagination(
-    tasks.length
+    activeTasks.length
   );
 
   if (window.lucide) {
@@ -2557,14 +2953,21 @@ function renderUpcoming() {
                 class="text-[10px]
                        text-[#78918B]
                        dark:text-gray-500
-                       mt-0.5">
+                       mt-0.5 truncate">
 
                 ${esc(
                   task.course_code ||
                   'No course'
                 )}
+                ${task.remaining_hours !== undefined && task.remaining_hours !== null && Number(task.remaining_hours) > 0 ? ` • ${task.remaining_hours}h left` : ''}
 
               </div>
+
+              ${task.recommended_action ? `
+                <div class="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium truncate mt-0.5 flex items-center gap-1" title="${esc(task.recommended_action)}">
+                  <i data-lucide="sparkles" class="w-2.5 h-2.5 shrink-0 text-emerald-600"></i> ${esc(task.recommended_action)}
+                </div>
+              ` : ''}
 
             </div>
 
@@ -3139,24 +3542,44 @@ function resetTaskForm() {
       '';
   }
 
-  if (
-    form.elements.progress_percent
-  ) {
-
-    form.elements
-      .progress_percent
-      .value = 0;
+  const progressBadge =
+    getEl(
+      'task-modal-progress-badge'
+    );
+  if (progressBadge) {
+    progressBadge.textContent = '0%';
   }
 
-  const progressLabel =
+  const progressBar =
     getEl(
-      'progress-value-label'
+      'task-modal-progress-bar'
     );
+  if (progressBar) {
+    progressBar.style.width = '0%';
+  }
 
-  if (progressLabel) {
+  const focusedTimeEl =
+    getEl(
+      'task-modal-focused-time'
+    );
+  if (focusedTimeEl) {
+    focusedTimeEl.textContent = '0m';
+  }
 
-    progressLabel.textContent =
-      '0%';
+  const remainingWorkEl =
+    getEl(
+      'task-modal-remaining-work'
+    );
+  if (remainingWorkEl) {
+    remainingWorkEl.textContent = '—';
+  }
+
+  const focusActionEl =
+    getEl(
+      'task-modal-focus-action'
+    );
+  if (focusActionEl) {
+    focusActionEl.classList.add('hidden');
   }
 
   const modalTitle =
@@ -3168,6 +3591,28 @@ function resetTaskForm() {
 
     modalTitle.textContent =
       'Add Task';
+  }
+
+  const intelBlock =
+    getEl(
+      'task-modal-intelligence'
+    );
+
+  if (intelBlock) {
+    intelBlock.classList.add(
+      'hidden'
+    );
+  }
+
+  const timeTrackingBlock =
+    getEl(
+      'task-modal-time-tracking'
+    );
+
+  if (timeTrackingBlock) {
+    timeTrackingBlock.classList.add(
+      'hidden'
+    );
   }
 }
 
@@ -3293,31 +3738,60 @@ function openEditTask(id) {
       );
   }
 
+  const rawProgress = task.system_progress !== undefined
+    ? task.system_progress
+    : (task.time_progress_percent !== undefined ? task.time_progress_percent : (task.progress_percent || 0));
   const progress =
-    Number(
-      task.progress_percent ||
-      0
+    Math.min(
+      100,
+      Math.max(
+        0,
+        Number(
+          rawProgress
+        ) || 0
+      )
     );
 
-  if (
-    form.elements.progress_percent
-  ) {
-
-    form.elements
-      .progress_percent
-      .value =
-      progress;
+  const progressBadge =
+    getEl(
+      'task-modal-progress-badge'
+    );
+  if (progressBadge) {
+    progressBadge.textContent = `${progress}%`;
   }
 
-  const progressLabel =
+  const progressBar =
     getEl(
-      'progress-value-label'
+      'task-modal-progress-bar'
     );
+  if (progressBar) {
+    progressBar.style.width = `${progress}%`;
+  }
 
-  if (progressLabel) {
+  const focusedTimeEl =
+    getEl(
+      'task-modal-focused-time'
+    );
+  if (focusedTimeEl) {
+    const sec = Number(task.focused_seconds) || 0;
+    focusedTimeEl.textContent = formatDurationHuman(sec);
+  }
 
-    progressLabel.textContent =
-      `${progress}%`;
+  const remainingWorkEl =
+    getEl(
+      'task-modal-remaining-work'
+    );
+  if (remainingWorkEl) {
+    const rem = task.remaining_hours !== undefined && task.remaining_hours !== null ? task.remaining_hours : 0;
+    remainingWorkEl.textContent = `${rem}h`;
+  }
+
+  const focusActionEl =
+    getEl(
+      'task-modal-focus-action'
+    );
+  if (focusActionEl) {
+    focusActionEl.classList.remove('hidden');
   }
 
   const modalTitle =
@@ -3329,6 +3803,100 @@ function openEditTask(id) {
 
     modalTitle.textContent =
       'Edit Task';
+  }
+
+  const intelBlock =
+    getEl(
+      'task-modal-intelligence'
+    );
+
+  if (intelBlock) {
+    const isCompleted =
+      String(task.system_status || task.status) === 'completed' ||
+      progress >= 100;
+
+    intelBlock.classList.remove('hidden');
+
+    const priorityLabelEl =
+      getEl('task-modal-smart-priority');
+    const reasonEl =
+      getEl('task-modal-reason');
+    const workloadEl =
+      getEl('task-modal-workload');
+    const riskEl =
+      getEl('task-modal-risk');
+    const actionEl =
+      getEl('task-modal-action');
+
+    if (isCompleted) {
+      if (priorityLabelEl) {
+        priorityLabelEl.textContent = 'Status: Completed';
+      }
+      if (reasonEl) {
+        reasonEl.textContent = 'This task is fully completed. No remaining academic workload or deadline pressure.';
+      }
+      if (workloadEl) {
+        workloadEl.innerHTML = '<i data-lucide="check-circle-2" class="w-3 h-3 inline mr-1 text-green-600"></i>0h remaining';
+      }
+      if (riskEl) {
+        riskEl.innerHTML = '<i data-lucide="shield-check" class="w-3 h-3 inline mr-1 text-green-600"></i>No Risk';
+      }
+      if (actionEl) {
+        actionEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline mr-1 text-green-600"></i>Completed';
+      }
+    } else {
+      if (priorityLabelEl) {
+        const pLabel = esc(task.smart_priority_label || capitalizeSafe(task.priority || 'Medium'));
+        const pScore = Math.round(Number(task.smart_priority_score) || 0);
+        priorityLabelEl.textContent = `Smart Priority: ${pLabel} (${pScore}/100)`;
+      }
+      if (reasonEl) {
+        reasonEl.textContent = task.priority_reason || 'Academic priority evaluated based on deadline, course weight, and workload.';
+      }
+      if (workloadEl) {
+        const rem = task.remaining_hours !== undefined && task.remaining_hours !== null ? task.remaining_hours : 0;
+        workloadEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>${rem}h workload left`;
+      }
+      if (riskEl) {
+        const rLabel = esc(task.risk_label || capitalizeSafe(task.task_risk || 'Low'));
+        workloadEl.innerHTML = `<i data-lucide="clock" class="w-3 h-3 inline mr-1"></i>${task.remaining_hours !== undefined && task.remaining_hours !== null ? task.remaining_hours : 0}h workload left`;
+        riskEl.innerHTML = `<i data-lucide="shield-alert" class="w-3 h-3 inline mr-1"></i>${rLabel} Risk`;
+      }
+      if (actionEl) {
+        actionEl.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3 inline mr-1"></i>Action: ${esc(task.recommended_action || 'Review and take action')}`;
+      }
+    }
+
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }
+
+  if (typeof studySessionApi === 'function') {
+    studySessionApi('GET', { task_id: task.id }).then(res => {
+      if (res.ok && res.data) {
+        const d = res.data;
+        const livePct = d.time_progress?.time_progress_percent !== undefined
+          ? d.time_progress.time_progress_percent
+          : progress;
+        const liveProgress = Math.min(100, Math.max(0, Number(livePct) || 0));
+        if (progressBadge) {
+          progressBadge.textContent = `${liveProgress}%`;
+        }
+        if (progressBar) {
+          progressBar.style.width = `${liveProgress}%`;
+        }
+        if (focusedTimeEl) {
+          focusedTimeEl.textContent = formatDurationHuman(d.total_focused_seconds || 0);
+        }
+        if (remainingWorkEl) {
+          const remH = d.time_progress?.time_remaining_hours !== undefined
+            ? d.time_progress.time_remaining_hours
+            : (task.remaining_hours || 0);
+          remainingWorkEl.textContent = `${remH}h`;
+        }
+      }
+    }).catch(() => {});
   }
 
   openModal();
@@ -3423,12 +3991,6 @@ function bindModal() {
       'task-form'
     );
 
-  const progress =
-    getEl(
-      'progress-range'
-    );
-
-
   getEl(
     'open-add-task'
   )?.addEventListener(
@@ -3491,25 +4053,6 @@ function bindModal() {
   );
 
 
-  progress?.addEventListener(
-    'input',
-    () => {
-
-      const label =
-        getEl(
-          'progress-value-label'
-        );
-
-      if (label) {
-
-        label.textContent =
-          `${progress.value}%`;
-      }
-
-    }
-  );
-
-
   form?.addEventListener(
     'submit',
     async event => {
@@ -3543,11 +4086,11 @@ function bindModal() {
         );
 
 
-      payload.progress_percent =
-        Number(
-          payload.progress_percent ||
-          0
-        );
+      if ('progress_percent' in payload && payload.progress_percent !== '') {
+        payload.progress_percent = Number(payload.progress_percent || 0);
+      } else {
+        delete payload.progress_percent;
+      }
 
 
       payload.duration_hours =
@@ -3710,293 +4253,374 @@ function bindSelectAll() {
    IMPORT TASKS
 ========================================================= */
 
+/* =========================================================
+   UNIVERSAL WORK & ASSIGNMENTS IMPORT
+========================================================= */
+
 function bindImport() {
+  const openBtn = getEl('open-import-task');
+  const modal = getEl('work-import-modal');
+  const closeBtn = getEl('close-work-import-modal');
+  const cancelBtn = getEl('cancel-work-import');
+  const dropzone = getEl('work-dropzone');
+  const fileInput = getEl('work-file-input');
+  const fileChosen = getEl('work-file-chosen');
+  const textInput = getEl('work-text-input');
+  const extractBtn = getEl('extract-work-btn');
+  const errorBox = getEl('work-import-error');
+  const stepUpload = getEl('work-import-step-upload');
+  const stepReview = getEl('work-import-step-review');
+  const reviewTbody = getEl('work-review-tbody');
+  const reviewCount = getEl('work-review-count');
+  const reviewError = getEl('work-review-error');
+  const backBtn = getEl('back-work-btn');
+  const cancelReviewBtn = getEl('cancel-review-work');
+  const confirmBtn = getEl('confirm-import-work-btn');
+  const addItemBtn = getEl('add-review-work-btn');
+  const manualFallbackBtn = getEl('open-manual-work-fallback');
 
-  const button =
-    getEl(
-      'open-import-task'
-    );
+  if (!openBtn || !modal) return;
 
-  const fileInput =
-    getEl(
-      'task-import-file'
-    );
+  let selectedFile = null;
+  let reviewedItems = [];
 
-  if (
-    !button ||
-    !fileInput
-  ) {
-    return;
+  function esc(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function openModal() {
+    selectedFile = null;
+    if (fileInput) fileInput.value = '';
+    if (textInput) textInput.value = '';
+    if (fileChosen) { fileChosen.textContent = ''; fileChosen.classList.add('hidden'); }
+    if (errorBox) { errorBox.innerHTML = ''; errorBox.classList.add('hidden'); }
+    if (reviewError) { reviewError.innerHTML = ''; reviewError.classList.add('hidden'); }
+    stepUpload?.classList.remove('hidden');
+    stepReview?.classList.add('hidden');
+    modal.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+  }
 
-  button.addEventListener(
-    'click',
-    () =>
-      fileInput.click()
-  );
+  function closeModal() {
+    modal.classList.add('hidden');
+    selectedFile = null;
+  }
 
+  openBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if (cancelReviewBtn) cancelReviewBtn.addEventListener('click', closeModal);
 
-  fileInput.addEventListener(
-    'change',
-    async () => {
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeModal();
+  });
 
-      const file =
-        fileInput.files?.[0];
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      stepReview?.classList.add('hidden');
+      stepUpload?.classList.remove('hidden');
+      if (window.lucide) window.lucide.createIcons();
+    });
+  }
 
-      fileInput.value = '';
+  if (manualFallbackBtn) {
+    manualFallbackBtn.addEventListener('click', () => {
+      closeModal();
+      getEl('open-add-task')?.click();
+    });
+  }
 
-      if (!file) {
+  // Dropzone setup
+  if (dropzone && fileInput) {
+    dropzone.addEventListener('click', e => {
+      if (e.target !== fileInput) fileInput.click();
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files?.length) {
+        selectedFile = fileInput.files[0];
+        if (fileChosen) {
+          fileChosen.textContent = `Selected: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`;
+          fileChosen.classList.remove('hidden');
+        }
+      }
+    });
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.classList.add('border-emerald-500', 'bg-emerald-50/40');
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+    });
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+      if (e.dataTransfer.files?.length) {
+        selectedFile = e.dataTransfer.files[0];
+        if (fileChosen) {
+          fileChosen.textContent = `Selected: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`;
+          fileChosen.classList.remove('hidden');
+        }
+      }
+    });
+  }
+
+  const TASK_TYPES = [
+    { val: 'assignment', label: 'Assignment' },
+    { val: 'project', label: 'Project' },
+    { val: 'test', label: 'Test / Quiz' },
+    { val: 'exam', label: 'Exam' },
+    { val: 'lab_report', label: 'Lab Report' },
+    { val: 'research', label: 'Research' },
+    { val: 'study_session', label: 'Study Session' },
+    { val: 'other', label: 'Other' }
+  ];
+
+  const PRIORITIES = [
+    { val: 'high', label: 'High' },
+    { val: 'medium', label: 'Medium' },
+    { val: 'low', label: 'Low' }
+  ];
+
+  function renderReviewTable() {
+    if (!reviewTbody) return;
+    if (reviewCount) {
+      reviewCount.textContent = `${reviewedItems.length} item${reviewedItems.length === 1 ? '' : 's'} ready for review`;
+    }
+
+    reviewTbody.innerHTML = reviewedItems.map((item, idx) => {
+      const statusPill = item.already_exists
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 whitespace-nowrap">Exists (skip)</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 whitespace-nowrap">New</span>`;
+
+      const typeOpts = TASK_TYPES.map(t => `<option value="${t.val}" ${item.type === t.val ? 'selected' : ''}>${t.label}</option>`).join('');
+      const priorityOpts = PRIORITIES.map(p => `<option value="${p.val}" ${item.priority === p.val ? 'selected' : ''}>${p.label}</option>`).join('');
+
+      return `
+        <tr data-index="${idx}" class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
+          <td class="p-2">
+            <input type="text" class="task-form-control text-xs p-1.5 min-h-[32px] font-medium w-full" data-field="title" placeholder="Task title" value="${esc(item.title || '')}" required>
+          </td>
+          <td class="p-2">
+            <input type="text" class="task-form-control text-xs p-1.5 min-h-[32px] uppercase w-full" data-field="course_code" placeholder="e.g. CSC 401" value="${esc(item.course_code || '')}">
+          </td>
+          <td class="p-2">
+            <select class="task-form-control text-xs p-1.5 min-h-[32px] w-full" data-field="type">
+              ${typeOpts}
+            </select>
+          </td>
+          <td class="p-2">
+            <input type="date" class="task-form-control text-xs p-1.5 min-h-[32px] font-mono w-full" data-field="due_date" value="${esc(item.due_date || '')}">
+          </td>
+          <td class="p-2">
+            <input type="time" class="task-form-control text-xs p-1.5 min-h-[32px] font-mono w-full" data-field="due_time" value="${esc((item.due_time || '23:59:00').substring(0, 5))}">
+          </td>
+          <td class="p-2">
+            <select class="task-form-control text-xs p-1.5 min-h-[32px] w-full" data-field="priority">
+              ${priorityOpts}
+            </select>
+          </td>
+          <td class="p-2 text-center">${statusPill}</td>
+          <td class="p-2 text-right">
+            <button type="button" class="text-red-500 hover:text-red-700 p-1 remove-review-work-btn" title="Remove item">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    reviewTbody.querySelectorAll('.remove-review-work-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const tr = e.target.closest('tr');
+        const idx = Number(tr.dataset.index);
+        reviewedItems.splice(idx, 1);
+        renderReviewTable();
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  if (addItemBtn) {
+    addItemBtn.addEventListener('click', () => {
+      reviewedItems.push({
+        title: '',
+        course_code: '',
+        type: 'assignment',
+        due_date: '',
+        due_time: '23:59:00',
+        priority: 'medium',
+        already_exists: false
+      });
+      renderReviewTable();
+      const inputs = reviewTbody?.querySelectorAll('input[data-field="title"]');
+      if (inputs?.length) inputs[inputs.length - 1].focus();
+    });
+  }
+
+  // Extract action
+  if (extractBtn) {
+    extractBtn.addEventListener('click', async () => {
+      if (errorBox) { errorBox.innerHTML = ''; errorBox.classList.add('hidden'); }
+      const textVal = (textInput?.value || '').trim();
+      if (!selectedFile && !textVal) {
+        if (errorBox) {
+          errorBox.innerHTML = 'Please choose a document (.pdf, .docx, .txt) or paste coursework text.';
+          errorBox.classList.remove('hidden');
+        }
         return;
       }
 
+      extractBtn.disabled = true;
+      extractBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Extracting…`;
+      if (window.lucide) window.lucide.createIcons();
 
       try {
-
-        const text =
-          await file.text();
-
-        const rows =
-          parseCsv(
-            text
-          );
-
-
-        if (
-          rows.length < 2
-        ) {
-
-          throw new Error(
-            'The CSV file does not contain any task rows.'
-          );
-
+        let res;
+        if (selectedFile) {
+          const fd = new FormData();
+          fd.append('action', 'extract');
+          fd.append('domain', 'work');
+          fd.append('document', selectedFile);
+          fd.append('csrf_token', window.CSRF_TOKEN || '');
+          res = await fetch(`${API}/document_import.php`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: fd
+          });
+        } else {
+          res = await fetch(`${API}/document_import.php`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              action: 'extract',
+              domain: 'work',
+              text: textVal,
+              csrf_token: window.CSRF_TOKEN || ''
+            })
+          });
         }
 
-
-        const headers =
-          rows[0].map(
-            normalizeHeader
-          );
-
-
-        const index =
-          name =>
-            headers.indexOf(
-              name
-            );
-
-
-        const titleIndex =
-          index(
-            'title'
-          );
-
-
-        const dueIndex =
-          index(
-            'due_at'
-          ) >= 0
-            ? index(
-                'due_at'
-              )
-            : index(
-                'deadline'
-              );
-
-
-        if (
-          titleIndex < 0 ||
-          dueIndex < 0
-        ) {
-
-          throw new Error(
-            'CSV must contain "title" and "due_at" (or "deadline") columns.'
-          );
-
-        }
-
-
-        let success =
-          0;
-
-        let failed =
-          0;
-
-
-        for (
-          const row of
-          rows.slice(1)
-        ) {
-
-          const title =
-            String(
-              row[titleIndex] ||
-              ''
-            ).trim();
-
-
-          const due =
-            String(
-              row[dueIndex] ||
-              ''
-            ).trim();
-
-
-          if (
-            !title ||
-            !due
-          ) {
-
-            failed++;
-
-            continue;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          let errMsg = data.error || "We couldn't extract academic work from this document.";
+          if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
+            errMsg = `<strong>Scanned PDF Detected:</strong> ${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-work-fallback').click()" class="underline font-bold">Add Work Manually &rarr;</button></div>`;
+          } else if (data.manual_entry) {
+            errMsg = `${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-work-fallback').click()" class="underline font-bold">Add Work Manually &rarr;</button></div>`;
           }
+          if (errorBox) {
+            errorBox.innerHTML = errMsg;
+            errorBox.classList.remove('hidden');
+          }
+          return;
+        }
 
+        reviewedItems = Array.isArray(data.items) ? data.items : [];
+        if (reviewedItems.length === 0) {
+          if (errorBox) {
+            errorBox.innerHTML = "No assignments or school work were identified. Try another document or add manually.";
+            errorBox.classList.remove('hidden');
+          }
+          return;
+        }
 
-          const payload = {
+        renderReviewTable();
+        stepUpload?.classList.add('hidden');
+        stepReview?.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+      } catch (err) {
+        console.error('Extract work error:', err);
+        if (errorBox) {
+          errorBox.innerHTML = 'An unexpected error occurred while reading the document.';
+          errorBox.classList.remove('hidden');
+        }
+      } finally {
+        extractBtn.disabled = false;
+        extractBtn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> Extract School Work`;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
 
+  // Confirm action
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async () => {
+      if (reviewError) { reviewError.innerHTML = ''; reviewError.classList.add('hidden'); }
+
+      const rows = reviewTbody?.querySelectorAll('tr') || [];
+      const itemsToSave = [];
+      rows.forEach(tr => {
+        const title = (tr.querySelector('input[data-field="title"]')?.value || '').trim();
+        const code = (tr.querySelector('input[data-field="course_code"]')?.value || '').trim();
+        const type = tr.querySelector('select[data-field="type"]')?.value || 'assignment';
+        const dueDate = tr.querySelector('input[data-field="due_date"]')?.value || '';
+        const dueTime = tr.querySelector('input[data-field="due_time"]')?.value || '23:59';
+        const priority = tr.querySelector('select[data-field="priority"]')?.value || 'medium';
+
+        if (title) {
+          itemsToSave.push({
             title,
-
-            due_at:
-              sqlDateTime(
-                due
-              ),
-
-            description:
-              valueFromRow(
-                row,
-                headers,
-                'description'
-              ),
-
-            course_id:
-              valueFromRow(
-                row,
-                headers,
-                'course_id'
-              ),
-
-            type:
-              valueFromRow(
-                row,
-                headers,
-                'type'
-              ) ||
-              'assignment',
-
-            priority:
-              valueFromRow(
-                row,
-                headers,
-                'priority'
-              ) ||
-              'medium',
-
-            status:
-              valueFromRow(
-                row,
-                headers,
-                'status'
-              ) ||
-              'not_started',
-
-            progress_percent:
-              Number(
-                valueFromRow(
-                  row,
-                  headers,
-                  'progress_percent'
-                ) || 0
-              ),
-
-            duration_hours:
-              Number(
-                valueFromRow(
-                  row,
-                  headers,
-                  'duration_hours'
-                ) || 0
-              ),
-
-            csrf_token:
-              window.CSRF_TOKEN ||
-              ''
-
-          };
-
-
-          try {
-
-            await apiJson(
-              `${API}/tasks.php`,
-              {
-
-                method:
-                  'POST',
-
-                headers: {
-                  'Content-Type':
-                    'application/json'
-                },
-
-                body:
-                  JSON.stringify(
-                    payload
-                  )
-
-              }
-            );
-
-            success++;
-
-          } catch (error) {
-
-            console.error(
-              'Import row failed:',
-              error
-            );
-
-            failed++;
-          }
-
+            course_code: code,
+            type,
+            due_date: dueDate,
+            due_time: dueTime.length === 5 ? dueTime + ':00' : dueTime,
+            priority
+          });
         }
+      });
 
-
-        toast(
-          `${success} task${
-            success === 1
-              ? ''
-              : 's'
-          } imported${
-            failed
-              ? `, ${failed} skipped`
-              : ''
-          }.`,
-          failed
-            ? 'info'
-            : 'success'
-        );
-
-
-        await loadTasks();
-
-      } catch (error) {
-
-        console.error(
-          'Import tasks failed:',
-          error
-        );
-
-        toast(
-          error.message ||
-            'Could not import tasks.',
-          'error'
-        );
-
+      if (itemsToSave.length === 0) {
+        if (reviewError) {
+          reviewError.textContent = 'Please provide at least one work item with a title.';
+          reviewError.classList.remove('hidden');
+        }
+        return;
       }
 
-    }
-  );
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving…`;
+      if (window.lucide) window.lucide.createIcons();
+
+      try {
+        const res = await fetch(`${API}/document_import.php`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            action: 'confirm',
+            domain: 'work',
+            items: itemsToSave,
+            csrf_token: window.CSRF_TOKEN || ''
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Failed to save school work.');
+        }
+
+        closeModal();
+        if (typeof toast === 'function') {
+          toast(data.message || `Successfully imported ${data.imported_count} work items!`, 'success');
+        } else if (window.showToast) {
+          window.showToast(data.message || `Successfully imported ${data.imported_count} work items!`, 'success');
+        }
+        await loadTasks();
+      } catch (err) {
+        console.error('Confirm work error:', err);
+        if (reviewError) {
+          reviewError.textContent = err.message || 'Error saving school work.';
+          reviewError.classList.remove('hidden');
+        }
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> Confirm & Add Work`;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
 }
 
 
@@ -4206,6 +4830,229 @@ function capitalizeSafe(
    INITIALIZE
 ========================================================= */
 
+
+
+/* =========================================================
+   TASK COMPLETION CONFIRMATION & DELETION MODAL WORKFLOWS
+========================================================= */
+
+let PENDING_COMPLETE_TASK_ID = null;
+let PENDING_DELETE_TASK_ID = null;
+
+function openCompleteTaskConfirmModal(taskId = null) {
+  if (taskId && typeof taskId === 'object') {
+    taskId = null;
+  }
+  if (typeof IS_TIMER_BUSY !== 'undefined' && IS_TIMER_BUSY) return;
+
+  const modal = getEl('complete-task-modal');
+  if (!modal) {
+    if (taskId) {
+      executeTaskCompletion(taskId);
+    } else if (typeof handleTimerComplete === 'function') {
+      handleTimerComplete();
+    }
+    return;
+  }
+
+  let targetTaskId = taskId;
+  if (!targetTaskId && typeof CURRENT_FOCUS_SESSION !== 'undefined' && CURRENT_FOCUS_SESSION) {
+    targetTaskId = CURRENT_FOCUS_SESSION.task_id;
+  }
+
+  PENDING_COMPLETE_TASK_ID = targetTaskId;
+
+  const matchedTask = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(targetTaskId));
+  const title = matchedTask?.title || (typeof CURRENT_FOCUS_SESSION !== 'undefined' ? CURRENT_FOCUS_SESSION?.task_title : null) || 'Work Item';
+  const courseCode = matchedTask?.course_code || (typeof CURRENT_FOCUS_SESSION !== 'undefined' ? CURRENT_FOCUS_SESSION?.course_code : '') || '';
+
+  let elapsedSec = 0;
+  if (typeof CURRENT_FOCUS_SESSION !== 'undefined' && CURRENT_FOCUS_SESSION && String(CURRENT_FOCUS_SESSION.task_id) === String(targetTaskId)) {
+    elapsedSec = CURRENT_FOCUS_SESSION.duration_seconds || CURRENT_FOCUS_SESSION.current_elapsed_seconds || 0;
+  } else if (matchedTask) {
+    elapsedSec = Number(matchedTask.total_focused_seconds || matchedTask.focused_seconds || 0);
+  }
+
+  const titleEl = getEl('complete-modal-task-title');
+  if (titleEl) titleEl.textContent = title;
+
+  const courseBadge = getEl('complete-modal-course-badge');
+  if (courseBadge) {
+    courseBadge.textContent = courseCode || 'General';
+  }
+
+  const timeBadge = getEl('complete-modal-time-badge');
+  if (timeBadge) {
+    timeBadge.textContent = elapsedSec > 0 ? `${formatDurationHuman(elapsedSec)} study time recorded` : 'No study timer recorded';
+  }
+
+  modal.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeCompleteTaskConfirmModal() {
+  const modal = getEl('complete-task-modal');
+  if (modal) modal.classList.add('hidden');
+  PENDING_COMPLETE_TASK_ID = null;
+}
+
+async function executeTaskCompletion(taskId) {
+  if (!taskId) return;
+  const btn = getEl('confirm-complete-task');
+  setButtonBusy(btn, true, 'Completing…');
+
+  try {
+    if (typeof CURRENT_FOCUS_SESSION !== 'undefined' && CURRENT_FOCUS_SESSION && String(CURRENT_FOCUS_SESSION.task_id) === String(taskId)) {
+      closeCompleteTaskConfirmModal();
+      await handleTimerComplete();
+      return;
+    }
+
+    await apiJson(`${API}/tasks.php`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: taskId,
+        status: 'completed',
+        progress_percent: 100,
+        csrf_token: window.CSRF_TOKEN || ''
+      })
+    });
+
+    toast('Work marked as completed.', 'success');
+    closeCompleteTaskConfirmModal();
+    await loadTasks();
+  } catch (err) {
+    console.error('Task completion error:', err);
+    toast(err.message || 'Could not complete task.', 'error');
+  } finally {
+    setButtonBusy(btn, false, 'Yes, Complete Task');
+    PENDING_COMPLETE_TASK_ID = null;
+  }
+}
+
+async function handleUndoComplete(taskId) {
+  if (!taskId) return;
+  try {
+    await apiJson(`${API}/tasks.php`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: taskId,
+        status: 'pending',
+        progress_percent: 0,
+        csrf_token: window.CSRF_TOKEN || ''
+      })
+    });
+    toast('Task moved back to active work.', 'info');
+    await loadTasks();
+  } catch (err) {
+    console.error('Task undo error:', err);
+    toast(err.message || 'Could not reopen task.', 'error');
+  }
+}
+
+async function handleTimerComplete() {
+  if (typeof IS_TIMER_BUSY !== 'undefined' && IS_TIMER_BUSY) return;
+  if (typeof CURRENT_FOCUS_SESSION === 'undefined' || !CURRENT_FOCUS_SESSION) return;
+
+  IS_TIMER_BUSY = true;
+  const btnComplete = getEl('timer-btn-complete');
+  setButtonBusy(btnComplete, true, 'Completing…');
+  setTimerFeedback('');
+
+  try {
+    const res = await studySessionApi('POST', {}, {
+      action: 'complete',
+      session_id: CURRENT_FOCUS_SESSION.id
+    });
+
+    if (res.ok && res.data.session) {
+      if (typeof stopFocusTicker === 'function') stopFocusTicker();
+      const finalSec = res.data.session.duration_seconds || 0;
+      const taskId = CURRENT_FOCUS_SESSION.task_id;
+      CURRENT_FOCUS_SESSION = null;
+
+      const digitsEl = getEl('timer-digits');
+      if (digitsEl) digitsEl.textContent = '00:00:00';
+
+      if (typeof setTimerUIState === 'function') setTimerUIState('idle');
+      const humanDur = formatDurationHuman(finalSec);
+      setTimerFeedback(`Study session completed! ${humanDur} recorded.`, 'success');
+      toast(`Study session completed (${humanDur} recorded)`, 'success');
+
+      if (taskId) {
+        try {
+          await apiJson(`${API}/tasks.php`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: taskId,
+              status: 'completed',
+              progress_percent: 100,
+              csrf_token: window.CSRF_TOKEN || ''
+            })
+          });
+        } catch (taskErr) {
+          console.warn('Could not update task status:', taskErr);
+        }
+      }
+      await loadTasks();
+    } else {
+      setTimerFeedback(res.data.error || 'Could not complete session.', 'error');
+    }
+  } catch (err) {
+    setTimerFeedback('Network error while completing session.', 'error');
+  } finally {
+    IS_TIMER_BUSY = false;
+    setButtonBusy(btnComplete, false, 'Complete Session');
+  }
+}
+
+function bindCompletionAndDeletionEvents() {
+  getEl('timer-btn-complete')?.addEventListener('click', openCompleteTaskConfirmModal);
+
+  getEl('cancel-complete-task')?.addEventListener('click', closeCompleteTaskConfirmModal);
+  getEl('confirm-complete-task')?.addEventListener('click', () => {
+    if (PENDING_COMPLETE_TASK_ID) {
+      executeTaskCompletion(PENDING_COMPLETE_TASK_ID);
+    } else if (typeof handleTimerComplete === 'function') {
+      closeCompleteTaskConfirmModal();
+      handleTimerComplete();
+    } else {
+      closeCompleteTaskConfirmModal();
+    }
+  });
+
+  getEl('complete-task-modal')?.addEventListener('click', e => {
+    if (e.target === getEl('complete-task-modal')) closeCompleteTaskConfirmModal();
+  });
+
+  getEl('cancel-delete-task')?.addEventListener('click', closeDeleteCompletedTaskModal);
+  getEl('confirm-delete-task')?.addEventListener('click', () => {
+    if (PENDING_DELETE_TASK_ID) {
+      executeDeleteCompletedTask(PENDING_DELETE_TASK_ID);
+    } else {
+      closeDeleteCompletedTaskModal();
+    }
+  });
+
+  getEl('delete-task-modal')?.addEventListener('click', e => {
+    if (e.target === getEl('delete-task-modal')) closeDeleteCompletedTaskModal();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (!getEl('complete-task-modal')?.classList.contains('hidden')) {
+        closeCompleteTaskConfirmModal();
+      }
+      if (!getEl('delete-task-modal')?.classList.contains('hidden')) {
+        closeDeleteCompletedTaskModal();
+      }
+    }
+  });
+}
+
 function initializeTasksPage() {
 
   bindTabs();
@@ -4225,6 +5072,7 @@ function initializeTasksPage() {
   }
 
   startTaskLiveClock();
+  bindCompletionAndDeletionEvents();
 }
 
 
@@ -4245,7 +5093,81 @@ window.APP_READY.then(
 
     await loadCourseOptions();
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const courseIdParam = urlParams.get('course_id');
+    const addTaskParam = urlParams.get('add_task') === '1' || urlParams.get('add') === '1';
+    const taskIdParam = urlParams.get('task_id');
+    const focusTaskIdParam = urlParams.get('focus_task_id');
+
+    if (courseIdParam) {
+      const courseFilter = getEl('filter-course');
+      if (courseFilter) {
+        courseFilter.value = courseIdParam;
+      }
+      const sideCourseFilter = getEl('filter-course-side');
+      if (sideCourseFilter) {
+        sideCourseFilter.value = courseIdParam;
+      }
+    }
+
     await loadTasks();
+
+    if (addTaskParam) {
+      openAddTask();
+      if (courseIdParam) {
+        const formCourse = getEl('task-form')?.elements?.course_id;
+        if (formCourse) {
+          formCourse.value = courseIdParam;
+        }
+      }
+    }
+
+    if (taskIdParam) {
+      const targetTask = ALL_TASKS.find(t => String(t.id) === String(taskIdParam));
+      if (targetTask) {
+        if (targetTask.status === 'completed' && ACTIVE_TAB === 'pending') {
+          ACTIVE_TAB = 'all';
+          setActiveTabUI();
+          renderTable(ALL_TASKS);
+        } else if (targetTask.status !== 'completed' && ACTIVE_TAB === 'completed') {
+          ACTIVE_TAB = 'all';
+          setActiveTabUI();
+          renderTable(ALL_TASKS);
+        }
+
+        const taskIndex = ALL_TASKS.findIndex(t => String(t.id) === String(taskIdParam));
+        if (taskIndex !== -1) {
+          CURRENT_PAGE = Math.floor(taskIndex / PAGE_SIZE) + 1;
+          renderTable(ALL_TASKS);
+        }
+
+        setTimeout(() => {
+          const row = document.querySelector(`[data-task-id="${taskIdParam}"]`);
+          if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('ring-2', 'ring-emerald-400', 'bg-emerald-50/50', 'dark:bg-emerald-950/30');
+            setTimeout(() => {
+              row.classList.remove('ring-2', 'ring-emerald-400');
+            }, 3000);
+          }
+        }, 200);
+      }
+    }
+
+    if (focusTaskIdParam) {
+      if (typeof selectTaskForTimer === 'function') {
+        selectTaskForTimer(focusTaskIdParam, true);
+      }
+      const timerCard = getEl('focus-timer-card');
+      if (timerCard) {
+        timerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else if (urlParams.get('focus') === '1') {
+      const timerCard = getEl('focus-timer-card');
+      if (timerCard) {
+        timerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
 
   }
 );

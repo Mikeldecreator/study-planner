@@ -221,10 +221,10 @@ requirePageLogin();
           >
 
             <div
-              class="w-9 h-9 rounded-full bg-emerald-800 text-white text-xs font-semibold flex items-center justify-center"
-              data-user-initial
+              class="w-9 h-9 rounded-full bg-emerald-800 text-white text-xs font-semibold flex items-center justify-center overflow-hidden"
+              data-top-avatar
             >
-              U
+              <span data-user-initial>U</span>
             </div>
 
             <span
@@ -363,9 +363,9 @@ requirePageLogin();
 
               <div class="grid grid-cols-2 gap-3">
 
-                <div class="bg-white/80 dark:bg-white/[.04] rounded-xl border border-white/80 dark:border-white/5 p-3">
+                <a href="tasks.php" class="bg-white/80 dark:bg-white/[.04] rounded-xl border border-white/80 dark:border-white/5 p-3 hover:border-emerald-500/30 transition block group" title="Go to Tasks">
 
-                  <div class="text-xs text-gray-400">
+                  <div class="text-xs text-gray-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                     Tasks
                   </div>
 
@@ -376,11 +376,11 @@ requirePageLogin();
                     –
                   </div>
 
-                </div>
+                </a>
 
-                <div class="bg-white/80 dark:bg-white/[.04] rounded-xl border border-white/80 dark:border-white/5 p-3">
+                <a href="schedule.php" class="bg-white/80 dark:bg-white/[.04] rounded-xl border border-white/80 dark:border-white/5 p-3 hover:border-emerald-500/30 transition block group" title="Go to Schedule">
 
-                  <div class="text-xs text-gray-400">
+                  <div class="text-xs text-gray-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                     Study Sessions
                   </div>
 
@@ -391,7 +391,7 @@ requirePageLogin();
                     –
                   </div>
 
-                </div>
+                </a>
 
               </div>
 
@@ -510,9 +510,90 @@ requirePageLogin();
 
       </section>
 
+      <!-- Foundation 5: Progress Intelligence Insights -->
+      <section
+        id="progress-insights-section"
+        class="surface rounded-2xl p-4 sm:p-5"
+      >
+        <div class="flex items-center justify-between mb-3.5">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-gray-900 dark:text-gray-100">Academic Progress Intelligence</h3>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400">Contextual evaluation of your current academic standing and momentum.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="progress-insights-grid">
+          <!-- Strongest Area -->
+          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Strongest Area</span>
+                <i data-lucide="award" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+              </div>
+              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-strongest-label">–</div>
+            </div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-strongest-desc">Analyzing...</div>
+          </div>
+
+          <!-- Needs Attention -->
+          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Needs Attention</span>
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+              </div>
+              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-attention-label">–</div>
+            </div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-attention-desc">Analyzing...</div>
+          </div>
+
+          <!-- Remaining Workload -->
+          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Workload Remaining</span>
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+              </div>
+              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-workload-label">–</div>
+            </div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-workload-desc">Calculating effort...</div>
+          </div>
+
+          <!-- Completion Trend -->
+          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Completion Trend</span>
+                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+              </div>
+              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-trend-label">–</div>
+            </div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-trend-desc">Checking pace...</div>
+          </div>
+
+          <!-- Study Consistency -->
+          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Study Consistency</span>
+                <i data-lucide="calendar-check" class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"></i>
+              </div>
+              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-consistency-label">–</div>
+            </div>
+            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-consistency-desc">Evaluating sessions...</div>
+          </div>
+        </div>
+      </section>
+
       <!-- Main content -->
       <section
         class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,.9fr)] gap-5 items-start"
+
       >
 
         <!-- Overview -->
@@ -960,5 +1041,7 @@ requirePageLogin();
 <script src="../assets/js/work-timer.js"></script>
 <script src="../assets/js/progress.js"></script>
 
+
+<script src="../assets/js/guided-tour.js"></script>
 </body>
 </html>

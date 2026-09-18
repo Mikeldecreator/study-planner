@@ -276,6 +276,7 @@ requirePageLogin();
                    text-xs
                    font-semibold
                    flex items-center justify-center"
+            data-top-avatar
             data-user-initial
           >
             U
@@ -1192,5 +1193,7 @@ requirePageLogin();
 <script src="../assets/js/work-timer.js"></script>
 <script src="../assets/js/reports.js"></script>
 
+
+<script src="../assets/js/guided-tour.js"></script>
 </body>
 </html>

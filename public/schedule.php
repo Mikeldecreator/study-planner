@@ -7,7 +7,7 @@ requirePageLogin();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Schedule — Study Planner</title>
+<title>My Classes — Study Planner</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="../assets/js/theme-init.js"></script>
@@ -86,8 +86,8 @@ requirePageLogin();
             <i data-lucide="calendar-days" class="w-5 h-5 text-emerald-700 dark:text-emerald-300"></i>
           </div>
           <div class="min-w-0">
-            <h1 class="text-xl sm:text-2xl font-bold tracking-tight truncate">Schedule</h1>
-            <p class="hidden sm:block text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">Plan your study sessions and manage your time effectively.</p>
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight truncate">My Classes</h1>
+            <p class="hidden sm:block text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">Your weekly class timetable and study routine.</p>
           </div>
         </div>
       </div>
@@ -107,7 +107,7 @@ requirePageLogin();
         </button>
         <div class="hidden sm:block h-7 w-px bg-gray-200 dark:bg-white/10"></div>
         <a href="settings.php" class="hidden sm:flex focus-ring items-center gap-2.5 group" aria-label="Account settings">
-          <div class="w-9 h-9 rounded-full bg-emerald-800 dark:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center ring-2 ring-emerald-100 dark:ring-emerald-500/10" data-user-initial>U</div>
+          <div class="w-9 h-9 rounded-full bg-emerald-800 dark:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center ring-2 ring-emerald-100 dark:ring-emerald-500/10 overflow-hidden" data-top-avatar><span data-user-initial>U</span></div>
           <span class="text-sm font-semibold group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors" data-user-name>Loading…</span>
           <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
         </a>
@@ -123,12 +123,20 @@ requirePageLogin();
             <i data-lucide="calendar-check-2" class="w-4 h-4"></i>
             <span>This week</span>
           </div>
-          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">My Schedule</h2>
-          <p class="text-gray-500 dark:text-gray-400 text-sm mt-1.5 max-w-2xl">Your recurring weekly timetable — plan study sessions and manage your time.</p>
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">My Classes</h2>
+          <p class="text-gray-500 dark:text-gray-400 text-sm mt-1.5 max-w-2xl">Your recurring weekly timetable — see your classes and find free study time.</p>
         </div>
-        <button id="open-add-session" class="focus-ring btn-press bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-2 shadow-sm transition-colors">
-          <i data-lucide="plus" class="w-4 h-4"></i> Add Study Session
-        </button>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button id="open-import-timetable" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+            <i data-lucide="upload" class="w-4 h-4"></i> Add My Classes
+          </button>
+          <button id="open-study-prefs" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+            <i data-lucide="sliders" class="w-4 h-4"></i> When I Like to Study
+          </button>
+          <button id="open-add-session" type="button" class="focus-ring btn-press bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-2 shadow-sm transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Class
+          </button>
+        </div>
       </section>
 
       <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4" id="schedule-stat-cards"></div>
@@ -198,7 +206,7 @@ requirePageLogin();
           </div>
         </section>
 
-        <aside class="space-y-4">
+        <aside class="space-y-4 min-w-0 w-full max-w-full">
           <section class="surface rounded-2xl p-4 sm:p-5">
             <div class="flex items-center justify-between mb-4 gap-2">
               <div>
@@ -232,6 +240,20 @@ requirePageLogin();
             </div>
             <div id="today-sessions" class="space-y-3 text-sm"></div>
           </section>
+
+          <!-- Free Periods & Recommended Study Blocks -->
+          <section class="surface rounded-2xl p-4 sm:p-5 min-w-0 w-full max-w-full box-border">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="font-bold text-sm flex items-center gap-1.5">
+                  <i data-lucide="sparkles" class="w-4 h-4 text-emerald-700 dark:text-emerald-300"></i> Free Periods & Study Plan
+                </h3>
+                <p class="text-xs text-gray-400 mt-0.5">Available windows to study today</p>
+              </div>
+            </div>
+            <div id="schedule-free-periods" class="space-y-2.5 text-xs min-w-0 w-full max-w-full"></div>
+          </section>
+
 
           <section class="surface rounded-2xl p-4 sm:p-5">
             <div class="flex items-center justify-between mb-2">
@@ -282,8 +304,8 @@ requirePageLogin();
         <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center mb-3">
           <i data-lucide="calendar-plus-2" class="w-5 h-5 text-emerald-700 dark:text-emerald-300"></i>
         </div>
-        <h3 class="font-bold text-lg" id="session-modal-title">Add Study Session</h3>
-        <p class="text-xs text-gray-400 mt-1">Keep the session details clear and easy to scan.</p>
+        <h3 class="font-bold text-lg" id="session-modal-title">Add Class or Study Session</h3>
+        <p class="text-xs text-gray-400 mt-1">Add your classes, lectures, or study sessions to your week.</p>
       </div>
       <button type="button" id="cancel-session" class="focus-ring w-9 h-9 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5" aria-label="Close modal">
         <i data-lucide="x" class="w-4 h-4 mx-auto"></i>
@@ -348,9 +370,198 @@ requirePageLogin();
   </div>
 </div>
 
+<!-- Universal Timetable Import Modal (Document & Review) -->
+<div id="import-timetable-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+  <div class="surface rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 id="import-modal-title" class="font-bold text-gray-900 dark:text-gray-100 text-lg">Import Class Timetable</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" id="timetable-import-subtitle">Upload your timetable document (PDF, Word DOCX, or text) or paste schedule lines.</p>
+      </div>
+      <button type="button" id="close-import-timetable" aria-label="Close" class="focus-ring text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- STEP 1: UPLOAD OR PASTE -->
+    <div id="timetable-import-step-upload" class="space-y-4">
+      <div class="border-2 border-dashed border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 rounded-2xl p-5 text-center bg-emerald-50/20 dark:bg-emerald-950/10 cursor-pointer transition-colors" id="timetable-dropzone">
+        <input type="file" id="timetable-file-input" accept=".pdf,.docx,.doc,.txt,text/plain" class="hidden">
+        <div class="mx-auto w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-700 dark:text-emerald-300 mb-2">
+          <i data-lucide="file-up" class="w-5 h-5"></i>
+        </div>
+        <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">Click to choose timetable file or drag and drop</p>
+        <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Supports PDF, Word (.docx), or Text files (up to 15MB)</p>
+        <div id="timetable-file-chosen" class="hidden mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-900/30 py-1 px-2.5 rounded-lg inline-block"></div>
+      </div>
+
+      <div>
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center justify-between">
+          <span>Or Paste Timetable Lines</span>
+          <span class="text-[11px] text-gray-400 font-normal">e.g. Monday 9am-11am CSC 401 LT 2</span>
+        </label>
+        <textarea id="timetable-text-input" rows="4" placeholder="Monday 09:00 - 11:00 CSC 401 LT 2&#10;Wednesday 14:00 - 16:00 MTH 301 Hall B&#10;Friday 10:00 - 12:00 PHY 202 Lab 1" class="focus-ring font-mono text-xs mt-1.5 w-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[.04] rounded-xl px-3 py-2.5 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60"></textarea>
+      </div>
+
+      <div id="timetable-import-error" class="hidden text-xs rounded-xl p-3 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/40 space-y-2"></div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-white/10">
+        <button type="button" id="open-manual-class-fallback" class="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Or Add Manually
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" id="cancel-import-timetable" class="focus-ring px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">Cancel</button>
+          <button type="button" id="extract-timetable-btn" class="focus-ring px-4 py-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-4 h-4"></i> Extract Timetable
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: MANDATORY INTERACTIVE REVIEW SCREEN -->
+    <div id="timetable-import-step-review" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-400" id="timetable-review-count">0 classes ready for review</span>
+          <p class="text-[11px] text-gray-500 dark:text-gray-400">Review days, times, and course codes before saving.</p>
+        </div>
+        <button type="button" id="add-review-timetable-btn" class="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Class
+        </button>
+      </div>
+
+      <div class="max-h-72 overflow-y-auto border border-gray-200 dark:border-white/10 rounded-xl overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse min-w-[550px]">
+          <thead class="bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-300 font-semibold">
+            <tr>
+              <th class="p-2 w-28">Day</th>
+              <th class="p-2 w-24">Start</th>
+              <th class="p-2 w-24">End</th>
+              <th class="p-2">Course Code / Title</th>
+              <th class="p-2 w-28">Location</th>
+              <th class="p-2 w-20">Status</th>
+              <th class="p-2 text-right w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="timetable-review-tbody" class="divide-y divide-gray-100 dark:divide-white/5"></tbody>
+        </table>
+      </div>
+
+      <div id="timetable-review-error" class="hidden text-xs rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 p-2.5"></div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-white/10">
+        <button type="button" id="back-timetable-btn" class="text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex items-center gap-1">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Upload Another
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" id="cancel-review-timetable" class="focus-ring px-4 py-2 text-xs text-gray-600 dark:text-gray-300">Cancel</button>
+          <button type="button" id="confirm-import-timetable-btn" class="focus-ring px-5 py-2 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i> Confirm & Add Classes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Study Preferences Modal -->
+<div id="study-preferences-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden" role="dialog" aria-modal="true" aria-labelledby="prefs-modal-title">
+  <div class="surface rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 id="prefs-modal-title" class="font-bold text-gray-900 dark:text-gray-100 text-lg">When I Like to Study</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Help your academic assistant recommend the most effective study slots.</p>
+      </div>
+      <button type="button" id="close-study-prefs" aria-label="Close" class="focus-ring text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form id="study-preferences-form" class="space-y-4">
+      <div>
+        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-2">When do you focus best?</label>
+        <div class="grid grid-cols-2 gap-2.5">
+          <label class="pref-time-card flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white/50 dark:bg-white/[.02] cursor-pointer hover:border-emerald-500/50 transition-colors">
+            <input type="radio" name="preferred_study_time" value="morning" class="w-4 h-4 accent-emerald-600">
+            <div>
+              <div class="text-xs font-bold text-gray-800 dark:text-gray-200">Morning</div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400">08:00 – 12:00</div>
+            </div>
+          </label>
+          <label class="pref-time-card flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white/50 dark:bg-white/[.02] cursor-pointer hover:border-emerald-500/50 transition-colors">
+            <input type="radio" name="preferred_study_time" value="afternoon" class="w-4 h-4 accent-emerald-600">
+            <div>
+              <div class="text-xs font-bold text-gray-800 dark:text-gray-200">Afternoon</div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400">12:00 – 17:00</div>
+            </div>
+          </label>
+          <label class="pref-time-card flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white/50 dark:bg-white/[.02] cursor-pointer hover:border-emerald-500/50 transition-colors">
+            <input type="radio" name="preferred_study_time" value="evening" class="w-4 h-4 accent-emerald-600">
+            <div>
+              <div class="text-xs font-bold text-gray-800 dark:text-gray-200">Evening</div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400">17:00 – 22:00</div>
+            </div>
+          </label>
+          <label class="pref-time-card flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white/50 dark:bg-white/[.02] cursor-pointer hover:border-emerald-500/50 transition-colors">
+            <input type="radio" name="preferred_study_time" value="flexible" class="w-4 h-4 accent-emerald-600" checked>
+            <div>
+              <div class="text-xs font-bold text-gray-800 dark:text-gray-200">Flexible</div>
+              <div class="text-[11px] text-gray-500 dark:text-gray-400">Any open gap</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1.5">Weekly Target Study Hours</label>
+        <div class="flex items-center gap-3">
+          <input type="number" min="1" max="60" step="1" name="weekly_goal_hours" id="pref-weekly-hours" value="15" class="focus-ring w-24 border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[.04] rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <span class="text-xs text-gray-500 dark:text-gray-400">hours / week recommended across courses</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1.5">Active Study Days</label>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="1" class="accent-emerald-600" checked> Mon
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="2" class="accent-emerald-600" checked> Tue
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="3" class="accent-emerald-600" checked> Wed
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="4" class="accent-emerald-600" checked> Thu
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="5" class="accent-emerald-600" checked> Fri
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="6" class="accent-emerald-600"> Sat
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer">
+            <input type="checkbox" name="preferred_days" value="0" class="accent-emerald-600"> Sun
+          </label>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" id="cancel-study-prefs" class="focus-ring px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">Cancel</button>
+        <button type="submit" id="save-study-prefs" class="focus-ring px-4 py-2 text-sm bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i> Save Routine
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="../assets/js/nav.js"></script>
 <script src="../assets/js/notifications.js"></script>
 <script src="../assets/js/work-timer.js"></script>
 <script src="../assets/js/schedule.js"></script>
+
+<script src="../assets/js/guided-tour.js"></script>
 </body>
 </html>

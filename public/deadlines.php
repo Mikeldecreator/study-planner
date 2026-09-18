@@ -11,7 +11,7 @@ requirePageLogin();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Deadlines — Study Planner</title>
+<title>Due Soon — Study Planner</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -174,11 +174,11 @@ requirePageLogin();
 
         <div class="min-w-0">
           <h1 class="text-xl sm:text-2xl font-bold text-[#073b31] dark:text-white">
-            Deadlines
+            Due Soon
           </h1>
 
           <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Track all your upcoming deadlines and never miss a due date.
+            Keep track of upcoming coursework and exam dates.
           </p>
         </div>
 
@@ -191,7 +191,7 @@ requirePageLogin();
           <input
             type="text"
             id="deadline-search"
-            placeholder="Search tasks, courses, notes..."
+            placeholder="Search work, courses, notes..."
             class="search-focus w-full bg-[#F8FBFA] dark:bg-white/[.045] border border-gray-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition"
           >
         </div>
@@ -225,10 +225,10 @@ requirePageLogin();
             aria-label="Account settings"
           >
             <div
-              class="w-9 h-9 rounded-full bg-emerald-800 text-white text-xs font-semibold flex items-center justify-center"
-              data-user-initial
+              class="w-9 h-9 rounded-full bg-emerald-800 text-white text-xs font-semibold flex items-center justify-center overflow-hidden"
+              data-top-avatar
             >
-              U
+              <span data-user-initial>U</span>
             </div>
 
             <span
@@ -258,7 +258,7 @@ requirePageLogin();
         <input
           type="text"
           id="deadline-search-mobile"
-          placeholder="Search tasks, courses, notes..."
+          placeholder="Search work, courses, notes..."
           class="w-full bg-[#F8FBFA] dark:bg-white/[.045] border border-gray-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none"
         >
       </div>
@@ -271,10 +271,13 @@ requirePageLogin();
 
     <div class="p-4 sm:p-6 xl:p-8 space-y-6">
 
+      <!-- Next Attention Needed Banner -->
+      <div id="deadline-attention-banner" class="hidden"></div>
+
       <!-- Page intro -->
       <section class="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
 
-        <div>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full xl:w-auto">
           <div class="flex items-center gap-2">
             <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
               <i data-lucide="clock-3" class="w-5 h-5"></i>
@@ -282,14 +285,21 @@ requirePageLogin();
 
             <div>
               <h2 class="text-lg sm:text-xl font-bold text-[#073b31] dark:text-white">
-                Upcoming Deadlines
+                Due Soon
               </h2>
 
               <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                Stay ahead of assignments, tests, projects, and submissions.
+                Stay ahead of assignments, tests, and coursework.
               </p>
             </div>
           </div>
+
+          <a
+            href="tasks.php?add_task=1"
+            class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold shadow-sm transition shrink-0"
+          >
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Work
+          </a>
         </div>
 
         <!-- Filter controls -->
@@ -306,35 +316,52 @@ requirePageLogin();
           <button
             type="button"
             class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            data-deadline-view="overdue"
+          >
+            Overdue
+          </button>
+
+          <button
+            type="button"
+            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
             data-deadline-view="today"
           >
-            Today
+            Due Today
           </button>
 
           <button
             type="button"
             class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
-            data-deadline-view="week"
+            data-deadline-view="due_soon"
           >
-            Week
+            Due Soon
           </button>
 
           <button
             type="button"
             class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
-            data-deadline-view="month"
+            data-deadline-view="upcoming"
           >
-            Month
+            Upcoming
+          </button>
+
+          <button
+            type="button"
+            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            data-deadline-view="completed"
+          >
+            Completed
           </button>
 
           <select
             id="deadline-status-filter"
             class="bg-white dark:bg-[#13191a] border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold outline-none"
           >
-            <option value="">All Status</option>
+            <option value="">All Urgency</option>
             <option value="on_track">On Track</option>
             <option value="due_soon">Due Soon</option>
             <option value="overdue">Overdue</option>
+            <option value="completed">Completed</option>
           </select>
 
         </div>
@@ -367,7 +394,7 @@ requirePageLogin();
                   ></i>
 
                   <h3 class="font-bold text-sm">
-                    All Deadlines
+                    All Due Dates
                   </h3>
                 </div>
 
@@ -375,7 +402,7 @@ requirePageLogin();
                   id="deadline-table-subtitle"
                   class="text-xs text-gray-400 dark:text-gray-500 mt-1"
                 >
-                  Your deadlines sorted by due date.
+                  Your work sorted by due date.
                 </p>
               </div>
 
@@ -397,35 +424,12 @@ requirePageLogin();
 
               <thead>
                 <tr class="bg-[#F8FBFA] dark:bg-white/[.025] text-left text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10">
-
-                  <th class="py-3 px-4 sm:px-5 font-semibold w-10">
-                    #
-                  </th>
-
-                  <th class="py-3 px-4 font-semibold">
-                    Task / Assignment
-                  </th>
-
-                  <th class="py-3 px-4 font-semibold">
-                    Course
-                  </th>
-
-                  <th class="py-3 px-4 font-semibold">
-                    Due Date
-                  </th>
-
-                  <th class="py-3 px-4 font-semibold">
-                    Time Left
-                  </th>
-
-                  <th class="py-3 px-4 font-semibold">
-                    Priority
-                  </th>
-
-                  <th class="py-3 px-4 font-semibold">
-                    Status
-                  </th>
-
+                  <th class="py-3 px-3 sm:px-4 font-semibold w-10 text-center">#</th>
+                  <th class="py-3 px-4 font-semibold min-w-[240px]">Work &amp; Course</th>
+                  <th class="py-3 px-4 font-semibold w-36">Due Date</th>
+                  <th class="py-3 px-4 font-semibold w-36">Urgency / Time Left</th>
+                  <th class="py-3 px-4 font-semibold min-w-[170px]">System Status &amp; Progress</th>
+                  <th class="py-3 px-4 font-semibold text-right min-w-[160px]">Actions</th>
                 </tr>
               </thead>
 
@@ -459,7 +463,7 @@ requirePageLogin();
                 ></i>
 
                 <h3 class="font-bold text-sm">
-                  Deadline Overview
+                  Due Soon Overview
                 </h3>
               </div>
 
@@ -516,7 +520,7 @@ requirePageLogin();
                 ></i>
 
                 <h3 class="font-bold text-sm">
-                  Upcoming Deadlines
+                  Due in Next 7 Days
                 </h3>
 
               </div>
@@ -618,6 +622,40 @@ requirePageLogin();
 
   </main>
 
+<!-- Deadline Details Modal -->
+<div id="deadline-detail-modal" class="hidden fixed inset-0 bg-slate-950/45 dark:bg-black/60 modal-backdrop flex items-center justify-center z-50 p-4">
+  <div class="modal-scroll bg-white dark:bg-[#141a18] rounded-2xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-gray-100 dark:border-white/10 modal-enter space-y-4">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <div id="modal-deadline-icon" class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+          <i data-lucide="clock" class="w-5 h-5"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h3 id="modal-deadline-title" class="font-bold text-base sm:text-lg leading-tight truncate">Work Details</h3>
+          <p id="modal-deadline-course" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate"></p>
+        </div>
+      </div>
+      <button type="button" id="close-deadline-modal" class="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 flex items-center justify-center shrink-0" aria-label="Close modal">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <div id="modal-deadline-body" class="space-y-3 text-xs text-gray-600 dark:text-gray-300">
+      <!-- Injected via JavaScript -->
+    </div>
+
+    <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-white/10 gap-2">
+      <div id="modal-deadline-due" class="text-[11px] font-semibold text-gray-500 dark:text-gray-400"></div>
+      <div class="flex items-center gap-2">
+        <a id="modal-open-task-btn" href="#" class="btn-press px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 font-semibold text-xs flex items-center gap-1.5">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> View in My Work
+        </a>
+        <a id="modal-focus-timer-btn" href="#" class="btn-press px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="timer" class="w-3.5 h-3.5"></i> Start Studying
+        </a>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="../assets/js/nav.js"></script>
@@ -625,5 +663,7 @@ requirePageLogin();
 <script src="../assets/js/work-timer.js"></script>
 <script src="../assets/js/deadlines.js"></script>
 
+
+<script src="../assets/js/guided-tour.js"></script>
 </body>
 </html>

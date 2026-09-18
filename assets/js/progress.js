@@ -308,6 +308,11 @@ async function loadProgress(
       data
     );
 
+    renderProgressInsights(
+      data.progress_insights
+    );
+
+
     /*
      * Only update the UI if this request is
      * still the currently selected range.
@@ -989,6 +994,47 @@ function renderCourseList(courses) {
 }
 
 
+/*
+ * ================================================================
+ * PROGRESS INSIGHTS (FOUNDATION 5)
+ * ================================================================
+ */
+
+function renderProgressInsights(insights) {
+  if (!insights) return;
+
+  const strongest = insights.strongest_area;
+  if (strongest) {
+    setText('insight-strongest-label', strongest.label || '–');
+    setText('insight-strongest-desc', strongest.description || '');
+  }
+
+  const attention = insights.needs_attention;
+  if (attention) {
+    setText('insight-attention-label', attention.label || '–');
+    setText('insight-attention-desc', attention.description || '');
+  }
+
+  const workload = insights.remaining_workload;
+  if (workload) {
+    setText('insight-workload-label', workload.label || '–');
+    setText('insight-workload-desc', workload.description || '');
+  }
+
+  const trend = insights.completion_trend;
+  if (trend) {
+    setText('insight-trend-label', trend.label || '–');
+    setText('insight-trend-desc', trend.description || '');
+  }
+
+  const consistency = insights.study_consistency;
+  if (consistency) {
+    setText('insight-consistency-label', consistency.label || '–');
+    setText('insight-consistency-desc', consistency.description || '');
+  }
+}
+
+
 function renderCourseRow(
   course,
   index
@@ -1061,6 +1107,25 @@ function renderCourseRow(
         ? '#d97706'
         : '#dc2626';
 
+  // Foundation 5: Academic Pressure and Workload
+  const pressure = course.course_pressure || 'Low';
+  let pressureClass = 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300';
+  if (pressure === 'Critical') {
+    pressureClass = 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300';
+  } else if (pressure === 'High') {
+    pressureClass = 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300';
+  } else if (pressure === 'Moderate') {
+    pressureClass = 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300';
+  } else if (pressure === 'Low') {
+    pressureClass = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300';
+  }
+
+  const remainingHours = course.remaining_workload_hours !== undefined && course.remaining_workload_hours !== null
+    ? Number(course.remaining_workload_hours)
+    : null;
+
+  const contextMessage = course.context_message || '';
+
 
   /*
    * Some installations may return one of these
@@ -1114,18 +1179,44 @@ function renderCourseRow(
             <div class="min-w-0">
 
               <div
-                class="text-sm font-bold text-gray-900 dark:text-white truncate"
+                class="flex items-center gap-2 flex-wrap"
               >
-                ${escapeHtml(code)}
+                <a
+                  href="courses.php"
+                  class="text-sm font-bold text-gray-900 dark:text-white truncate hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
+                  title="View Course"
+                >
+                  ${escapeHtml(code)}
+                </a>
+
+                <span
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${pressureClass}"
+                >
+                  ${escapeHtml(pressure)} Pressure
+                </span>
+
+                ${
+                  remainingHours !== null
+                    ? `
+                      <span
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300"
+                      >
+                        <i data-lucide="clock" class="w-3 h-3"></i>
+                        ${remainingHours}h remaining
+                      </span>
+                    `
+                    : ''
+                }
               </div>
 
               <div
                 class="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5"
               >
-                ${escapeHtml(name)}
+                ${escapeHtml(contextMessage || name)}
               </div>
 
             </div>
+
 
 
             <!-- Percentage -->
@@ -1183,11 +1274,33 @@ function renderCourseRow(
             class="flex items-center justify-between gap-3 mt-2.5"
           >
 
-            <span
-              class="text-[10px] text-gray-400 dark:text-gray-500"
-            >
-              Course progress
-            </span>
+            <div class="flex items-center gap-3 flex-wrap">
+              <span
+                class="text-[10px] text-gray-400 dark:text-gray-500"
+              >
+                Course progress
+              </span>
+              ${
+                course.id
+                  ? `
+                    <a
+                      href="tasks.php?course_id=${escapeAttribute(course.id)}"
+                      class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+                      title="View tasks for ${escapeHtml(code)}"
+                    >
+                      <i data-lucide="list-todo" class="w-3 h-3"></i> View Tasks
+                    </a>
+                    <a
+                      href="courses.php"
+                      class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 inline-flex items-center gap-1"
+                      title="View Course"
+                    >
+                      <i data-lucide="book-open" class="w-3 h-3"></i> Course
+                    </a>
+                  `
+                  : ''
+              }
+            </div>
 
 
             <div

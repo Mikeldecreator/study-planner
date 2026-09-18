@@ -320,6 +320,7 @@
 
         const type =
             String(
+                item?.tone ||
                 item?.type ||
                 item?.category ||
                 ''

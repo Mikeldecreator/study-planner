@@ -4422,6 +4422,9 @@ form?.addEventListener(
 
 
                 await loadSchedule();
+        initImportTimetableModal();
+        initStudyPreferencesModal();
+
 
 
             } else {
@@ -4491,6 +4494,374 @@ form?.addEventListener(
 );
 
 
+
+
+/* =========================================================
+   FREE PERIODS & STUDY PLANNER ENGINE
+========================================================= */
+
+function renderFreePeriodsSection(freePeriods, recommendations) {
+    const container = document.getElementById('schedule-free-periods');
+    if (!container) return;
+
+    const recList = Array.isArray(recommendations) ? recommendations : [];
+    const fpList = Array.isArray(freePeriods) ? freePeriods : [];
+
+    if (recList.length === 0 && fpList.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 px-2 text-gray-500 dark:text-gray-400">
+                <i data-lucide="smile" class="w-6 h-6 mx-auto mb-1 text-emerald-600 dark:text-emerald-400 opacity-80"></i>
+                <p class="font-medium text-xs">No timetable gaps today</p>
+                <p class="text-[11px] mt-0.5 opacity-80">Your classes and study blocks are balanced.</p>
+            </div>
+        `;
+        initLucide();
+        return;
+    }
+
+    let html = '';
+
+    if (recList.length > 0) {
+        html += `<div class="font-semibold text-emerald-800 dark:text-emerald-300 text-[11px] uppercase tracking-wider mb-1.5">Recommended Study Slots</div>`;
+        recList.forEach(rec => {
+            const courseCode = rec.course_code ? `<span class="font-semibold text-emerald-700 dark:text-emerald-400">${escapeHtml(rec.course_code)}:</span> ` : '';
+            html += `
+                <div class="w-full max-w-full min-w-0 box-border p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-800/50 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-2.5 mb-2.5">
+                    <div class="min-w-0 w-full">
+                        <div class="font-semibold text-gray-900 dark:text-gray-100 text-xs break-words whitespace-normal leading-snug">
+                            ${courseCode}${escapeHtml(rec.task_title || rec.title || 'Study Session')}
+                        </div>
+                        <div class="text-[11px] text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 min-w-0">
+                            <span class="inline-flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"></i> <span>${escapeHtml(rec.start_label || rec.start_time)} – ${escapeHtml(rec.end_label || rec.end_time)}</span></span>
+                            <span class="text-gray-300 dark:text-gray-600">·</span>
+                            <span>${escapeHtml(rec.duration_label || (rec.duration_minutes + 'm'))}</span>
+                        </div>
+                    </div>
+                    ${rec.reason ? `
+                        <div class="rounded-lg bg-emerald-100/70 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 text-[11px] px-2.5 py-1.5 leading-relaxed break-words whitespace-normal min-w-0 w-full">
+                            <span class="font-semibold text-emerald-800 dark:text-emerald-300">Why: </span>${escapeHtml(rec.reason)}
+                        </div>
+                    ` : ''}
+                    <div class="flex flex-wrap items-center gap-2 pt-1 w-full min-w-0">
+                        <button type="button" class="btn-accept-rec flex-1 min-w-[120px] px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition-colors flex items-center justify-center gap-1"
+                            data-task-id="${rec.task_id || ''}"
+                            data-course-id="${rec.course_id || ''}"
+                            data-title="${escapeAttribute('Study: ' + (rec.task_title || rec.title || 'Study Session'))}"
+                            data-start="${escapeAttribute(rec.start_time)}"
+                            data-end="${escapeAttribute(rec.end_time)}">
+                            <i data-lucide="calendar-plus" class="w-3 h-3 shrink-0"></i> <span>Add to My Day</span>
+                        </button>
+                        <a href="${rec.task_id ? `tasks.php?focus_task_id=${rec.task_id}` : (rec.course_id ? `tasks.php?course_id=${rec.course_id}` : `tasks.php`)}" class="shrink-0 min-w-[65px] px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 font-semibold text-[11px] text-gray-700 dark:text-gray-300 transition-colors flex items-center justify-center gap-1">
+                            <i data-lucide="play" class="w-3 h-3 shrink-0"></i> <span>Study</span>
+                        </a>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (fpList.length > 0) {
+        html += `<div class="font-semibold text-gray-600 dark:text-gray-400 text-[11px] uppercase tracking-wider mt-3 mb-1.5">Free Gaps Today</div>`;
+        fpList.forEach(fp => {
+            html += `
+                <div class="w-full max-w-full min-w-0 box-border p-2.5 rounded-xl border border-gray-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[.02] flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 mb-1.5">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-gray-800 dark:text-gray-200 text-xs break-words">
+                            ${capitalize(fp.period_label || 'Free Window')}
+                        </div>
+                        <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                            ${escapeHtml(fp.start_label || fp.start_time)} – ${escapeHtml(fp.end_label || fp.end_time)} (${fp.duration_label || (fp.duration_minutes + 'm free')})
+                        </div>
+                    </div>
+                    <button type="button" class="btn-fill-free-period shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 transition-colors"
+                        data-start="${escapeAttribute(fp.start_time)}"
+                        data-end="${escapeAttribute(fp.end_time)}">
+                        + Session
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    container.innerHTML = html;
+    initLucide();
+
+    container.querySelectorAll('.btn-accept-rec').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const taskId = btn.dataset.taskId;
+            const courseId = btn.dataset.courseId ? parseInt(btn.dataset.courseId, 10) : null;
+            const title = btn.dataset.title;
+            const startTime = btn.dataset.start;
+            const endTime = btn.dataset.end;
+            const dayOfWeek = new Date().getDay();
+
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Adding...`;
+            initLucide();
+
+            try {
+                const res = await fetch(`${API}/schedule.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'accept_recommendation',
+                        task_id: taskId ? parseInt(taskId, 10) : null,
+                        course_id: courseId,
+                        title: title,
+                        start_time: startTime,
+                        end_time: endTime,
+                        day_of_week: dayOfWeek,
+                        csrf_token: window.CSRF_TOKEN
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    if (window.showToast) window.showToast('Study session scheduled!', 'success');
+                    await loadSchedule();
+        initImportTimetableModal();
+        initStudyPreferencesModal();
+
+                } else {
+                    if (window.showToast) window.showToast(data.error || 'Failed to schedule session.', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = `<i data-lucide="calendar-plus" class="w-3 h-3"></i> Add to My Day`;
+                    initLucide();
+                }
+            } catch (err) {
+                console.error('Accept recommendation failed:', err);
+                if (window.showToast) window.showToast('Could not schedule session.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="calendar-plus" class="w-3 h-3"></i> Add to My Day`;
+                initLucide();
+            }
+        });
+    });
+
+    container.querySelectorAll('.btn-fill-free-period').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const startTime = btn.dataset.start;
+            const endTime = btn.dataset.end;
+            document.getElementById('open-add-session')?.click();
+            const sessionForm = document.getElementById('session-form');
+            if (sessionForm) {
+                if (startTime) sessionForm.start_time.value = startTime;
+                if (endTime) sessionForm.end_time.value = endTime;
+                sessionForm.day_of_week.value = String(new Date().getDay());
+            }
+        });
+    });
+}
+
+function initImportTimetableModal() {
+    const openBtn = document.getElementById('open-import-timetable');
+    const modal = document.getElementById('import-timetable-modal');
+    const closeBtn = document.getElementById('close-import-timetable');
+    const cancelBtn = document.getElementById('cancel-import-timetable');
+    const form = document.getElementById('import-timetable-form');
+    const fileInput = document.getElementById('import-timetable-file');
+    const textArea = document.getElementById('import-timetable-csv');
+    const errorBox = document.getElementById('import-timetable-error');
+
+    if (!modal) return;
+
+    function openModal() {
+        if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
+        modal.classList.remove('hidden');
+        initLucide();
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        if (form) form.reset();
+    }
+
+    if (openBtn) openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    if (fileInput) {
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files?.[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (textArea) textArea.value = e.target.result;
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const csvData = (textArea?.value || '').trim();
+            if (!csvData) {
+                if (errorBox) {
+                    errorBox.textContent = 'Please choose a CSV file or paste timetable lines.';
+                    errorBox.classList.remove('hidden');
+                }
+                return;
+            }
+
+            const submitBtn = document.getElementById('submit-import-timetable');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Importing...`;
+                initLucide();
+            }
+
+            try {
+                const res = await fetch(`${API}/schedule.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'import_csv',
+                        csv: csvData,
+                        csrf_token: window.CSRF_TOKEN
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    if (window.showToast) window.showToast(`Successfully imported ${data.imported_count} timetable sessions!`, 'success');
+                    closeModal();
+                    await loadSchedule();
+        initImportTimetableModal();
+        initStudyPreferencesModal();
+
+                } else {
+                    if (errorBox) {
+                        errorBox.textContent = data.error || 'Failed to import timetable.';
+                        errorBox.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error('Import timetable failed:', err);
+                if (errorBox) {
+                    errorBox.textContent = 'Network or server error while importing timetable.';
+                    errorBox.classList.remove('hidden');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i> Import Timetable`;
+                    initLucide();
+                }
+            }
+        });
+    }
+}
+
+function initStudyPreferencesModal() {
+    const openBtn = document.getElementById('open-study-prefs');
+    const modal = document.getElementById('study-preferences-modal');
+    const closeBtn = document.getElementById('close-study-prefs');
+    const cancelBtn = document.getElementById('cancel-study-prefs');
+    const form = document.getElementById('study-preferences-form');
+
+    if (!modal) return;
+
+    async function openModal() {
+        modal.classList.remove('hidden');
+        initLucide();
+
+        try {
+            const res = await fetch(`${API}/me.php`, { cache: 'no-store' });
+            if (res.ok) {
+                const me = await res.json();
+                if (form) {
+                    const prefTime = me.preferred_study_time || 'flexible';
+                    const radio = form.querySelector(`input[name="preferred_study_time"][value="${prefTime}"]`);
+                    if (radio) radio.checked = true;
+
+                    const hoursInput = form.querySelector('#pref-weekly-hours');
+                    if (hoursInput && me.weekly_goal_hours) {
+                        hoursInput.value = Math.round(me.weekly_goal_hours);
+                    }
+
+                    const daysStr = String(me.preferred_study_days || '1,2,3,4,5');
+                    const activeDays = daysStr.split(',').map(s => s.trim());
+                    form.querySelectorAll('input[name="preferred_days"]').forEach(cb => {
+                        cb.checked = activeDays.includes(cb.value);
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load study preferences:', err);
+        }
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    if (openBtn) openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('save-study-prefs');
+            const prefTime = form.querySelector('input[name="preferred_study_time"]:checked')?.value || 'flexible';
+            const weeklyHours = parseFloat(form.querySelector('#pref-weekly-hours')?.value || '15');
+            const checkedDays = Array.from(form.querySelectorAll('input[name="preferred_days"]:checked')).map(cb => cb.value);
+
+            if (checkedDays.length === 0) {
+                alert('Please select at least one preferred study day.');
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
+                initLucide();
+            }
+
+            try {
+                const res = await fetch(`${API}/settings.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preferred_study_time: prefTime,
+                        weekly_goal_hours: weeklyHours,
+                        preferred_study_days: checkedDays.join(','),
+                        csrf_token: window.CSRF_TOKEN
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    if (window.showToast) window.showToast('Study routine preferences saved!', 'success');
+                    closeModal();
+                    await loadSchedule();
+        initImportTimetableModal();
+        initStudyPreferencesModal();
+
+                } else {
+                    alert(data.error || 'Failed to save study routine.');
+                }
+            } catch (err) {
+                console.error('Save study preferences failed:', err);
+                alert('Could not save preferences due to network error.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Save Routine`;
+                    initLucide();
+                }
+            }
+        });
+    }
+}
+
 /* =========================================================
    INITIALIZATION
 ========================================================= */
@@ -4537,6 +4908,9 @@ window.APP_READY.then(
          */
 
         await loadSchedule();
+        initImportTimetableModal();
+        initStudyPreferencesModal();
+
 
 
         initLucide();

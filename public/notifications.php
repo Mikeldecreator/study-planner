@@ -130,6 +130,7 @@ requirePageLogin();
 
           <div
             class="w-9 h-9 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs"
+            data-top-avatar
             data-user-initial
           >
             U

@@ -2248,5 +2248,7 @@ requirePageLogin();
 <script src="../assets/js/browser-push.js"></script>
 <script src="../assets/js/settings.js"></script>
 
+
+<script src="../assets/js/guided-tour.js"></script>
 </body>
 </html>

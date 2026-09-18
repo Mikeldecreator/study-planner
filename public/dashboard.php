@@ -16,7 +16,7 @@ requirePageLogin();
         content="width=device-width, initial-scale=1"
     >
 
-    <title>Dashboard — Study Planner</title>
+    <title>Home — Study Planner</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -610,6 +610,35 @@ requirePageLogin();
             color: #9ce1c1;
         }
 
+        .dash-smart-focus {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #f0fbf6 0%, #ffffff 100%);
+            border: 1px solid #bfe7d6;
+            border-radius: 14px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 14px rgba(17, 71, 58, .04);
+        }
+
+        html.dark .dash-smart-focus {
+            background: linear-gradient(135deg, #10251e 0%, #151d1a 100%);
+            border-color: rgba(52, 211, 153, .18);
+            box-shadow: none;
+        }
+
+        .dash-priority-action-row {
+            transition: background-color .15s ease, transform .15s ease;
+        }
+
+        .dash-priority-action-row:hover {
+            background-color: rgba(0, 143, 82, .04);
+            transform: translateX(2px);
+        }
+
+        html.dark .dash-priority-action-row:hover {
+            background-color: rgba(255, 255, 255, .04);
+        }
+
         /* =====================================================
            MOBILE
         ===================================================== */
@@ -709,11 +738,11 @@ requirePageLogin();
 
                 <div class="min-w-0">
                     <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[#073b35] dark:text-white">
-                        Dashboard
+                        Home
                     </h1>
 
                     <p class="hidden sm:block text-sm text-[#638096] dark:text-gray-400">
-                        Welcome back, <span id="header-first-name">Michael</span>! Here's your academic overview.
+                        Welcome back, <span id="header-first-name">Student</span>! Here's your academic overview.
                     </p>
                 </div>
 
@@ -820,7 +849,7 @@ requirePageLogin();
                             class="font-semibold"
                         ></div>
                         <div class="text-red-100 text-xs mt-1">
-                            Check the Deadlines page for details.
+                            Check the Due Soon page for details.
                         </div>
                     </div>
                     <button
@@ -859,14 +888,14 @@ requirePageLogin();
                             👋
                         </h2>
 
-                        <p class="hero-subtitle text-sm mt-1">
+                        <p id="hero-subtitle" class="hero-subtitle text-sm mt-1">
                             Keep going! Your consistency today builds your success tomorrow.
                         </p>
 
                         <div class="mt-5 flex flex-wrap gap-3">
 
                             <!-- Course -->
-                            <div class="hero-pill flex items-center gap-3">
+                            <a href="courses.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View my courses">
 
                                 <div class="hero-pill-icon">
                                     <i data-lucide="graduation-cap" class="w-5 h-5"></i>
@@ -877,22 +906,22 @@ requirePageLogin();
                                         id="hero-course-name"
                                         class="block text-sm text-[#073b35] dark:text-white"
                                     >
-                                        Computer Science
+                                        My Courses
                                     </strong>
 
                                     <small
                                         id="hero-level"
                                         class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
                                     >
-                                        Level 400
+                                        Manage your courses
                                     </small>
                                 </div>
 
-                            </div>
+                            </a>
 
 
-                            <!-- Next deadline -->
-                            <div class="hero-pill flex items-center gap-3">
+                            <!-- Next deadline / Due Soon -->
+                            <a href="deadlines.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View due soon">
 
                                 <div class="hero-pill-icon">
                                     <i data-lucide="calendar-check" class="w-5 h-5"></i>
@@ -900,7 +929,7 @@ requirePageLogin();
 
                                 <div>
                                     <strong class="block text-sm text-[#073b35] dark:text-white">
-                                        Next Deadline
+                                        Due Soon
                                     </strong>
 
                                     <small
@@ -911,7 +940,54 @@ requirePageLogin();
                                     </small>
                                 </div>
 
-                            </div>
+                            </a>
+
+                            <!-- Next class -->
+                            <a href="schedule.php" id="hero-next-class-pill" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View my classes">
+
+                                <div class="hero-pill-icon">
+                                    <i data-lucide="clock" class="w-5 h-5"></i>
+                                </div>
+
+                                <div>
+                                    <strong class="block text-sm text-[#073b35] dark:text-white">
+                                        Next Class
+                                    </strong>
+
+                                    <small
+                                        id="hero-next-class"
+                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
+                                    >
+                                        No classes today
+                                    </small>
+                                </div>
+
+                            </a>
+
+                            <!-- Academic Semester Calendar -->
+                            <a href="courses.php?open_calendar=1" id="hero-semester-pill" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View semester academic calendar">
+
+                                <div class="hero-pill-icon">
+                                    <i data-lucide="calendar-range" class="w-5 h-5"></i>
+                                </div>
+
+                                <div>
+                                    <strong
+                                        id="hero-semester-week"
+                                        class="block text-sm text-[#073b35] dark:text-white"
+                                    >
+                                        Semester Calendar
+                                    </strong>
+
+                                    <small
+                                        id="hero-semester-phase"
+                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
+                                    >
+                                        Set academic dates
+                                    </small>
+                                </div>
+
+                            </a>
 
                         </div>
 
@@ -1023,6 +1099,28 @@ requirePageLogin();
 
 
             <!-- =================================================
+                 ACADEMIC FOCUS BANNER
+            ================================================= -->
+            <section
+                id="dashboard-smart-focus"
+                class="hidden"
+            ></section>
+
+            <!-- =================================================
+                 SMART STUDY RECOMMENDATIONS & SUGGESTIONS
+            ================================================= -->
+            <section
+                id="dashboard-recommended-plan"
+                class="hidden"
+            ></section>
+
+            <section
+                id="dashboard-smart-suggestions"
+                class="hidden"
+            ></section>
+
+
+            <!-- =================================================
                  STAT CARDS
             ================================================= -->
             <div
@@ -1048,7 +1146,7 @@ requirePageLogin();
                                 class="w-4 h-4 text-green-700"
                             ></i>
 
-                            Today's Schedule
+                            Today's Classes & Day
                         </h3>
 
                         <a
@@ -1079,7 +1177,7 @@ requirePageLogin();
                                 class="w-4 h-4 text-green-700"
                             ></i>
 
-                            Upcoming Deadlines
+                            Due Soon
                         </h3>
 
                         <a
@@ -1110,7 +1208,7 @@ requirePageLogin();
                                 class="w-4 h-4 text-green-700"
                             ></i>
 
-                            Task Breakdown
+                            My Work
                         </h3>
 
                         <a
@@ -1237,7 +1335,7 @@ requirePageLogin();
                                 class="w-4 h-4 text-green-700"
                             ></i>
 
-                            Workload Overview
+                            Weekly Workload
 
                         </h3>
 
@@ -1507,5 +1605,7 @@ requirePageLogin();
 <script src="../assets/js/work-timer.js"></script>
 <script src="../assets/js/dashboard.js"></script>
 
+
+<script src="../assets/js/guided-tour.js"></script>
 </body>
 </html>
