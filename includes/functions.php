@@ -2598,6 +2598,26 @@ function getUserTodayFocusedSeconds(PDO $db, int $userId): int
 }
 
 /**
+ * Compute total focused seconds spent within a date/time range by the user across all tasks.
+ */
+function getUserPeriodFocusedSeconds(PDO $db, int $userId, string $startStr, string $endStr): int
+{
+    $stmt = $db->prepare(
+        "SELECT 
+            COALESCE(SUM(
+                CASE 
+                    WHEN status = 'running' THEN duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW()))
+                    ELSE duration_seconds 
+                END
+            ), 0) AS period_seconds
+         FROM task_work_sessions
+         WHERE user_id = ? AND started_at BETWEEN ? AND ?"
+    );
+    $stmt->execute([$userId, $startStr, $endStr]);
+    return max(0, (int) $stmt->fetchColumn());
+}
+
+/**
  * Compute total focused seconds for all tasks of a user in a single batch query.
  * Includes duration from completed/paused/stopped sessions plus live elapsed seconds
  * for any session that is currently running.

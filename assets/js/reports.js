@@ -2362,12 +2362,9 @@ document.addEventListener(
 
 
     if (action === 'download') {
-
-      window.showToast?.(
-        'Report download is not connected to the existing backend yet.',
-        'info'
-      );
-
+      const rangeSelect = document.getElementById('range-select');
+      const currentRange = rangeSelect ? rangeSelect.value : 'week';
+      window.location.href = `${API}/reports.php?range=${encodeURIComponent(currentRange)}&export=csv`;
     }
 
   }
