@@ -12,3 +12,9 @@ FIX_NOTES.txt
 diagnose.php
 test-password.php
 vapid-keys.php
+*.pem
+*.key
+*.crt
+*.cert
+*.log
+scratch/
