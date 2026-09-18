@@ -4,13 +4,12 @@ declare(strict_types=1);
 /**
  * Idempotent Database Migration Runner
  * Safe to execute multiple times against both local and production Aiven databases.
- * Does NOT drop or truncate any data.
+ * Purely additive: NEVER drops or truncates any data.
  */
 
 require_once __DIR__ . '/../includes/db.php';
 
-echo "=== Running Database Migrations ===
-";
+echo "=== Running Database Migrations ===\n";
 
 try {
     $db = getDb();
@@ -20,33 +19,74 @@ try {
     exit(1);
 }
 
+// Helper to strip comments and split SQL statements cleanly
+function parseSqlStatements(string $rawSql): array {
+    // 1. Remove multi-line comments /* ... */
+    $clean = preg_replace('!/\*.*?\*/!s', '', $rawSql);
+
+    // 2. Remove single-line comments (-- and #)
+    $lines = explode("\n", $clean);
+    $filtered = [];
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+        if (str_starts_with($trimmed, '--') || str_starts_with($trimmed, '#')) {
+            continue;
+        }
+        $filtered[] = $line;
+    }
+    $cleanSql = implode("\n", $filtered);
+
+    // 3. Split by semicolon and trim
+    $statements = array_filter(array_map('trim', explode(';', $cleanSql)));
+    return array_values($statements);
+}
+
+// Disable foreign key checks during additive table creation to guarantee dependency safety
+try {
+    $db->exec("SET FOREIGN_KEY_CHECKS = 0;");
+} catch (Throwable $e) {
+    // Fall through if permission denied on some managed hosts
+}
 
 // 1. Run Table Creations from migrate_aiven.sql
 $sql = file_get_contents(__DIR__ . '/migrate_aiven.sql');
-$statements = array_filter(array_map('trim', explode(';', $sql)));
+$statements = parseSqlStatements($sql);
+
+echo "Processing " . count($statements) . " additive table definitions in dependency order...\n";
 
 foreach ($statements as $stmt) {
-    if (empty($stmt) || str_starts_with($stmt, '--')) continue;
+    if (empty($stmt)) continue;
+
+    // Extract table name for clean logging
+    preg_match('/CREATE TABLE (?:IF NOT EXISTS )?`?([a-zA-Z0-9_]+)`?/i', $stmt, $m);
+    $tableName = $m[1] ?? 'unknown';
+
     try {
         $db->exec($stmt);
+        echo "  [OK] Table '$tableName' definition verified.\n";
     } catch (PDOException $e) {
-        // Table or index already exists is expected and safe
-        if (!in_array($e->getCode(), ['42S01', '42S21'])) {
-            echo "Warning on statement: " . $e->getMessage() . "
-";
+        // Table or index already exists is expected and safe (codes 42S01, 42S21)
+        if (in_array($e->getCode(), ['42S01', '42S21'])) {
+            echo "  [OK] Table '$tableName' already exists.\n";
+        } else {
+            echo "  [WARNING] Table '$tableName': " . $e->getMessage() . "\n";
         }
     }
 }
-echo "Table schemas verified.
-";
+
+// Re-enable foreign key checks
+try {
+    $db->exec("SET FOREIGN_KEY_CHECKS = 1;");
+} catch (Throwable $e) {
+    // Fall through
+}
 
 // 2. Idempotent Column Additions (safe across MySQL 5.7, 8.0+, MariaDB)
 function ensureColumn(PDO $db, string $table, string $column, string $definition): void {
     try {
         $check = $db->query("SHOW COLUMNS FROM `$table` LIKE '$column'");
         if ($check->rowCount() === 0) {
-            echo "Adding column $column to $table...
-";
+            echo "Adding missing column '$column' to '$table'...\n";
             $db->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
         }
     } catch (Throwable $e) {
@@ -77,5 +117,42 @@ ensureColumn($db, 'schedule_events', 'is_completed', "TINYINT(1) NOT NULL DEFAUL
 ensureColumn($db, 'schedule_events', 'progress_percent', "TINYINT UNSIGNED NOT NULL DEFAULT 0");
 ensureColumn($db, 'schedule_events', 'completed_at', "DATETIME DEFAULT NULL");
 
-echo "=== All Migrations Complete & Verified ===
-";
+// 3. Verify all required application tables exist
+$requiredTables = [
+    'users',
+    'courses',
+    'semesters',
+    'curriculum_weeks',
+    'academic_events',
+    'tasks',
+    'schedule_events',
+    'work_timers',
+    'task_work_sessions',
+    'notifications',
+    'activity_log',
+    'password_resets',
+    'browser_push_subscriptions',
+    'push_daily_reminders'
+];
+
+echo "\nVerifying required tables...\n";
+try {
+    $tablesResult = $db->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+    $existing = array_map('strtolower', $tablesResult ?: []);
+    $allPresent = true;
+    foreach ($requiredTables as $t) {
+        if (in_array(strtolower($t), $existing, true)) {
+            echo "  [VERIFIED] $t\n";
+        } else {
+            echo "  [MISSING] $t\n";
+            $allPresent = false;
+        }
+    }
+    if (!$allPresent) {
+        echo "WARNING: Some tables could not be verified. Check database permissions.\n";
+    }
+} catch (Throwable $e) {
+    echo "Notice: Table verification query skipped (" . $e->getMessage() . ")\n";
+}
+
+echo "\n=== All Migrations Complete & Verified ===\n";

@@ -1,8 +1,7 @@
 -- Safe Migration for Aiven MySQL / Cloud Database
 -- Purely additive and non-destructive.
 
-
--- 1. Base Core Tables (IF NOT EXISTS)
+-- 1. Base User Table
 CREATE TABLE IF NOT EXISTS users (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     full_name       VARCHAR(100) NOT NULL,
@@ -23,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 2. Courses (parent to tasks, schedule_events)
 CREATE TABLE IF NOT EXISTS courses (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,
@@ -42,6 +42,49 @@ CREATE TABLE IF NOT EXISTS courses (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 3. Semesters (parent to curriculum_weeks, academic_events)
+CREATE TABLE IF NOT EXISTS semesters (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    name        VARCHAR(150) NOT NULL,
+    start_date  DATE NOT NULL,
+    end_date    DATE NOT NULL,
+    is_current  TINYINT(1) NOT NULL DEFAULT 1,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. Curriculum Weeks (child of semesters)
+CREATE TABLE IF NOT EXISTS curriculum_weeks (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    semester_id INT NOT NULL,
+    user_id     INT NOT NULL,
+    week_number TINYINT UNSIGNED NOT NULL,
+    label       VARCHAR(100) NOT NULL,
+    week_type   ENUM('teaching','student_week','revision','exam','break','other') NOT NULL DEFAULT 'teaching',
+    start_date  DATE NOT NULL,
+    end_date    DATE NOT NULL,
+    notes       TEXT DEFAULT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. Academic Events (child of semesters)
+CREATE TABLE IF NOT EXISTS academic_events (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    semester_id INT NOT NULL,
+    user_id     INT NOT NULL,
+    title       VARCHAR(200) NOT NULL,
+    event_date  DATE NOT NULL,
+    event_type  VARCHAR(50) NOT NULL DEFAULT 'milestone',
+    notes       TEXT DEFAULT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. Tasks (child of users and courses; parent to schedule_events, task_work_sessions, notifications)
 CREATE TABLE IF NOT EXISTS tasks (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,
@@ -64,6 +107,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     INDEX idx_user_status (user_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 7. Schedule Events (child of users, courses, tasks)
 CREATE TABLE IF NOT EXISTS schedule_events (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,
@@ -84,6 +128,7 @@ CREATE TABLE IF NOT EXISTS schedule_events (
     INDEX idx_user_day (user_id, day_of_week)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 8. Work Timers
 CREATE TABLE IF NOT EXISTS work_timers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -103,6 +148,7 @@ CREATE TABLE IF NOT EXISTS work_timers (
     INDEX idx_work_timer_user_updated (user_id, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 9. Task Work Sessions (Focus Timer)
 CREATE TABLE IF NOT EXISTS task_work_sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -117,6 +163,7 @@ CREATE TABLE IF NOT EXISTS task_work_sessions (
     INDEX idx_task_work_task (task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 10. Notifications
 CREATE TABLE IF NOT EXISTS notifications (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     user_id     INT NOT NULL,
@@ -133,6 +180,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_pending_send (sent_at, send_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 11. Activity Log
 CREATE TABLE IF NOT EXISTS activity_log (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     user_id     INT NOT NULL,
@@ -143,45 +191,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
     INDEX idx_user_time (user_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS semesters (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT NOT NULL,
-    name        VARCHAR(150) NOT NULL,
-    start_date  DATE NOT NULL,
-    end_date    DATE NOT NULL,
-    is_current  TINYINT(1) NOT NULL DEFAULT 1,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS curriculum_weeks (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    semester_id INT NOT NULL,
-    user_id     INT NOT NULL,
-    week_number TINYINT UNSIGNED NOT NULL,
-    label       VARCHAR(100) NOT NULL,
-    week_type   ENUM('teaching','student_week','revision','exam','break','other') NOT NULL DEFAULT 'teaching',
-    start_date  DATE NOT NULL,
-    end_date    DATE NOT NULL,
-    notes       TEXT DEFAULT NULL,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS academic_events (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    semester_id INT NOT NULL,
-    user_id     INT NOT NULL,
-    title       VARCHAR(200) NOT NULL,
-    event_date  DATE NOT NULL,
-    event_type  VARCHAR(50) NOT NULL DEFAULT 'milestone',
-    notes       TEXT DEFAULT NULL,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+-- 12. Password Resets
 CREATE TABLE IF NOT EXISTS password_resets (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     user_id     INT NOT NULL,
@@ -193,6 +203,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
     INDEX idx_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 13. Browser Push Subscriptions
 CREATE TABLE IF NOT EXISTS browser_push_subscriptions (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -210,6 +221,7 @@ CREATE TABLE IF NOT EXISTS browser_push_subscriptions (
     CONSTRAINT fk_browser_push_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 14. Push Daily Reminders
 CREATE TABLE IF NOT EXISTS push_daily_reminders (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,
