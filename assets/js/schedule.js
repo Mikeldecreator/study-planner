@@ -4657,100 +4657,345 @@ function initImportTimetableModal() {
     const modal = document.getElementById('import-timetable-modal');
     const closeBtn = document.getElementById('close-import-timetable');
     const cancelBtn = document.getElementById('cancel-import-timetable');
-    const form = document.getElementById('import-timetable-form');
-    const fileInput = document.getElementById('import-timetable-file');
-    const textArea = document.getElementById('import-timetable-csv');
-    const errorBox = document.getElementById('import-timetable-error');
+    const dropzone = document.getElementById('timetable-dropzone');
+    const fileInput = document.getElementById('timetable-file-input');
+    const fileChosen = document.getElementById('timetable-file-chosen');
+    const textInput = document.getElementById('timetable-text-input');
+    const extractBtn = document.getElementById('extract-timetable-btn');
+    const errorBox = document.getElementById('timetable-import-error');
+    const stepUpload = document.getElementById('timetable-import-step-upload');
+    const stepReview = document.getElementById('timetable-import-step-review');
+    const reviewTbody = document.getElementById('timetable-review-tbody');
+    const reviewCount = document.getElementById('timetable-review-count');
+    const reviewError = document.getElementById('timetable-review-error');
+    const backBtn = document.getElementById('back-timetable-btn');
+    const cancelReviewBtn = document.getElementById('cancel-review-timetable');
+    const confirmBtn = document.getElementById('confirm-import-timetable-btn');
+    const addClassBtn = document.getElementById('add-review-timetable-btn');
+    const manualFallbackBtn = document.getElementById('open-manual-class-fallback');
 
     if (!modal) return;
 
+    let selectedFile = null;
+    let reviewedClasses = [];
+
+    function esc(str) {
+        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function openModal() {
-        if (errorBox) { errorBox.textContent = ''; errorBox.classList.add('hidden'); }
+        selectedFile = null;
+        if (fileInput) fileInput.value = '';
+        if (textInput) textInput.value = '';
+        if (fileChosen) { fileChosen.textContent = ''; fileChosen.classList.add('hidden'); }
+        if (errorBox) { errorBox.innerHTML = ''; errorBox.classList.add('hidden'); }
+        if (reviewError) { reviewError.innerHTML = ''; reviewError.classList.add('hidden'); }
+        stepUpload?.classList.remove('hidden');
+        stepReview?.classList.add('hidden');
         modal.classList.remove('hidden');
         initLucide();
     }
 
     function closeModal() {
         modal.classList.add('hidden');
-        if (form) form.reset();
+        selectedFile = null;
     }
 
     if (openBtn) openBtn.addEventListener('click', openModal);
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
     if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    if (cancelReviewBtn) cancelReviewBtn.addEventListener('click', closeModal);
 
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
 
-    if (fileInput) {
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            stepReview?.classList.add('hidden');
+            stepUpload?.classList.remove('hidden');
+            initLucide();
+        });
+    }
+
+    if (manualFallbackBtn) {
+        manualFallbackBtn.addEventListener('click', () => {
+            closeModal();
+            document.getElementById('open-add-session')?.click();
+        });
+    }
+
+    // Dropzone logic
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', (e) => {
+            if (e.target !== fileInput) fileInput.click();
+        });
         fileInput.addEventListener('change', () => {
-            const file = fileInput.files?.[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    if (textArea) textArea.value = e.target.result;
-                };
-                reader.readAsText(file);
+            if (fileInput.files?.length) {
+                selectedFile = fileInput.files[0];
+                if (fileChosen) {
+                    fileChosen.textContent = `Selected: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`;
+                    fileChosen.classList.remove('hidden');
+                }
+            }
+        });
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('border-emerald-500', 'bg-emerald-50/40');
+        });
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+        });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+            if (e.dataTransfer.files?.length) {
+                selectedFile = e.dataTransfer.files[0];
+                if (fileChosen) {
+                    fileChosen.textContent = `Selected: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB)`;
+                    fileChosen.classList.remove('hidden');
+                }
             }
         });
     }
 
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const csvData = (textArea?.value || '').trim();
-            if (!csvData) {
+    const DAYS = [
+        { val: 'monday', label: 'Monday' },
+        { val: 'tuesday', label: 'Tuesday' },
+        { val: 'wednesday', label: 'Wednesday' },
+        { val: 'thursday', label: 'Thursday' },
+        { val: 'friday', label: 'Friday' },
+        { val: 'saturday', label: 'Saturday' },
+        { val: 'sunday', label: 'Sunday' }
+    ];
+
+    function renderReviewTable() {
+        if (!reviewTbody) return;
+        if (reviewCount) {
+            reviewCount.textContent = `${reviewedClasses.length} class${reviewedClasses.length === 1 ? '' : 'es'} ready for review`;
+        }
+        reviewTbody.innerHTML = reviewedClasses.map((item, idx) => {
+            const statusPill = item.already_exists
+                ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 whitespace-nowrap">Exists (skip)</span>`
+                : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 whitespace-nowrap">New</span>`;
+
+            const dayOptions = DAYS.map(d => `<option value="${d.val}" ${item.day_of_week === d.val ? 'selected' : ''}>${d.label}</option>`).join('');
+
+            return `
+                <tr data-index="${idx}" class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
+                    <td class="p-2">
+                        <select class="form-control text-xs p-1.5 min-h-[32px] w-full" data-field="day_of_week">
+                            ${dayOptions}
+                        </select>
+                    </td>
+                    <td class="p-2">
+                        <input type="time" class="form-control text-xs p-1.5 min-h-[32px] w-full font-mono" data-field="start_time" value="${esc((item.start_time || '09:00').substring(0, 5))}" required>
+                    </td>
+                    <td class="p-2">
+                        <input type="time" class="form-control text-xs p-1.5 min-h-[32px] w-full font-mono" data-field="end_time" value="${esc((item.end_time || '11:00').substring(0, 5))}" required>
+                    </td>
+                    <td class="p-2">
+                        <input type="text" class="form-control text-xs p-1.5 min-h-[32px] font-semibold w-full uppercase" data-field="course_code" placeholder="e.g. CSC 401" value="${esc(item.course_code || item.title || '')}" required>
+                    </td>
+                    <td class="p-2">
+                        <input type="text" class="form-control text-xs p-1.5 min-h-[32px] w-full" data-field="location" placeholder="e.g. LT 2" value="${esc(item.location || '')}">
+                    </td>
+                    <td class="p-2 text-center">${statusPill}</td>
+                    <td class="p-2 text-right">
+                        <button type="button" class="text-red-500 hover:text-red-700 p-1 remove-review-class-btn" title="Remove class">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        reviewTbody.querySelectorAll('.remove-review-class-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tr = e.target.closest('tr');
+                const idx = Number(tr.dataset.index);
+                reviewedClasses.splice(idx, 1);
+                renderReviewTable();
+            });
+        });
+
+        initLucide();
+    }
+
+    if (addClassBtn) {
+        addClassBtn.addEventListener('click', () => {
+            reviewedClasses.push({
+                day_of_week: 'monday',
+                start_time: '09:00:00',
+                end_time: '11:00:00',
+                course_code: '',
+                location: '',
+                event_type: 'lecture',
+                already_exists: false
+            });
+            renderReviewTable();
+            const inputs = reviewTbody?.querySelectorAll('input[data-field="course_code"]');
+            if (inputs?.length) inputs[inputs.length - 1].focus();
+        });
+    }
+
+    // Extract action
+    if (extractBtn) {
+        extractBtn.addEventListener('click', async () => {
+            if (errorBox) { errorBox.innerHTML = ''; errorBox.classList.add('hidden'); }
+            const textVal = (textInput?.value || '').trim();
+            if (!selectedFile && !textVal) {
                 if (errorBox) {
-                    errorBox.textContent = 'Please choose a CSV file or paste timetable lines.';
+                    errorBox.innerHTML = 'Please choose a timetable file (.pdf, .docx, .txt) or paste schedule text.';
                     errorBox.classList.remove('hidden');
                 }
                 return;
             }
 
-            const submitBtn = document.getElementById('submit-import-timetable');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Importing...`;
-                initLucide();
-            }
+            extractBtn.disabled = true;
+            extractBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Extracting…`;
+            initLucide();
 
             try {
-                const res = await fetch(`${API}/schedule.php`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'import_csv',
-                        csv: csvData,
-                        csrf_token: window.CSRF_TOKEN
-                    })
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    if (window.showToast) window.showToast(`Successfully imported ${data.imported_count} timetable sessions!`, 'success');
-                    closeModal();
-                    await loadSchedule();
-        initImportTimetableModal();
-        initStudyPreferencesModal();
-
+                let res;
+                if (selectedFile) {
+                    const fd = new FormData();
+                    fd.append('action', 'extract');
+                    fd.append('domain', 'timetable');
+                    fd.append('document', selectedFile);
+                    fd.append('csrf_token', window.CSRF_TOKEN || '');
+                    res = await fetch(`${API}/document_import.php`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: fd
+                    });
                 } else {
+                    res = await fetch(`${API}/document_import.php`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'extract',
+                            domain: 'timetable',
+                            text: textVal,
+                            csrf_token: window.CSRF_TOKEN || ''
+                        })
+                    });
+                }
+
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    let errMsg = data.error || "We couldn't extract class schedules from this document.";
+                    if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
+                        errMsg = `<strong>Scanned PDF Detected:</strong> ${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-class-fallback').click()" class="underline font-bold">Add Classes Manually &rarr;</button></div>`;
+                    } else if (data.manual_entry) {
+                        errMsg = `${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-class-fallback').click()" class="underline font-bold">Add Classes Manually &rarr;</button></div>`;
+                    }
                     if (errorBox) {
-                        errorBox.textContent = data.error || 'Failed to import timetable.';
+                        errorBox.innerHTML = errMsg;
                         errorBox.classList.remove('hidden');
                     }
+                    return;
                 }
+
+                reviewedClasses = Array.isArray(data.items) ? data.items : [];
+                if (reviewedClasses.length === 0) {
+                    if (errorBox) {
+                        errorBox.innerHTML = "No class slots were identified in this file. Try another document or add classes manually.";
+                        errorBox.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                renderReviewTable();
+                stepUpload?.classList.add('hidden');
+                stepReview?.classList.remove('hidden');
+                initLucide();
             } catch (err) {
-                console.error('Import timetable failed:', err);
+                console.error('Extract timetable error:', err);
                 if (errorBox) {
-                    errorBox.textContent = 'Network or server error while importing timetable.';
+                    errorBox.innerHTML = 'An unexpected error occurred while reading the timetable.';
                     errorBox.classList.remove('hidden');
                 }
             } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i> Import Timetable`;
-                    initLucide();
+                extractBtn.disabled = false;
+                extractBtn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> Extract Timetable`;
+                initLucide();
+            }
+        });
+    }
+
+    // Confirm action
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            if (reviewError) { reviewError.innerHTML = ''; reviewError.classList.add('hidden'); }
+
+            const rows = reviewTbody?.querySelectorAll('tr') || [];
+            const itemsToSave = [];
+            rows.forEach(tr => {
+                const day = tr.querySelector('select[data-field="day_of_week"]')?.value || 'monday';
+                const start = tr.querySelector('input[data-field="start_time"]')?.value || '09:00';
+                const end = tr.querySelector('input[data-field="end_time"]')?.value || '11:00';
+                const code = (tr.querySelector('input[data-field="course_code"]')?.value || '').trim();
+                const loc = (tr.querySelector('input[data-field="location"]')?.value || '').trim();
+
+                if (code) {
+                    itemsToSave.push({
+                        day_of_week: day,
+                        start_time: start + ':00',
+                        end_time: end + ':00',
+                        course_code: code,
+                        location: loc,
+                        event_type: 'lecture'
+                    });
                 }
+            });
+
+            if (itemsToSave.length === 0) {
+                if (reviewError) {
+                    reviewError.textContent = 'Please provide at least one class with a course code and valid times.';
+                    reviewError.classList.remove('hidden');
+                }
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving…`;
+            initLucide();
+
+            try {
+                const res = await fetch(`${API}/document_import.php`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'confirm',
+                        domain: 'timetable',
+                        items: itemsToSave,
+                        csrf_token: window.CSRF_TOKEN || ''
+                    })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.error || 'Failed to save timetable classes.');
+                }
+
+                closeModal();
+                if (window.showToast) {
+                    window.showToast(data.message || `Successfully imported ${data.imported_count} classes!`, 'success');
+                }
+                await loadSchedule();
+            } catch (err) {
+                console.error('Confirm timetable error:', err);
+                if (reviewError) {
+                    reviewError.textContent = err.message || 'Error saving timetable classes.';
+                    reviewError.classList.remove('hidden');
+                }
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> Confirm & Add Classes`;
+                initLucide();
             }
         });
     }

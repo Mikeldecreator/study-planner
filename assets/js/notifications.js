@@ -487,52 +487,82 @@
 
     function updateBadge() {
 
-        if (!bellBadge) {
-            return;
-        }
-
+        const sidebarBadge =
+            document.getElementById(
+                'sidebar-unread-badge'
+            );
 
         const count =
             notifications.filter(
                 isUnread
             ).length;
 
-
         if (
             count <= 0
         ) {
 
-            bellBadge.classList.add(
-                'hidden'
-            );
+            if (bellBadge) {
+                bellBadge.classList.add(
+                    'hidden'
+                );
 
-            bellBadge.classList.remove(
-                'flex'
-            );
+                bellBadge.classList.remove(
+                    'flex'
+                );
 
-            bellBadge.textContent =
-                '';
+                bellBadge.textContent =
+                    '';
+            }
+
+            if (sidebarBadge) {
+                sidebarBadge.classList.add(
+                    'hidden'
+                );
+
+                sidebarBadge.classList.remove(
+                    'flex'
+                );
+
+                sidebarBadge.textContent =
+                    '';
+            }
 
             return;
 
         }
 
-
-        bellBadge.textContent =
+        const countText =
             count > 99
                 ? '99+'
                 : String(
                     count
                 );
 
+        if (bellBadge) {
+            bellBadge.textContent =
+                countText;
 
-        bellBadge.classList.remove(
-            'hidden'
-        );
+            bellBadge.classList.remove(
+                'hidden'
+            );
 
-        bellBadge.classList.add(
-            'flex'
-        );
+            bellBadge.classList.add(
+                'flex'
+            );
+        }
+
+        if (sidebarBadge) {
+            sidebarBadge.textContent =
+                countText;
+
+            sidebarBadge.classList.remove(
+                'hidden'
+            );
+
+            sidebarBadge.classList.add(
+                'flex'
+            );
+        }
 
     }
 

@@ -29,6 +29,7 @@ async function loadCourses() {
     renderCourseProgress(data.summary || {});
     renderUpcomingDeadlines(data.upcoming_deadlines || []);
     applyFilters(1);
+    loadSemesterBanner();
   } catch (error) {
     if (requestId !== courseRequestId) return;
     document.getElementById('course-cards').innerHTML = `<div class="empty-state col-span-full"><i data-lucide="triangle-alert"></i><strong>Unable to load courses</strong><span>${esc(error.message)}</span><button type="button" id="retry-courses" class="text-emerald-700 dark:text-emerald-400 font-semibold">Try again</button></div>`;
@@ -38,20 +39,21 @@ async function loadCourses() {
   }
 }
 
-function statCard(icon, iconClass, bgClass, value, label, subtext) {
-  return `<div class="course-stat-card">
+function statCard(icon, iconClass, bgClass, value, label, subtext, href) {
+  const inner = `<div class="course-stat-card">
     <div class="course-stat-icon ${bgClass} ${iconClass}"><i data-lucide="${icon}"></i></div>
     <div class="min-w-0"><div class="text-2xl font-bold leading-tight truncate">${esc(value)}</div><div class="text-xs text-[#53736D] dark:text-gray-400 mt-0.5">${esc(label)}</div>${subtext ? `<div class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">↗ ${esc(subtext)}</div>` : ''}</div>
   </div>`;
+  return href ? `<a href="${href}" class="block hover:no-underline">${inner}</a>` : inner;
 }
 
 function renderStatCards(s) {
   const gpa = s.gpa === null || s.gpa === undefined ? '—' : Number(s.gpa).toFixed(2);
   document.getElementById('course-stat-cards').innerHTML = [
     statCard('book-open', 'text-emerald-700', 'bg-emerald-50 dark:bg-emerald-950/40', s.total_courses ?? 0, 'Total Courses', s.new_courses_text || ''),
-    statCard('clipboard-list', 'text-blue-600', 'bg-blue-50 dark:bg-blue-950/40', s.total_tasks ?? 0, 'Total Tasks', s.tasks_change_text || ''),
+    statCard('clipboard-list', 'text-blue-600', 'bg-blue-50 dark:bg-blue-950/40', s.total_tasks ?? 0, 'Total Tasks', s.tasks_change_text || '', 'tasks.php'),
     statCard('graduation-cap', 'text-purple-600', 'bg-purple-50 dark:bg-purple-950/40', s.total_credits ?? 0, 'Total Credits', s.credits_change_text || ''),
-    statCard('chart-no-axes-combined', 'text-amber-600', 'bg-amber-50 dark:bg-amber-950/40', `${s.average_progress ?? 0}%`, 'Overall Progress', s.progress_change_text || ''),
+    statCard('chart-no-axes-combined', 'text-amber-600', 'bg-amber-50 dark:bg-amber-950/40', `${s.average_progress ?? 0}%`, 'Overall Progress', s.progress_change_text || '', 'progress.php'),
     statCard('star', 'text-pink-600', 'bg-pink-50 dark:bg-pink-950/40', gpa, 'GPA Tracker', s.gpa_change_text || '')
   ].join('');
   if (window.lucide) window.lucide.createIcons();
@@ -148,7 +150,7 @@ function renderCourseCards(courses) {
       <div class="flex items-start gap-3">
         <div class="course-icon" style="background:${safeColor(c.color)}">${esc(c.icon || '📘')}</div>
         <div class="min-w-0 flex-1">
-          <div class="flex items-start justify-between gap-2"><div><h4 class="font-bold text-sm">${esc(c.code)}</h4><p class="text-sm mt-1">${esc(c.name)}</p><p class="text-xs text-[#63817A] dark:text-gray-400 mt-1">${esc(c.lecturer || 'No lecturer set')}</p></div><span class="credit-pill">${esc(c.credits)} Credit${Number(c.credits) === 1 ? '' : 's'}</span></div>
+          <div class="flex items-start justify-between gap-2"><div class="min-w-0 flex-1"><h4 class="font-bold text-sm">${esc(c.code)}</h4><p class="text-sm mt-1 break-words">${esc(c.name)}</p><p class="text-xs text-[#63817A] dark:text-gray-400 mt-1">${esc(c.lecturer || 'No lecturer set')}</p></div><span class="credit-pill shrink-0">${esc(c.credits)} Credit${Number(c.credits) === 1 ? '' : 's'}</span></div>
           <div class="flex items-center gap-2 mt-4"><div class="flex-1 h-1.5 bg-[#E7EEEC] dark:bg-white/10 rounded-full overflow-hidden"><div class="h-full rounded-full" data-work-progress-item="course:${esc(c.id)}" style="width:${progress}%;background:${PROGRESS_COLOR(progress)}"></div></div><span class="text-[11px] font-semibold">${progress}%</span></div>
           <div class="flex items-center justify-between mt-3 gap-2"><span class="semester-pill">${esc(c.semester || 'Current Semester')}</span><span class="text-xs text-[#486C64] dark:text-gray-400 flex items-center gap-1"><i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>${Number(c.task_count || 0)} Task${Number(c.task_count || 0) === 1 ? '' : 's'}</span></div>
         </div>
@@ -284,4 +286,729 @@ document.getElementById('course-cards').addEventListener('click', e => {
 });
 
 window.addEventListener('work-item-updated', e => { if (e.detail?.type === 'course') loadCourses(); });
-window.APP_READY.then(me => { if (me) loadCourses(); });
+// ============================================================
+// DATE UTILITY
+// ============================================================
+function addDays(dateStr, days) {
+  if (!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if (parts.length < 3) return dateStr;
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  d.setDate(d.getDate() + Number(days));
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// ============================================================
+// SEMESTER BANNER
+// ============================================================
+async function loadSemesterBanner() {
+  const banner = document.getElementById('semester-banner');
+  if (!banner) return;
+  try {
+    const res = await fetch(`${API}/curriculum.php?context=1`, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) return;
+    const ctx = data.context;
+    if (ctx && ctx.has_semester) {
+      banner.classList.remove('hidden');
+      document.getElementById('semester-banner-title').textContent = ctx.semester_name || 'Active Semester';
+      const badge = document.getElementById('semester-banner-badge');
+      if (ctx.current_week_number) {
+        badge.textContent = `Week ${ctx.current_week_number} of ${ctx.total_weeks} • ${ctx.current_phase || 'Active'}`;
+        badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300';
+      } else {
+        badge.textContent = ctx.current_phase || 'Scheduled';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+      }
+      let sub = `${ctx.start_date} to ${ctx.end_date}`;
+      if (ctx.student_guidance) {
+        sub += ` • ${ctx.student_guidance}`;
+      }
+      document.getElementById('semester-banner-subtitle').textContent = sub;
+    } else {
+      banner.classList.remove('hidden');
+      document.getElementById('semester-banner-title').textContent = 'Academic Calendar Not Set';
+      const badge = document.getElementById('semester-banner-badge');
+      badge.textContent = 'Setup';
+      badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300';
+      document.getElementById('semester-banner-subtitle').textContent = 'Upload your curriculum or set semester dates to enable academic study guidance.';
+    }
+    if (window.lucide) window.lucide.createIcons();
+  } catch (e) {
+    console.error('Error loading semester banner:', e);
+  }
+}
+
+// ============================================================
+// DROPZONE HELPER
+// ============================================================
+function setupDropzone(dropzoneEl, fileInputEl, labelEl, onFileSelected) {
+  if (!dropzoneEl || !fileInputEl) return;
+  dropzoneEl.addEventListener('click', () => fileInputEl.click());
+  fileInputEl.addEventListener('change', e => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (labelEl) {
+        labelEl.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+        labelEl.classList.remove('hidden');
+      }
+      onFileSelected(file);
+    }
+  });
+  ['dragenter', 'dragover'].forEach(name => {
+    dropzoneEl.addEventListener(name, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzoneEl.classList.add('border-emerald-500', 'bg-emerald-50/50');
+    });
+  });
+  ['dragleave', 'drop'].forEach(name => {
+    dropzoneEl.addEventListener(name, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzoneEl.classList.remove('border-emerald-500', 'bg-emerald-50/50');
+    });
+  });
+  dropzoneEl.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      fileInputEl.files = e.dataTransfer.files;
+      if (labelEl) {
+        labelEl.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+        labelEl.classList.remove('hidden');
+      }
+      onFileSelected(file);
+    }
+  });
+}
+
+// ============================================================
+// COURSE FORM IMPORT
+// ============================================================
+const courseImportModal = document.getElementById('course-import-modal');
+const courseDropzone = document.getElementById('course-dropzone');
+const courseFileInput = document.getElementById('course-file-input');
+const courseTextInput = document.getElementById('course-text-input');
+const courseFileChosen = document.getElementById('course-file-chosen');
+const courseImportError = document.getElementById('course-import-error');
+const courseReviewError = document.getElementById('course-review-error');
+let selectedCourseFile = null;
+let reviewedCoursesList = [];
+
+function openCourseImportModal() {
+  selectedCourseFile = null;
+  if (courseFileInput) courseFileInput.value = '';
+  if (courseTextInput) courseTextInput.value = '';
+  if (courseFileChosen) { courseFileChosen.textContent = ''; courseFileChosen.classList.add('hidden'); }
+  if (courseImportError) { courseImportError.textContent = ''; courseImportError.classList.add('hidden'); }
+  if (courseReviewError) { courseReviewError.textContent = ''; courseReviewError.classList.add('hidden'); }
+  document.getElementById('course-import-step-upload')?.classList.remove('hidden');
+  document.getElementById('course-import-step-review')?.classList.add('hidden');
+  courseImportModal?.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeCourseImportModal() {
+  courseImportModal?.classList.add('hidden');
+}
+
+setupDropzone(courseDropzone, courseFileInput, courseFileChosen, f => { selectedCourseFile = f; });
+
+document.getElementById('open-import-course-form')?.addEventListener('click', openCourseImportModal);
+document.getElementById('close-course-import-modal')?.addEventListener('click', closeCourseImportModal);
+document.getElementById('cancel-course-import')?.addEventListener('click', closeCourseImportModal);
+document.getElementById('back-to-upload-course')?.addEventListener('click', () => {
+  document.getElementById('course-import-step-upload').classList.remove('hidden');
+  document.getElementById('course-import-step-review').classList.add('hidden');
+});
+
+async function handleExtractCourses() {
+  const btn = document.getElementById('extract-course-btn');
+  const errEl = document.getElementById('course-import-error');
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+
+  const textVal = courseTextInput ? courseTextInput.value.trim() : '';
+  if (!selectedCourseFile && !textVal) {
+    errEl.textContent = 'Please select a course registration document or paste course details.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Extracting…';
+  if (window.lucide) window.lucide.createIcons();
+
+  try {
+    let res;
+    if (selectedCourseFile) {
+      const fd = new FormData();
+      fd.append('action', 'extract_form');
+      fd.append('document', selectedCourseFile);
+      fd.append('csrf_token', window.CSRF_TOKEN || '');
+      res = await fetch(`${API}/course_import.php`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: fd
+      });
+    } else {
+      res = await fetch(`${API}/course_import.php`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ action: 'extract_form', text: textVal, csrf_token: window.CSRF_TOKEN || '' })
+      });
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || "We couldn't extract courses from this file. Try another document or add courses manually.");
+    }
+
+    reviewedCoursesList = Array.isArray(data.courses) ? data.courses : [];
+    if (reviewedCoursesList.length === 0) {
+      throw new Error("No course codes were identified in this document. Please check the file or add courses manually.");
+    }
+
+    renderCourseReviewTable();
+    document.getElementById('course-import-step-upload').classList.add('hidden');
+    document.getElementById('course-import-step-review').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="sparkles" class="w-4 h-4"></i> Extract Courses';
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+document.getElementById('extract-course-btn')?.addEventListener('click', handleExtractCourses);
+
+function renderCourseReviewTable() {
+  const tbody = document.getElementById('course-review-tbody');
+  if (!tbody) return;
+  document.getElementById('course-review-count').textContent = `${reviewedCoursesList.length} course${reviewedCoursesList.length === 1 ? '' : 's'} ready for review`;
+  tbody.innerHTML = reviewedCoursesList.map((c, idx) => {
+    const statusPill = c.already_exists
+      ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Exists (skip)</span>`
+      : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">New</span>`;
+    return `
+      <tr data-index="${idx}" class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
+        <td class="p-2"><input type="text" class="form-control text-xs font-bold uppercase p-1.5 min-h-[34px] w-24 sm:w-28" data-field="code" value="${esc(c.code || '')}" required></td>
+        <td class="p-2"><input type="text" class="form-control text-xs p-1.5 min-h-[34px]" data-field="name" value="${esc(c.name || '')}" required></td>
+        <td class="p-2"><input type="number" min="1" max="6" step="1" class="form-control text-xs p-1.5 min-h-[34px] w-16" data-field="credits" value="${Number(c.credits || 3)}"></td>
+        <td class="p-2">${statusPill}</td>
+        <td class="p-2 text-right"><button type="button" class="text-red-500 hover:text-red-700 p-1 remove-review-course-btn" title="Remove course"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('.remove-review-course-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const tr = e.target.closest('tr');
+      const idx = Number(tr.dataset.index);
+      reviewedCoursesList.splice(idx, 1);
+      renderCourseReviewTable();
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+document.getElementById('add-review-row-btn')?.addEventListener('click', () => {
+  reviewedCoursesList.push({ code: '', name: '', credits: 3, already_exists: false });
+  renderCourseReviewTable();
+  const inputs = document.querySelectorAll('#course-review-tbody input[data-field="code"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+});
+
+async function handleConfirmCourseImport() {
+  const btn = document.getElementById('confirm-import-courses-btn');
+  const errEl = document.getElementById('course-review-error');
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+
+  const rows = document.querySelectorAll('#course-review-tbody tr');
+  const coursesToImport = [];
+  rows.forEach(tr => {
+    const code = tr.querySelector('input[data-field="code"]').value.trim();
+    const name = tr.querySelector('input[data-field="name"]').value.trim();
+    const credits = Number(tr.querySelector('input[data-field="credits"]').value || 3);
+    if (code && name) {
+      coursesToImport.push({ code, name, credits });
+    }
+  });
+
+  if (coursesToImport.length === 0) {
+    errEl.textContent = 'Please provide at least one valid course with a code and title.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving…';
+  if (window.lucide) window.lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API}/course_import.php`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        action: 'confirm_import',
+        courses: coursesToImport,
+        csrf_token: window.CSRF_TOKEN || ''
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Could not import courses.');
+    }
+
+    closeCourseImportModal();
+    window.showToast?.(`Import complete: ${data.imported_count} courses added${data.skipped_count > 0 ? `, ${data.skipped_count} skipped` : ''}`, 'success');
+    await loadCourses();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Confirm & Import Courses';
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+document.getElementById('confirm-import-courses-btn')?.addEventListener('click', handleConfirmCourseImport);
+
+// ============================================================
+// SEMESTER ACADEMIC CALENDAR & CURRICULUM
+// ============================================================
+const curriculumModal = document.getElementById('curriculum-modal');
+const curriculumDropzone = document.getElementById('curriculum-dropzone');
+const curriculumFileInput = document.getElementById('curriculum-file-input');
+const curriculumTextInput = document.getElementById('curriculum-text-input');
+const curriculumFileChosen = document.getElementById('curriculum-file-chosen');
+const curriculumError = document.getElementById('curriculum-error');
+let selectedCurriculumFile = null;
+let currentSemesterData = null;
+let reviewedCurriculumWeeks = [];
+
+const WEEK_TYPE_OPTIONS = [
+  { value: 'teaching', label: 'Teaching Week' },
+  { value: 'student_week', label: 'Student Week' },
+  { value: 'revision', label: 'Revision Week' },
+  { value: 'exam', label: 'Examination Week' },
+  { value: 'break', label: 'Break / Holiday' },
+  { value: 'orientation', label: 'Orientation' },
+  { value: 'other', label: 'Other' },
+];
+
+function generateDefaultWeeks(name, startMonday, numWeeks) {
+  const weeks = [];
+  const count = Math.max(4, Math.min(24, Number(numWeeks) || 14));
+  for (let i = 1; i <= count; i++) {
+    const wStart = addDays(startMonday, (i - 1) * 7);
+    const wEnd = addDays(wStart, 6);
+    let type = 'teaching';
+    let label = `Teaching Week ${i}`;
+
+    if (i === 1) {
+      label = 'Lectures Begin';
+    } else if (i === Math.floor(count / 2)) {
+      type = 'student_week';
+      label = 'Mid-term / Student Week';
+    } else if (i === count - 1) {
+      type = 'revision';
+      label = 'Revision Week';
+    } else if (i === count) {
+      type = 'exam';
+      label = 'Examination Week';
+    }
+
+    weeks.push({
+      week_number: i,
+      week_type: type,
+      label: label,
+      start_date: wStart,
+      end_date: wEnd,
+      notes: ''
+    });
+  }
+  reviewedCurriculumWeeks = weeks;
+  document.getElementById('curr-review-name').value = name || 'First Semester';
+  document.getElementById('curr-review-start').value = startMonday;
+  document.getElementById('curr-review-end').value = addDays(startMonday, count * 7 - 1);
+  renderCurriculumWeeksTable();
+}
+
+async function fetchCurriculum() {
+  try {
+    const res = await fetch(`${API}/curriculum.php`, {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      currentSemesterData = data;
+      renderActiveCurriculumSummary(data);
+    }
+  } catch (e) {
+    console.error('Failed to load curriculum:', e);
+  }
+}
+
+function renderActiveCurriculumSummary(data) {
+  const sumBox = document.getElementById('curriculum-active-summary');
+  if (!sumBox) return;
+  if (data && data.semester) {
+    sumBox.classList.remove('hidden');
+    document.getElementById('curr-sum-name').textContent = data.semester.name;
+    const badge = document.getElementById('curr-sum-badge');
+    badge.textContent = data.context?.current_phase || 'Active';
+    document.getElementById('curr-sum-dates').textContent = `${data.semester.start_date} to ${data.semester.end_date} (${data.weeks?.length || 0} Academic Weeks)`;
+    document.getElementById('curr-sum-guidance').textContent = data.context?.student_guidance || '';
+
+    document.getElementById('curr-review-name').value = data.semester.name;
+    document.getElementById('curr-review-start').value = data.semester.start_date;
+    document.getElementById('curr-review-end').value = data.semester.end_date;
+    reviewedCurriculumWeeks = Array.isArray(data.weeks) ? [...data.weeks] : [];
+    renderCurriculumWeeksTable();
+  } else {
+    sumBox.classList.add('hidden');
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff));
+    const year = monday.getFullYear();
+    const month = String(monday.getMonth() + 1).padStart(2, '0');
+    const dStr = String(monday.getDate()).padStart(2, '0');
+    const startStr = `${year}-${month}-${dStr}`;
+
+    document.getElementById('manual-sem-start').value = startStr;
+    document.getElementById('curr-review-start').value = startStr;
+    document.getElementById('curr-review-end').value = addDays(startStr, 14 * 7 - 1);
+    if (!reviewedCurriculumWeeks.length) {
+      generateDefaultWeeks('First Semester', startStr, 14);
+    }
+  }
+}
+
+function openCurriculumModal() {
+  selectedCurriculumFile = null;
+  if (curriculumFileInput) curriculumFileInput.value = '';
+  if (curriculumTextInput) curriculumTextInput.value = '';
+  if (curriculumFileChosen) { curriculumFileChosen.textContent = ''; curriculumFileChosen.classList.add('hidden'); }
+  if (curriculumError) { curriculumError.textContent = ''; curriculumError.classList.add('hidden'); }
+  curriculumModal?.classList.remove('hidden');
+  fetchCurriculum();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeCurriculumModal() {
+  curriculumModal?.classList.add('hidden');
+}
+
+setupDropzone(curriculumDropzone, curriculumFileInput, curriculumFileChosen, f => { selectedCurriculumFile = f; });
+
+document.getElementById('open-curriculum-modal')?.addEventListener('click', openCurriculumModal);
+document.getElementById('banner-view-calendar-btn')?.addEventListener('click', openCurriculumModal);
+document.getElementById('close-curriculum-modal')?.addEventListener('click', closeCurriculumModal);
+document.getElementById('cancel-curriculum')?.addEventListener('click', closeCurriculumModal);
+
+// Tabs in Curriculum modal
+const tabUpload = document.getElementById('curriculum-tab-upload');
+const tabManual = document.getElementById('curriculum-tab-manual');
+const panelUpload = document.getElementById('curriculum-panel-upload');
+const panelManual = document.getElementById('curriculum-panel-manual');
+
+tabUpload?.addEventListener('click', () => {
+  tabUpload.className = 'pb-2.5 border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400';
+  tabManual.className = 'pb-2.5 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700';
+  panelUpload.classList.remove('hidden');
+  panelManual.classList.add('hidden');
+});
+
+tabManual?.addEventListener('click', () => {
+  tabManual.className = 'pb-2.5 border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400';
+  tabUpload.className = 'pb-2.5 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700';
+  panelManual.classList.remove('hidden');
+  panelUpload.classList.add('hidden');
+});
+
+document.getElementById('generate-manual-weeks-btn')?.addEventListener('click', () => {
+  const name = document.getElementById('manual-sem-name').value.trim() || 'First Semester';
+  const start = document.getElementById('manual-sem-start').value;
+  const count = Number(document.getElementById('manual-sem-weeks').value) || 14;
+  if (!start) {
+    alert('Please choose a start date (Monday) for the semester.');
+    return;
+  }
+  generateDefaultWeeks(name, start, count);
+  window.showToast?.(`Generated ${count} academic weeks. Review and adjust below before saving.`, 'info');
+});
+
+async function handleExtractCurriculum() {
+  const btn = document.getElementById('extract-curriculum-btn');
+  const errEl = document.getElementById('curriculum-error');
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+
+  const textVal = curriculumTextInput ? curriculumTextInput.value.trim() : '';
+  if (!selectedCurriculumFile && !textVal) {
+    errEl.textContent = 'Please select an academic calendar document or paste text.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Extracting…';
+  if (window.lucide) window.lucide.createIcons();
+
+  try {
+    let res;
+    if (selectedCurriculumFile) {
+      const fd = new FormData();
+      fd.append('action', 'extract_document');
+      fd.append('document', selectedCurriculumFile);
+      fd.append('csrf_token', window.CSRF_TOKEN || '');
+      res = await fetch(`${API}/curriculum.php`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: fd
+      });
+    } else {
+      res = await fetch(`${API}/curriculum.php`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ action: 'extract_document', text: textVal, csrf_token: window.CSRF_TOKEN || '' })
+      });
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || "We couldn't read this file. Try another document or enter the information manually.");
+    }
+
+    const ext = data.extracted || {};
+    if (ext.semester_name) document.getElementById('curr-review-name').value = ext.semester_name;
+    if (ext.start_date) document.getElementById('curr-review-start').value = ext.start_date;
+    if (ext.end_date) document.getElementById('curr-review-end').value = ext.end_date;
+
+    reviewedCurriculumWeeks = Array.isArray(ext.weeks) && ext.weeks.length ? ext.weeks : [];
+    if (!reviewedCurriculumWeeks.length) {
+      generateDefaultWeeks(ext.semester_name || 'First Semester', ext.start_date || document.getElementById('curr-review-start').value, 14);
+    } else {
+      renderCurriculumWeeksTable();
+    }
+
+    window.showToast?.('Calendar timeline extracted. Review the weeks below before saving.', 'info');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Extract & Review Calendar';
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+document.getElementById('extract-curriculum-btn')?.addEventListener('click', handleExtractCurriculum);
+
+function renderCurriculumWeeksTable() {
+  const tbody = document.getElementById('curriculum-weeks-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = reviewedCurriculumWeeks.map((w, idx) => {
+    const opts = WEEK_TYPE_OPTIONS.map(o => `<option value="${o.value}" ${w.week_type === o.value ? 'selected' : ''}>${o.label}</option>`).join('');
+    return `
+      <tr data-index="${idx}" class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
+        <td class="p-1.5 font-bold text-center text-gray-500 dark:text-gray-400">
+          <input type="number" min="1" max="52" class="form-control text-xs p-1 min-h-[30px] w-12 text-center" data-field="week_number" value="${w.week_number ?? (idx + 1)}">
+        </td>
+        <td class="p-1.5">
+          <select class="form-control text-xs p-1 min-h-[30px]" data-field="week_type">
+            ${opts}
+          </select>
+        </td>
+        <td class="p-1.5">
+          <input type="text" class="form-control text-xs p-1 min-h-[30px]" data-field="label" value="${esc(w.label || '')}" placeholder="Week description">
+        </td>
+        <td class="p-1.5">
+          <input type="date" class="form-control text-xs p-1 min-h-[30px]" data-field="start_date" value="${w.start_date || ''}">
+        </td>
+        <td class="p-1.5">
+          <input type="date" class="form-control text-xs p-1 min-h-[30px]" data-field="end_date" value="${w.end_date || ''}">
+        </td>
+        <td class="p-1.5 text-right">
+          <button type="button" class="text-red-500 hover:text-red-700 p-1 remove-curriculum-week-btn" title="Remove week"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('.remove-curriculum-week-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const tr = e.target.closest('tr');
+      const idx = Number(tr.dataset.index);
+      reviewedCurriculumWeeks.splice(idx, 1);
+      renderCurriculumWeeksTable();
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+document.getElementById('add-curriculum-week-btn')?.addEventListener('click', () => {
+  const lastWeek = reviewedCurriculumWeeks[reviewedCurriculumWeeks.length - 1];
+  const nextNum = (lastWeek ? Number(lastWeek.week_number) : 0) + 1;
+  const nextStart = lastWeek && lastWeek.end_date ? addDays(lastWeek.end_date, 1) : document.getElementById('curr-review-start').value;
+  const nextEnd = addDays(nextStart, 6);
+  reviewedCurriculumWeeks.push({
+    week_number: nextNum,
+    week_type: 'teaching',
+    label: `Week ${nextNum}`,
+    start_date: nextStart,
+    end_date: nextEnd,
+    notes: ''
+  });
+  renderCurriculumWeeksTable();
+});
+
+async function handleSaveCurriculum() {
+  const btn = document.getElementById('save-curriculum-btn');
+  const errEl = document.getElementById('curriculum-error');
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+
+  const name = document.getElementById('curr-review-name').value.trim();
+  const startDate = document.getElementById('curr-review-start').value.trim();
+  const endDate = document.getElementById('curr-review-end').value.trim();
+
+  if (!name) {
+    errEl.textContent = 'Please enter a semester name.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!startDate || !endDate) {
+    errEl.textContent = 'Please set valid start and end dates.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (endDate <= startDate) {
+    errEl.textContent = 'Semester end date must be after the start date.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const rows = document.querySelectorAll('#curriculum-weeks-tbody tr');
+  const weeksPayload = [];
+  rows.forEach(tr => {
+    const wNum = Number(tr.querySelector('input[data-field="week_number"]').value) || (weeksPayload.length + 1);
+    const type = tr.querySelector('select[data-field="week_type"]').value;
+    const label = tr.querySelector('input[data-field="label"]').value.trim();
+    const wStart = tr.querySelector('input[data-field="start_date"]').value.trim();
+    const wEnd = tr.querySelector('input[data-field="end_date"]').value.trim();
+    weeksPayload.push({
+      week_number: wNum,
+      week_type: type,
+      label: label || `Week ${wNum}`,
+      start_date: wStart || startDate,
+      end_date: wEnd || endDate,
+      notes: ''
+    });
+  });
+
+  if (weeksPayload.length === 0) {
+    errEl.textContent = 'Please add at least one week to the calendar.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Saving…';
+  if (window.lucide) window.lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API}/curriculum.php`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_curriculum',
+        semester_name: name,
+        start_date: startDate,
+        end_date: endDate,
+        weeks: weeksPayload,
+        csrf_token: window.CSRF_TOKEN || ''
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Could not save semester calendar.');
+    }
+
+    closeCurriculumModal();
+    window.showToast?.('Semester academic calendar saved successfully!', 'success');
+    await loadSemesterBanner();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Save Semester Calendar';
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+document.getElementById('save-curriculum-btn')?.addEventListener('click', handleSaveCurriculum);
+document.getElementById('btn-edit-existing-curriculum')?.addEventListener('click', () => {
+  document.getElementById('curriculum-review-section')?.scrollIntoView({ behavior: 'smooth' });
+});
+
+document.getElementById('btn-delete-curriculum')?.addEventListener('click', async () => {
+  if (!currentSemesterData?.semester?.id) return;
+  if (!confirm(`Delete semester "${currentSemesterData.semester.name}" and its academic calendar?`)) return;
+  try {
+    const res = await fetch(`${API}/curriculum.php`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+      body: new URLSearchParams({ semester_id: String(currentSemesterData.semester.id), csrf_token: window.CSRF_TOKEN || '' }).toString()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Could not delete semester calendar.');
+    closeCurriculumModal();
+    window.showToast?.('Semester calendar deleted', 'success');
+    await loadSemesterBanner();
+  } catch (e) {
+    window.showToast?.(e.message, 'error');
+  }
+});
+
+// Auto-open modals based on URL parameter
+function checkUrlParams() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('open_curriculum') === '1' || p.get('open_calendar') === '1') {
+    openCurriculumModal();
+  } else if (p.get('import_form') === '1') {
+    openCourseImportModal();
+  }
+}
+
+window.APP_READY.then(me => {
+  if (me) {
+    loadCourses();
+    checkUrlParams();
+  }
+});
+

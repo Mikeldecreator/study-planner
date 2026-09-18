@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
 header('Content-Type: application/json');
 requireLogin();
 
@@ -8,6 +9,14 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
+    if (function_exists('syncContextualNotifications')) {
+        try {
+            syncContextualNotifications($db, $userId);
+        } catch (\Throwable $t) {
+            // Non-blocking notification sync
+        }
+    }
+
     // Only show in-app notifications whose send_at has arrived (cron marks sent_at,
     // but for in-app we just need send_at <= now — no waiting on the cron for the bell).
     $stmt = $db->prepare(

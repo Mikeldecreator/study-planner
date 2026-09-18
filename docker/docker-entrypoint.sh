@@ -17,4 +17,13 @@ if [ -n "$DB_HOST" ] && [ "$DB_HOST" != "localhost" ]; then
     php /var/www/html/database/migrate.php || echo "Migration notice: continuing startup..."
 fi
 
+# Start background notification scheduler daemon (runs every 5 minutes)
+(
+    while true; do
+        sleep 300
+        php /var/www/html/cron/notification_scheduler.php >/dev/null 2>&1 || true
+    done
+) &
+
 exec "$@"
+

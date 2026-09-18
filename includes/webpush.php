@@ -27,6 +27,8 @@ $opensslConfigCandidates = [
     'C:\\xampp\\php\\extras\\ssl\\openssl.cnf',
     'C:\\xampp\\apache\\conf\\openssl.cnf',
     'C:\\xampp\\apache\\bin\\openssl.cnf',
+    '/etc/ssl/openssl.cnf',
+    '/usr/lib/ssl/openssl.cnf',
 ];
 
 foreach ($opensslConfigCandidates as $opensslConfig) {

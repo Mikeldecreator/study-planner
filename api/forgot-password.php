@@ -29,7 +29,7 @@ error_reporting(E_ALL);
  */
 define(
     'EMAIL_TEST_MODE',
-    true
+    getenv('EMAIL_TEST_MODE') === 'true'
 );
 
 define(

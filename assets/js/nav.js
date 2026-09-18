@@ -97,14 +97,39 @@ window.APP_READY = (async function bootstrap() {
 
   syncDarkModeUI(me.dark_mode);
 
+  try {
+    const notifRes = await fetch(`${API}/notifications.php`, { credentials: 'same-origin' });
+    if (notifRes.ok) {
+      const notifData = await notifRes.json();
+      const notifs = Array.isArray(notifData) ? notifData : (notifData.notifications || []);
+      const unreadCount = notifs.filter(n => !n.is_read).length;
+      const sidebarBadge = document.getElementById('sidebar-unread-badge');
+      if (sidebarBadge) {
+        if (unreadCount > 0) {
+          sidebarBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+          sidebarBadge.classList.remove('hidden');
+          sidebarBadge.classList.add('flex');
+        } else {
+          sidebarBadge.classList.add('hidden');
+          sidebarBadge.classList.remove('flex');
+          sidebarBadge.textContent = '';
+        }
+      }
+    }
+  } catch (e) {
+    // Non-blocking notification fetch
+  }
+
   return me;
 })();
 
 function highlightActiveNavLink() {
   const page = document.body.dataset.page;
+  const isFocusUrl = (page === 'tasks' && (window.location.search.includes('focus=1') || window.location.search.includes('focus_task_id')));
+  const activeKey = isFocusUrl ? 'focus' : page;
 
   document.querySelectorAll('[data-nav]').forEach(link => {
-    if (link.dataset.nav === page) {
+    if (link.dataset.nav === activeKey) {
       link.classList.remove('text-white/80', 'hover:bg-white/10');
       link.classList.add(
         'bg-emerald-600',
@@ -170,10 +195,13 @@ function wireStudyAI() {
     return;
   }
 
-  aiButton.addEventListener('click', () => {
-    window.dispatchEvent(
-      new CustomEvent('study-ai:open')
-    );
+  aiButton.addEventListener('click', (e) => {
+    if (document.body.dataset.page === 'study-ai') {
+      e.preventDefault();
+      window.dispatchEvent(
+        new CustomEvent('study-ai:open')
+      );
+    }
   });
 }
 

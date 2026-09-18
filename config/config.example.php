@@ -21,6 +21,11 @@ define('REMINDER_LEAD_HOURS', (int) (getenv('REMINDER_LEAD_HOURS') ?: 24));
 define('VAPID_PUBLIC_KEY', getenv('VAPID_PUBLIC_KEY') ?: '');
 define('VAPID_PRIVATE_KEY', getenv('VAPID_PRIVATE_KEY') ?: '');
 define('VAPID_SUBJECT', getenv('VAPID_SUBJECT') ?: 'mailto:you@example.com');
+
+define('AI_PROVIDER', getenv('AI_PROVIDER') ?: 'gemini');
+define('AI_API_KEY', getenv('AI_API_KEY') ?: (getenv('GEMINI_API_KEY') ?: (getenv('OPENAI_API_KEY') ?: '')));
+define('AI_MODEL', getenv('AI_MODEL') ?: '');
+
 date_default_timezone_set('Africa/Lagos');
 
 if (session_status() === PHP_SESSION_NONE) {
