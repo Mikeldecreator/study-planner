@@ -151,7 +151,20 @@ switch ($method) {
             $body['start_time'],
             $body['end_time'],
         ]);
-        echo json_encode(['ok' => true, 'id' => $db->lastInsertId()]);
+        $newSchedId = (int) $db->lastInsertId();
+        http_response_code(201);
+        echo json_encode([
+            'ok' => true,
+            'id' => $newSchedId,
+            'event' => [
+                'id' => $newSchedId,
+                'course_id' => ownedCourseIdOrNull($db, $body['course_id'] ?? null, $userId),
+                'title' => $title,
+                'day_of_week' => (int) $body['day_of_week'],
+                'start_time' => $body['start_time'],
+                'end_time' => $body['end_time']
+            ]
+        ]);
         break;
 
     case 'PUT':

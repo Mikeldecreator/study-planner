@@ -379,6 +379,13 @@ try {
                 $cStmt = $db->prepare('SELECT UPPER(code) as code, id FROM courses WHERE user_id = ?');
                 $cStmt->execute([$userId]);
                 $courseMap = $cStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+                $courseMapNorm = [];
+                $validCourseIds = [];
+                foreach ($courseMap as $cCode => $cId) {
+                    $clean = preg_replace('/[^A-Za-z0-9]/', '', $cCode);
+                    $courseMapNorm[$clean] = (int)$cId;
+                    $validCourseIds[(int)$cId] = true;
+                }
 
                 // Existing slots to prevent duplicate insertion
                 $existStmt = $db->prepare('SELECT day_of_week, start_time, end_time, course_id, title FROM schedule_events WHERE user_id = ?');
@@ -408,11 +415,19 @@ try {
                 $skipped = 0;
 
                 foreach ($classes as $item) {
-                    $rawDay = strtolower(trim((string) ($item['day_of_week'] ?? '1')));
+                    $rawDay = strtolower(trim((string) ($item['day_of_week'] ?? $item['day'] ?? '1')));
                     $dow = $dayMap[$rawDay] ?? 1;
 
                     $cCode = strtoupper(trim((string) ($item['course_code'] ?? '')));
-                    $courseId = !empty($item['course_id']) ? (int) $item['course_id'] : ($courseMap[$cCode] ?? null);
+                    $cleanCode = preg_replace('/[^A-Za-z0-9]/', '', $cCode);
+                    $courseId = null;
+                    if (!empty($item['course_id']) && isset($validCourseIds[(int)$item['course_id']])) {
+                        $courseId = (int)$item['course_id'];
+                    } elseif (isset($courseMap[$cCode])) {
+                        $courseId = (int)$courseMap[$cCode];
+                    } elseif (isset($courseMapNorm[$cleanCode])) {
+                        $courseId = (int)$courseMapNorm[$cleanCode];
+                    }
 
                     $start = trim((string) ($item['start_time'] ?? '09:00:00'));
                     $end = trim((string) ($item['end_time'] ?? '11:00:00'));

@@ -200,6 +200,15 @@ switch ($method) {
                 );
         }
 
+        if (!empty($_GET['id'])) {
+            $sql .= '
+                AND t.id = ?
+            ';
+
+            $params[] =
+                (int)$_GET['id'];
+        }
+
         if (!empty($_GET['q'])) {
             $sql .= '
                 AND (
@@ -573,6 +582,9 @@ switch ($method) {
             'tasks' =>
                 $tasks,
 
+            'task' =>
+                !empty($_GET['id']) ? ($tasks[0] ?? null) : null,
+
             'summary' =>
                 $summary,
 
@@ -609,7 +621,7 @@ switch ($method) {
         $dueAt =
             trim(
                 (string)(
-                    $body['due_at'] ?? ''
+                    $body['due_at'] ?? $body['due_date'] ?? ''
                 )
             );
 
@@ -626,18 +638,25 @@ switch ($method) {
             );
         }
 
+        $cleanDueAt = str_replace('T', ' ', $dueAt);
         $dueDate =
             DateTime::createFromFormat(
                 'Y-m-d H:i:s',
-                str_replace(
-                    'T',
-                    ' ',
-                    $dueAt
-                )
+                $cleanDueAt
             )
             ?:
             DateTime::createFromFormat(
                 'Y-m-d\TH:i',
+                $dueAt
+            )
+            ?:
+            DateTime::createFromFormat(
+                'Y-m-d H:i',
+                $cleanDueAt
+            )
+            ?:
+            DateTime::createFromFormat(
+                'Y-m-d',
                 $dueAt
             );
 
@@ -831,8 +850,16 @@ switch ($method) {
 
         taskApiJson([
             'ok' => true,
-            'id' => $taskId
-        ]);
+            'id' => $taskId,
+            'course_id' => $courseId,
+            'task' => [
+                'id' => $taskId,
+                'course_id' => $courseId,
+                'title' => $title,
+                'status' => $status,
+                'due_at' => $dueDate->format('Y-m-d H:i:s')
+            ]
+        ], 201);
 
         break;
 
@@ -940,24 +967,32 @@ switch ($method) {
             trim(
                 (string)(
                     $body['due_at']
+                    ?? $body['due_date']
                     ?? ''
                 )
             );
 
+        $cleanDueAt = str_replace('T', ' ', $dueAt);
         $dueDate =
             $dueAt !== ''
                 ? (
                     DateTime::createFromFormat(
                         'Y-m-d H:i:s',
-                        str_replace(
-                            'T',
-                            ' ',
-                            $dueAt
-                        )
+                        $cleanDueAt
                     )
                     ?:
                     DateTime::createFromFormat(
                         'Y-m-d\TH:i',
+                        $dueAt
+                    )
+                    ?:
+                    DateTime::createFromFormat(
+                        'Y-m-d H:i',
+                        $cleanDueAt
+                    )
+                    ?:
+                    DateTime::createFromFormat(
+                        'Y-m-d',
                         $dueAt
                     )
                 )
@@ -1146,8 +1181,17 @@ switch ($method) {
         }
 
         taskApiJson([
-            'ok' => true
-        ]);
+            'ok' => true,
+            'id' => $id,
+            'course_id' => $courseId,
+            'task' => [
+                'id' => $id,
+                'course_id' => $courseId,
+                'title' => trim((string)($body['title'] ?? $existing['title'])),
+                'status' => $newStatus,
+                'progress_percent' => $progress
+            ]
+        ], 200);
 
         break;
 
