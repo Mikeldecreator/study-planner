@@ -3036,9 +3036,9 @@ async function refreshDashboard() {
 
     try {
 
-        await Promise.all([
-            loadDashboard(),
-            loadStats()
+        await Promise.allSettled([
+            loadStats(),
+            loadDashboard()
         ]);
 
     } finally {
