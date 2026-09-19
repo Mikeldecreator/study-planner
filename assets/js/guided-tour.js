@@ -87,9 +87,9 @@
       if (this.isActive) return;
 
       // Ensure sidebar is loaded before targeting sidebar navigation elements
-      const maxWait = 20; // 2 seconds max
+      const maxWait = 25; // 2.5 seconds max
       let waited = 0;
-      while (!document.querySelector('[data-nav="dashboard"]') && !document.getElementById('app-sidebar') && waited < maxWait) {
+      while (!document.querySelector('[data-nav="dashboard"]') && waited < maxWait) {
         await new Promise(r => setTimeout(r, 100));
         waited++;
       }
@@ -330,11 +330,13 @@
     async persistCompletion() {
       try {
         const csrf = window.CSRF_TOKEN || '';
-        await fetch('../api/settings.php', {
+        const apiBase = (typeof window.API !== 'undefined' ? window.API : (typeof API !== 'undefined' ? API : '../api'));
+        await fetch(`${apiBase}/settings.php`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-Token': csrf
           },
           body: JSON.stringify({

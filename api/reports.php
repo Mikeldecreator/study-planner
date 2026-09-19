@@ -190,6 +190,16 @@ $historicalComparison = function_exists('computeReportComparisons')
         'rate_delta'        => 0,
     ];
 
+$courseFocusStmt = $db->prepare(
+    "SELECT t.course_id, SUM(ws.duration_seconds) AS total_sec
+     FROM task_work_sessions ws
+     INNER JOIN tasks t ON t.id = ws.task_id AND t.user_id = ws.user_id
+     WHERE ws.user_id = ? AND ws.started_at BETWEEN ? AND ? AND t.course_id IS NOT NULL
+     GROUP BY t.course_id"
+);
+$courseFocusStmt->execute([$userId, $startStr, $endStr]);
+$courseFocusMap = $courseFocusStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
 $stmt = $db->prepare(
     "SELECT c.id, c.code, c.name, c.color, c.credits,
             COUNT(t.id) AS total_tasks,
@@ -204,11 +214,14 @@ $stmt = $db->prepare(
 $stmt->execute([$userId]);
 $courseComparison = [];
 foreach ($stmt->fetchAll() as $crow) {
+    $cId = (int) $crow['id'];
+    $cFocusSec = (int) ($courseFocusMap[$cId] ?? 0);
+    $cFocusHrs = round($cFocusSec / 3600, 1);
     $cTotal = (int) $crow['total_tasks'];
     $cComp  = (int) $crow['completed_tasks'];
     $cPct   = $cTotal > 0 ? round(($cComp / $cTotal) * 100) : 0;
     $courseComparison[] = [
-        'id'              => (int) $crow['id'],
+        'id'              => $cId,
         'code'            => $crow['code'],
         'name'            => $crow['name'],
         'color'           => $crow['color'] ?? '#10b981',
@@ -217,6 +230,9 @@ foreach ($stmt->fetchAll() as $crow) {
         'completed_tasks' => $cComp,
         'overdue_tasks'   => (int) $crow['overdue_tasks'],
         'completion_rate' => $cPct,
+        'focus_seconds'   => $cFocusSec,
+        'focus_hours'     => $cFocusHrs,
+        'study_hours'     => $cFocusHrs,
     ];
 }
 

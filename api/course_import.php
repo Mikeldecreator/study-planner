@@ -137,6 +137,13 @@ try {
              VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
 
+        $defaultSemester = trim((string) ($body['semester'] ?? ''));
+        if ($defaultSemester === '') {
+            $semStmt = $db->prepare('SELECT name FROM semesters WHERE user_id = ? AND is_current = 1 ORDER BY id DESC LIMIT 1');
+            $semStmt->execute([$userId]);
+            $defaultSemester = (string) ($semStmt->fetchColumn() ?: '');
+        }
+
         $imported = 0;
         $skipped = 0;
         $addedNames = [];
@@ -146,6 +153,9 @@ try {
             $name = trim((string) ($course['name'] ?? ''));
             $credits = max(1, min(6, (int) ($course['credits'] ?? 3)));
             $semester = trim((string) ($course['semester'] ?? ''));
+            if ($semester === '') {
+                $semester = $defaultSemester;
+            }
 
             if ($code === '' || $name === '') {
                 continue;

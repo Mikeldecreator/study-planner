@@ -3,6 +3,7 @@ let ALL_TASKS = [];
 let ALL_LOADED_COMPLETED_TASKS = [];
 let ACTIVE_TAB = 'all';
 let COURSES_CACHE = [];
+let coursesLoadingPromise = null;
 let CURRENT_PAGE = 1;
 const PAGE_SIZE = 7;
 let summaryChart = null;
@@ -788,20 +789,30 @@ function populateCourseDropdowns() {
   }
 }
 
-async function loadCourseOptions() {
-  try {
-    const data = await apiJson(`${API}/courses.php`);
-    COURSES_CACHE = Array.isArray(data.courses) ? data.courses : [];
-    populateCourseDropdowns();
-    return COURSES_CACHE;
-  } catch (error) {
-    console.error('Course options failed:', error);
-    toast(
-      'Courses could not be loaded. You can still add tasks without a course.',
-      'error'
-    );
-    return [];
+function loadCourseOptions(force = false) {
+  if (coursesLoadingPromise && !force) {
+    return coursesLoadingPromise;
   }
+  coursesLoadingPromise = (async () => {
+    try {
+      const apiEndpoint = (typeof API !== 'undefined' ? API : (window.API || 'api')) + '/courses.php';
+      const data = await apiJson(apiEndpoint);
+      COURSES_CACHE = Array.isArray(data.courses) ? data.courses : [];
+      populateCourseDropdowns();
+      return COURSES_CACHE;
+    } catch (error) {
+      console.error('Course options failed:', error);
+      return COURSES_CACHE;
+    }
+  })();
+  return coursesLoadingPromise;
+}
+
+// Proactively initiate loading courses immediately on script load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { loadCourseOptions(); });
+} else {
+  loadCourseOptions();
 }
 
 
@@ -1688,39 +1699,17 @@ function renderTable(tasks) {
       false;
   }
 
-  if (ACTIVE_TAB === 'completed') {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="9" class="py-14 text-center">
-          <div class="task-empty-state">
-            <i data-lucide="archive" class="w-8 h-8 text-emerald-600"></i>
-            <strong>Viewing Completed Tasks Archive</strong>
-            <span>Completed tasks are listed in the Completed Tasks section below.</span>
-          </div>
-        </td>
-      </tr>
-    `;
-    const resultLabel = getEl('task-results-label');
-    if (resultLabel) resultLabel.textContent = 'Showing completed tasks archive below';
-    renderPagination(0);
-    if (window.lucide) window.lucide.createIcons();
-    return;
-  }
-
-  const activeTasks = (Array.isArray(tasks) ? tasks : []).filter(t => {
-    const s = String(t.system_status || t.status || '');
-    return s !== 'completed';
-  });
+  const isCompletedTab = ACTIVE_TAB === 'completed';
+  const displayTasks = isCompletedTab
+    ? (Array.isArray(tasks) ? tasks : []).filter(t => String(t.system_status || t.status || '') === 'completed')
+    : (Array.isArray(tasks) ? tasks : []).filter(t => String(t.system_status || t.status || '') !== 'completed');
 
   const visible =
     filteredForPage(
-      activeTasks
+      displayTasks
     );
 
-  if (!activeTasks.length) {
-    const hasAnyCompleted = (Array.isArray(tasks) ? tasks : []).some(t => String(t.system_status || t.status || '') === 'completed');
-    const isSystemEmpty = !ALL_TASKS.length;
-
+  if (!displayTasks.length) {
     let emptyIcon = 'clipboard-list';
     let emptyTitle = 'Nothing to study yet';
     let emptySub = 'Add your first assignment, reading, or prep to study.';
@@ -1733,30 +1722,40 @@ function renderTable(tasks) {
       </button>
     `;
 
-    if (hasAnyCompleted) {
-      emptyIcon = 'check-circle-2';
-      emptyTitle = 'All active tasks completed!';
-      emptySub = 'All tasks in this view are completed. Check the Completed Tasks section below.';
+    if (isCompletedTab) {
+      emptyIcon = 'archive';
+      emptyTitle = 'No completed tasks yet';
+      emptySub = 'Completed tasks and recorded study sessions will appear here.';
       emptyButton = '';
-    } else if (!isSystemEmpty) {
-      emptyIcon = 'filter';
-      emptyTitle = 'No work matches your filters';
-      emptySub = 'Try clearing your search or filters to see your work.';
-      emptyButton = `
-        <button
-          type="button"
-          id="clear-task-filters"
-          class="mt-2 text-emerald-700 dark:text-emerald-400 font-semibold text-xs hover:underline">
-          Clear filters
-        </button>
-      `;
+    } else {
+      const hasAnyCompleted = (Array.isArray(tasks) ? tasks : []).some(t => String(t.system_status || t.status || '') === 'completed');
+      const isSystemEmpty = !ALL_TASKS.length;
+
+      if (hasAnyCompleted) {
+        emptyIcon = 'check-circle-2';
+        emptyTitle = 'All active tasks completed!';
+        emptySub = 'All tasks in this view are completed. Check the Completed tab or archive below.';
+        emptyButton = '';
+      } else if (!isSystemEmpty) {
+        emptyIcon = 'filter';
+        emptyTitle = 'No work matches your filters';
+        emptySub = 'Try clearing your search or filters to see your work.';
+        emptyButton = `
+          <button
+            type="button"
+            id="clear-task-filters"
+            class="mt-2 text-emerald-700 dark:text-emerald-400 font-semibold text-xs hover:underline">
+            Clear filters
+          </button>
+        `;
+      }
     }
 
     tbody.innerHTML = `
       <tr>
         <td colspan="9" class="py-16 text-center">
           <div class="task-empty-state">
-            <i data-lucide="${emptyIcon}" class="w-8 h-8 ${hasAnyCompleted ? 'text-emerald-600' : 'text-gray-400'}"></i>
+            <i data-lucide="${emptyIcon}" class="w-8 h-8 ${isCompletedTab ? 'text-emerald-600' : 'text-gray-400'}"></i>
             <strong>${emptyTitle}</strong>
             <span>${emptySub}</span>
             ${emptyButton}
@@ -1770,7 +1769,7 @@ function renderTable(tasks) {
 
     const resultLabel = getEl('task-results-label');
     if (resultLabel) {
-      resultLabel.textContent = hasAnyCompleted ? '0 active tasks (completed tasks archived below)' : 'Showing 0 work items';
+      resultLabel.textContent = isCompletedTab ? 'Showing 0 completed tasks' : 'Showing 0 active tasks';
     }
 
     renderPagination(0);
@@ -1957,6 +1956,18 @@ function renderTable(tasks) {
                       `
                   }
 
+                  ${
+                    Number(task.focused_seconds || task.total_focused_seconds || 0) > 0
+                      ? `
+                        <div class="mt-1">
+                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" title="Total focused study time recorded">
+                            <i data-lucide="timer" class="w-3 h-3"></i> ${formatDurationHuman(Number(task.focused_seconds || task.total_focused_seconds || 0))} focused
+                          </span>
+                        </div>
+                      `
+                      : ''
+                  }
+
                 </div>
 
               </div>
@@ -1967,36 +1978,36 @@ function renderTable(tasks) {
             <!-- Course -->
             <td class="py-3.5 px-3">
 
-              <div
-                class="font-semibold
-                       text-[#315B52]
-                       dark:text-gray-300">
-
-                ${
-                  task.course_id
-                    ? `<a href="courses.php" class="hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors" title="View in Courses">${esc(task.course_code || '—')}</a>`
-                    : esc(task.course_code || '—')
-                }
-
-              </div>
-
               ${
-                task.course_name
+                task.course_id && task.course_code
                   ? `
-                    <div
-                      class="text-[10px]
-                             text-[#78918B]
-                             dark:text-gray-500
-                             mt-0.5 truncate
-                             max-w-[100px]">
-
-                      ${esc(
-                        task.course_name
-                      )}
-
-                    </div>
+                    <a href="courses.php" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold hover:opacity-85 transition-opacity"
+                       style="background-color: ${esc(task.course_color || '#059669')}18; color: ${esc(task.course_color || '#059669')}; border: 1px solid ${esc(task.course_color || '#059669')}35;"
+                       title="${esc(task.course_name || task.course_code)}">
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${esc(task.course_color || '#059669')};"></span>
+                      ${esc(task.course_code)}
+                    </a>
+                    ${
+                      task.course_name
+                        ? `
+                          <div
+                            class="text-[10px]
+                                   text-[#78918B]
+                                   dark:text-gray-500
+                                   mt-1 truncate
+                                   max-w-[120px]"
+                            title="${esc(task.course_name)}">
+                            ${esc(task.course_name)}
+                          </div>
+                        `
+                        : ''
+                    }
                   `
-                  : ''
+                  : `
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium text-gray-500 bg-gray-100 dark:bg-white/5 dark:text-gray-400">
+                      General
+                    </span>
+                  `
               }
 
             </td>
@@ -2170,29 +2181,35 @@ function renderTable(tasks) {
                      whitespace-nowrap
                      text-center">
 
-              ${task.status === 'completed' ? '' : `<button
-                type="button"
-                class="task-action-btn text-emerald-700 dark:text-emerald-300 timer-task-btn"
-                data-work-item-type="task"
-                data-work-item-id="${esc(task.id)}"
-                data-work-item-title="${esc(task.title)}"
-                title="Start or pause timer">
-                <i data-lucide="timer" class="w-4 h-4"></i>
-              </button>`}
+              ${isCompleted ? `
+                <button
+                  type="button"
+                  class="task-action-btn undo-task-btn text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 mr-1"
+                  data-id="${esc(task.id)}"
+                  title="Undo completion (move back to active)"
+                  aria-label="Undo completion for ${esc(task.title)}">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+              ` : `
+                <button
+                  type="button"
+                  class="task-action-btn text-emerald-700 dark:text-emerald-300 timer-task-btn"
+                  data-work-item-type="task"
+                  data-work-item-id="${esc(task.id)}"
+                  data-work-item-title="${esc(task.title)}"
+                  title="Start or pause timer">
+                  <i data-lucide="timer" class="w-4 h-4"></i>
+                </button>
 
-              <button
-                type="button"
-                class="task-action-btn focus-task-btn mr-1"
-                data-id="${esc(task.id)}"
-                title="Focus on this task"
-                aria-label="Focus on ${esc(task.title)}">
-
-                <i
-                  data-lucide="timer"
-                  class="w-4 h-4">
-                </i>
-
-              </button>
+                <button
+                  type="button"
+                  class="task-action-btn focus-task-btn mr-1"
+                  data-id="${esc(task.id)}"
+                  title="Focus on this task"
+                  aria-label="Focus on ${esc(task.title)}">
+                  <i data-lucide="crosshair" class="w-4 h-4"></i>
+                </button>
+              `}
 
               <button
                 type="button"
@@ -2231,6 +2248,13 @@ function renderTable(tasks) {
       )
       .join('');
 
+
+  /* Undo / Reopen buttons */
+  tbody
+    .querySelectorAll('.undo-task-btn')
+    .forEach(btn => {
+      btn.addEventListener('click', () => handleUndoComplete(btn.dataset.id));
+    });
 
   /* Focus buttons */
 
@@ -3595,17 +3619,25 @@ function resetTaskForm() {
 }
 
 
-function openAddTask(defaultCourseId = null) {
+async function openAddTask(defaultCourseId = null) {
 
   resetTaskForm();
 
-  if (COURSES_CACHE && COURSES_CACHE.length > 0) {
+  // If defaultCourseId is a DOM Event (e.g. click handler), ignore it
+  let sanitizedCourseId = null;
+  if (typeof defaultCourseId === 'string' || typeof defaultCourseId === 'number') {
+    sanitizedCourseId = String(defaultCourseId);
+  }
+
+  if (!COURSES_CACHE || COURSES_CACHE.length === 0) {
+    await loadCourseOptions();
+  } else {
     populateCourseDropdowns();
   }
 
   const form = getEl('task-form');
   if (form && form.elements.course_id) {
-    const courseToSelect = defaultCourseId 
+    const courseToSelect = sanitizedCourseId 
       || getEl('filter-course')?.value 
       || getEl('filter-course-side')?.value 
       || new URLSearchParams(window.location.search).get('course_id') 
@@ -3624,7 +3656,7 @@ function openAddTask(defaultCourseId = null) {
    EDIT TASK
 ========================================================= */
 
-function openEditTask(id) {
+async function openEditTask(id) {
 
   const task =
     ALL_TASKS.find(
@@ -3654,7 +3686,9 @@ function openEditTask(id) {
     return;
   }
 
-  if (COURSES_CACHE && COURSES_CACHE.length > 0) {
+  if (!COURSES_CACHE || COURSES_CACHE.length === 0) {
+    await loadCourseOptions();
+  } else {
     populateCourseDropdowns();
   }
 
@@ -3685,9 +3719,19 @@ function openEditTask(id) {
   if (
     form.elements.course_id
   ) {
-
-    form.elements.course_id.value =
-      task.course_id ? String(task.course_id) : '';
+    if (task.course_id) {
+      const courseIdStr = String(task.course_id);
+      const hasOption = Array.from(form.elements.course_id.options).some(o => o.value === courseIdStr);
+      if (!hasOption) {
+        const opt = document.createElement('option');
+        opt.value = courseIdStr;
+        opt.textContent = `${task.course_code || 'Course'} — ${task.course_name || ''}`;
+        form.elements.course_id.appendChild(opt);
+      }
+      form.elements.course_id.value = courseIdStr;
+    } else {
+      form.elements.course_id.value = '';
+    }
   }
 
   if (

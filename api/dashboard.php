@@ -203,9 +203,13 @@ if (empty($smartSuggestions)) {
 $hour = (int) date('H');
 $greeting = $hour < 12 ? 'morning' : ($hour < 17 ? 'afternoon' : 'evening');
 
+$semesterContext = getSemesterContext($db, $userId);
+$semesterContext['current_phase'] = $semesterContext['phase_badge'] ?? 'Active';
+
 echo json_encode([
     'user_name'              => $userName,
     'greeting'               => $greeting,
+    'semester_context'       => $semesterContext,
     'today_summary'          => $todaySummary,
     'next_class'             => $nextClass,
     'recommended_study_plan' => $recommendedPlan,

@@ -1882,53 +1882,7 @@ function syncContextualNotifications(PDO $db, int $userId): array
          VALUES (?, ?, 'in_app', ?, NOW())"
     );
 
-    // 1. Approaching deadlines (due within 48h, not completed)
-    $stmt = $db->prepare(
-        "SELECT id, title, due_at FROM tasks 
-         WHERE user_id = ? AND status != 'completed' 
-           AND due_at IS NOT NULL 
-           AND due_at BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 48 HOUR)"
-    );
-    $stmt->execute([$userId]);
-    $approachingTasks = $stmt->fetchAll();
-
-    foreach ($approachingTasks as $task) {
-        $taskId = (int)$task['id'];
-        if (!notificationExists($db, $userId, $taskId, '%Approaching Deadline%', 24)) {
-            $dueStr = date('M j, g:i A', strtotime($task['due_at']));
-            $insertStmt->execute([
-                $userId,
-                $taskId,
-                "Approaching Deadline: '{$task['title']}' is due on {$dueStr}.",
-            ]);
-            $generated++;
-        }
-    }
-
-    // 2. Overdue tasks (due past now, not completed)
-    $stmt = $db->prepare(
-        "SELECT id, title, due_at FROM tasks 
-         WHERE user_id = ? AND status != 'completed' 
-           AND due_at IS NOT NULL 
-           AND due_at < NOW()"
-    );
-    $stmt->execute([$userId]);
-    $overdueTasks = $stmt->fetchAll();
-
-    foreach ($overdueTasks as $task) {
-        $taskId = (int)$task['id'];
-        if (!notificationExists($db, $userId, $taskId, '%Overdue Task%', 24)) {
-            $dueStr = date('M j, g:i A', strtotime($task['due_at']));
-            $insertStmt->execute([
-                $userId,
-                $taskId,
-                "Overdue Task: '{$task['title']}' was due on {$dueStr}.",
-            ]);
-            $generated++;
-        }
-    }
-
-    // 3. High academic risk alerts
+    // 1. High academic risk alerts
     $stmt = $db->prepare(
         "SELECT id, code, name, credits, grade_point FROM courses WHERE user_id = ?"
     );

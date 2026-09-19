@@ -212,7 +212,7 @@ requirePageLogin();
   .smart-task-focus-title{
     font-size:14px;
   }
-
+}
 
 /* =========================================================
    FOCUS TIMER (FOUNDATION 8B)

@@ -103,6 +103,11 @@ function populateFilters() {
   department.innerHTML = '<option value="">All Departments</option>' + departments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
   if (semesters.includes(currentSemester)) semester.value = currentSemester;
   if (departments.includes(currentDepartment)) department.value = currentDepartment;
+
+  const datalist = document.getElementById('course-semester-datalist');
+  if (datalist) {
+    datalist.innerHTML = semesters.map(v => `<option value="${esc(v)}"></option>`).join('');
+  }
 }
 
 function getFilteredCourses() {
@@ -196,6 +201,14 @@ function openAddCourse() {
   form.progress_percent.value = '0';
   document.getElementById('course-progress-value').textContent = '0%';
   document.getElementById('course-modal-title').textContent = 'Add Course';
+
+  const activeSem = document.getElementById('curr-sum-name')?.textContent?.trim()
+    || (ALL_COURSES.find(c => c.semester)?.semester)
+    || '';
+  if (activeSem && form.semester) {
+    form.semester.value = activeSem;
+  }
+
   showCourseError('');
   modal.classList.remove('hidden');
   setTimeout(() => form.code.focus(), 0);
@@ -547,6 +560,10 @@ async function handleConfirmCourseImport() {
   errEl.classList.add('hidden');
   errEl.textContent = '';
 
+  const activeSem = document.getElementById('curr-sum-name')?.textContent?.trim()
+    || (ALL_COURSES.find(c => c.semester)?.semester)
+    || '';
+
   const rows = document.querySelectorAll('#course-review-tbody tr');
   const coursesToImport = [];
   rows.forEach(tr => {
@@ -554,7 +571,7 @@ async function handleConfirmCourseImport() {
     const name = tr.querySelector('input[data-field="name"]').value.trim();
     const credits = Number(tr.querySelector('input[data-field="credits"]').value || 3);
     if (code && name) {
-      coursesToImport.push({ code, name, credits });
+      coursesToImport.push({ code, name, credits, semester: activeSem });
     }
   });
 
@@ -575,6 +592,7 @@ async function handleConfirmCourseImport() {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
         action: 'confirm_import',
+        semester: activeSem,
         courses: coursesToImport,
         csrf_token: window.CSRF_TOKEN || ''
       })

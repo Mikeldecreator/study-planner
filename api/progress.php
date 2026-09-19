@@ -59,6 +59,16 @@ $stmt = $db->prepare(
 $stmt->execute([$userId]);
 $courses = $stmt->fetchAll();
 
+$focusByCourseStmt = $db->prepare(
+    "SELECT t.course_id, SUM(ws.duration_seconds) AS total_focus_sec
+     FROM task_work_sessions ws
+     INNER JOIN tasks t ON t.id = ws.task_id AND t.user_id = ws.user_id
+     WHERE ws.user_id = ? AND t.course_id IS NOT NULL
+     GROUP BY t.course_id"
+);
+$focusByCourseStmt->execute([$userId]);
+$focusByCourse = $focusByCourseStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
 foreach ($courses as &$c) {
     $count = (int) $c['task_count'];
     $completed = (int) $c['completed_count'];
@@ -68,6 +78,11 @@ foreach ($courses as &$c) {
     $c['progress'] = $pct;
     $c['rating'] = $pct >= 70 ? 'Good' : ($pct >= 40 ? 'Average' : 'Needs Improvement');
 
+    $courseId = (int) $c['id'];
+    $focusSec = (int) ($focusByCourse[$courseId] ?? 0);
+    $c['focused_seconds'] = $focusSec;
+    $c['focused_hours']   = round($focusSec / 3600, 1);
+
     $credits = (int) ($c['credits'] ?? 3);
     $gradePoint = $c['grade_point'] !== null ? (float) $c['grade_point'] : null;
     $courseRisk = courseRiskScore($gradePoint, $credits);
@@ -75,7 +90,6 @@ foreach ($courses as &$c) {
     $c['course_risk_label'] = $courseRisk >= 80 ? 'Critical Risk' : ($courseRisk >= 60 ? 'High Risk' : ($courseRisk >= 35 ? 'Moderate Risk' : 'Low Risk'));
 
     // Foundation 5: Remaining workload and academic pressure context
-    $courseId = (int) $c['id'];
     $workloadHours = calculateCourseWorkload($db, $userId, $courseId);
     $c['remaining_workload_hours'] = $workloadHours;
 

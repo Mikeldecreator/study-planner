@@ -178,7 +178,7 @@ requirePageLogin();
       </div>
       <div><label class="form-label">Course title *</label><input required maxlength="150" name="name" placeholder="Web Development" class="form-control"></div>
       <div><label class="form-label">Lecturer</label><input maxlength="100" name="lecturer" placeholder="Dr. Jane Doe" class="form-control"></div>
-      <div><label class="form-label">Semester</label><input maxlength="30" name="semester" placeholder="2025/2026 Second Semester" class="form-control"></div>
+      <div><label class="form-label">Semester</label><input maxlength="30" name="semester" id="course-semester-input" list="course-semester-datalist" placeholder="e.g. 2025/2026 Second Semester" class="form-control"><datalist id="course-semester-datalist"></datalist></div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div><label class="form-label">Icon</label><input name="icon" maxlength="10" placeholder="📘" class="form-control"></div>
         <div><label class="form-label">Accent color</label><input type="color" name="color" value="#059669" class="form-control p-1.5 h-10"></div>

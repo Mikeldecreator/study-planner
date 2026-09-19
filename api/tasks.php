@@ -136,7 +136,8 @@ switch ($method) {
                 c.name AS course_name,
                 c.color AS course_color,
                 c.credits AS course_credits,
-                c.grade_point AS course_grade_point
+                c.grade_point AS course_grade_point,
+                (SELECT COALESCE(SUM(duration_seconds), 0) FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS focused_seconds
             FROM tasks t
             LEFT JOIN courses c
                 ON c.id = t.course_id
@@ -354,8 +355,10 @@ switch ($method) {
                     t.*,
                     c.code AS course_code,
                     c.name AS course_name,
+                    c.color AS course_color,
                     c.credits AS course_credits,
-                    c.grade_point AS course_grade_point
+                    c.grade_point AS course_grade_point,
+                    (SELECT COALESCE(SUM(duration_seconds), 0) FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS focused_seconds
                 FROM tasks t
                 LEFT JOIN courses c
                     ON c.id = t.course_id

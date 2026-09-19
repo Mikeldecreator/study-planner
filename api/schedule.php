@@ -219,7 +219,9 @@ switch ($method) {
         $stmt->execute([
             $title,
             $eventType,
-            ownedCourseIdOrNull($db, $body['course_id'] ?? null, $userId),
+            array_key_exists('course_id', $body)
+                ? ownedCourseIdOrNull($db, $body['course_id'], $userId)
+                : ($existing['course_id'] ?? null),
             array_key_exists('task_id', $body)
                 ? ownedTaskIdOrNull($db, $body['task_id'], $userId)
                 : ($existing['task_id'] ?? null),
