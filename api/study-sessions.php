@@ -224,7 +224,16 @@ switch ($method) {
                 "INSERT INTO task_work_sessions (user_id, task_id, started_at, duration_seconds, status)
                  VALUES (?, ?, NOW(), 0, 'running')"
             );
-            $stmt->execute([$userId, $taskId]);
+            try {
+                $stmt->execute([$userId, $taskId]);
+            } catch (PDOException $e) {
+                if (str_contains($e->getMessage(), '1265') || str_contains($e->getMessage(), 'Data truncated') || str_contains($e->getMessage(), 'status')) {
+                    $db->exec("ALTER TABLE `task_work_sessions` MODIFY COLUMN `status` ENUM('running','paused','completed','stopped','active','cancelled') NOT NULL DEFAULT 'running'");
+                    $stmt->execute([$userId, $taskId]);
+                } else {
+                    throw $e;
+                }
+            }
             $newId = (int) $db->lastInsertId();
 
             $newSession = getUserActiveStudySession($db, $userId);

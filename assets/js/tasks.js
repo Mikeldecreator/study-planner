@@ -5368,6 +5368,9 @@ function populateTimerTaskDropdown() {
   } else if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
     select.value = currentVal;
     select.disabled = false;
+    if (!TIMER_SELECTED_TASK_ID) {
+      selectTaskForTimer(currentVal, false);
+    }
   } else if (!currentVal && pendingOrInProgress.length && !TIMER_SELECTED_TASK_ID) {
     selectTaskForTimer(pendingOrInProgress[0].id, false);
   }

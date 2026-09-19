@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS task_work_sessions (
     task_id INT NOT NULL,
     started_at DATETIME NOT NULL,
     duration_seconds INT NOT NULL DEFAULT 0,
-    status ENUM('active','completed','cancelled') NOT NULL DEFAULT 'completed',
+    status ENUM('running','paused','completed','stopped','active','cancelled') NOT NULL DEFAULT 'running',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,

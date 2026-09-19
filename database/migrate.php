@@ -117,6 +117,14 @@ ensureColumn($db, 'schedule_events', 'is_completed', "TINYINT(1) NOT NULL DEFAUL
 ensureColumn($db, 'schedule_events', 'progress_percent', "TINYINT UNSIGNED NOT NULL DEFAULT 0");
 ensureColumn($db, 'schedule_events', 'completed_at', "DATETIME DEFAULT NULL");
 
+// Ensure task_work_sessions status ENUM supports focus timer states
+try {
+    $db->exec("ALTER TABLE `task_work_sessions` MODIFY COLUMN `status` ENUM('running','paused','completed','stopped','active','cancelled') NOT NULL DEFAULT 'running'");
+    echo "  [OK] task_work_sessions status ENUM verified.\n";
+} catch (Throwable $e) {
+    echo "  [NOTICE] task_work_sessions status ENUM: " . $e->getMessage() . "\n";
+}
+
 // 3. Idempotent Index Additions
 function ensureIndex(PDO $db, string $table, string $indexName, string $columns): void {
     try {
