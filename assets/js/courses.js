@@ -1,4 +1,5 @@
 let ALL_COURSES = [];
+let ALL_SEMESTERS = [];
 let COURSE_FILTERED = [];
 let CURRENT_PAGE = 1;
 const PAGE_SIZE = 6;
@@ -24,6 +25,7 @@ async function loadCourses() {
     if (!res.ok) throw new Error(data.error || 'Could not load courses.');
     if (requestId !== courseRequestId) return;
     ALL_COURSES = Array.isArray(data.courses) ? data.courses : [];
+    ALL_SEMESTERS = Array.isArray(data.semesters) ? data.semesters : [];
     populateFilters();
     renderStatCards(data.summary || {});
     renderCourseProgress(data.summary || {});
@@ -59,11 +61,24 @@ function renderStatCards(s) {
   if (window.lucide) window.lucide.createIcons();
 }
 
+function getCourseDept(c) {
+  if (c.department && String(c.department).trim()) return String(c.department).trim().toUpperCase();
+  const code = String(c.code || '').trim();
+  const match = code.match(/^([A-Za-z]+)/);
+  if (match) return match[1].toUpperCase();
+  return code.split(/\s+/)[0].toUpperCase();
+}
+
 function renderCourseProgress(summary) {
   const pct = Math.max(0, Math.min(100, Number(summary.average_progress || 0)));
   const donut = document.getElementById('course-donut');
-  donut.style.setProperty('--progress', `${pct * 3.6}deg`);
-  document.getElementById('course-progress-total').textContent = `${pct}%`;
+  if (donut) {
+    donut.style.setProperty('--progress', `${pct * 3.6}deg`);
+  }
+  const totalEl = document.getElementById('course-progress-total');
+  if (totalEl) {
+    totalEl.textContent = `${pct}%`;
+  }
   const breakdown = summary.progress_breakdown || { completed: 0, in_progress: 0, not_started: 0 };
   const total = Number(breakdown.completed || 0) + Number(breakdown.in_progress || 0) + Number(breakdown.not_started || 0);
   const rows = [
@@ -71,7 +86,10 @@ function renderCourseProgress(summary) {
     ['In Progress', breakdown.in_progress, '#f59e0b'],
     ['Not Started', breakdown.not_started, '#94a3b8']
   ];
-  document.getElementById('course-progress-legend').innerHTML = rows.map(([label, count, color]) => `<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:${color}"></span><span class="flex-1">${label}</span><strong>${count}${total ? ` <span class="font-normal text-gray-400">(${Math.round(Number(count || 0) / total * 100)}%)</span>` : ''}</strong></div>`).join('');
+  const legendEl = document.getElementById('course-progress-legend');
+  if (legendEl) {
+    legendEl.innerHTML = rows.map(([label, count, color]) => `<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:${color}"></span><span class="flex-1 text-gray-600 dark:text-gray-300">${label}</span><strong class="text-gray-900 dark:text-gray-100">${count}${total ? ` <span class="font-normal text-gray-400">(${Math.round(Number(count || 0) / total * 100)}%)</span>` : ''}</strong></div>`).join('');
+  }
 }
 
 function renderUpcomingDeadlines(items) {
@@ -95,10 +113,17 @@ function renderUpcomingDeadlines(items) {
 function populateFilters() {
   const semester = document.getElementById('course-semester');
   const department = document.getElementById('course-department');
+  if (!semester || !department) return;
   const currentSemester = semester.value;
   const currentDepartment = department.value;
-  const semesters = [...new Set(ALL_COURSES.map(c => c.semester).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-  const departments = [...new Set(ALL_COURSES.map(c => String(c.code || '').trim().split(/\s+/)[0]).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  
+  // Combine semesters from backend semester records and course records
+  const courseSemesters = ALL_COURSES.map(c => c.semester).filter(Boolean);
+  const semesters = [...new Set([...(ALL_SEMESTERS || []), ...courseSemesters])].sort((a,b) => a.localeCompare(b));
+  
+  // Extract clean department codes
+  const departments = [...new Set(ALL_COURSES.map(getCourseDept).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+
   semester.innerHTML = '<option value="">All Semesters</option>' + semesters.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
   department.innerHTML = '<option value="">All Departments</option>' + departments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
   if (semesters.includes(currentSemester)) semester.value = currentSemester;
@@ -111,20 +136,20 @@ function populateFilters() {
 }
 
 function getFilteredCourses() {
-  const q = document.getElementById('course-search').value.trim().toLowerCase();
-  const inline = document.getElementById('course-search-inline').value.trim().toLowerCase();
+  const q = (document.getElementById('course-search')?.value || '').trim().toLowerCase();
+  const inline = (document.getElementById('course-search-inline')?.value || '').trim().toLowerCase();
   const query = inline || q;
-  const semester = document.getElementById('course-semester').value;
-  const department = document.getElementById('course-department').value;
+  const semester = document.getElementById('course-semester')?.value || '';
+  const department = document.getElementById('course-department')?.value || '';
   let list = ALL_COURSES.filter(c => {
     const haystack = `${c.code || ''} ${c.name || ''} ${c.lecturer || ''}`.toLowerCase();
-    const dept = String(c.code || '').trim().split(/\s+/)[0];
+    const dept = getCourseDept(c);
     return (!query || haystack.includes(query)) && (!semester || c.semester === semester) && (!department || dept === department);
   });
-  const by = document.getElementById('course-sort').value;
+  const by = document.getElementById('course-sort')?.value || 'name';
   list.sort((a,b) => {
-    if (by === 'progress') return Number(b.progress || 0) - Number(a.progress || 0) || String(a.code).localeCompare(String(b.code));
-    if (by === 'credits') return Number(b.credits || 0) - Number(a.credits || 0) || String(a.code).localeCompare(String(b.code));
+    if (by === 'progress') return Number(b.progress || 0) - Number(a.progress || 0) || String(a.code || '').localeCompare(String(b.code || ''));
+    if (by === 'credits') return Number(b.credits || 0) - Number(a.credits || 0) || String(a.code || '').localeCompare(String(b.code || ''));
     if (by === 'code') return String(a.code || '').localeCompare(String(b.code || ''));
     return String(a.name || '').localeCompare(String(b.name || ''));
   });

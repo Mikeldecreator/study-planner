@@ -3,8 +3,8 @@
    Courses + Tasks on Week / Day / Month
 ========================================================= */
 
-const GRID_START_HOUR = 7;
-const GRID_END_HOUR = 21;
+let gridStartHour = 8;
+let gridEndHour = 18;
 const PX_PER_HOUR = 60;
 
 const TYPE_COLORS = {
@@ -46,6 +46,109 @@ let miniCalendarDate = new Date(
 /* =========================================================
    HELPERS
 ========================================================= */
+
+function recalculateGridHours() {
+    let minH = 8;
+    let maxH = 18;
+
+    if (Array.isArray(ALL_EVENTS) && ALL_EVENTS.length > 0) {
+        let earliest = 24;
+        let latest = 0;
+
+        ALL_EVENTS.forEach(ev => {
+            if (ev.start_time) {
+                const [h] = String(ev.start_time).split(':').map(Number);
+                if (Number.isFinite(h)) {
+                    earliest = Math.min(earliest, h);
+                }
+            }
+            if (ev.end_time) {
+                const [h, m] = String(ev.end_time).split(':').map(Number);
+                if (Number.isFinite(h)) {
+                    const endH = (m && m > 0) ? h + 1 : h;
+                    latest = Math.max(latest, endH);
+                }
+            }
+        });
+
+        if (earliest < 24 && latest > 0) {
+            minH = Math.max(6, Math.min(earliest - 1, 8));
+            maxH = Math.min(23, Math.max(latest + 1, 18));
+        }
+    }
+
+    gridStartHour = minH;
+    gridEndHour = maxH;
+}
+
+function computeEventLayout(events) {
+    if (!events || events.length === 0) return [];
+
+    const items = events.map(ev => {
+        const [sh, sm] = String(ev.start_time || '00:00').split(':').map(Number);
+        const [eh, em] = String(ev.end_time || '01:00').split(':').map(Number);
+        const start = (Number.isFinite(sh) ? sh : 0) * 60 + (Number.isFinite(sm) ? sm : 0);
+        let end = (Number.isFinite(eh) ? eh : 0) * 60 + (Number.isFinite(em) ? em : 0);
+        if (end <= start) end = start + 30;
+        return {
+            event: ev,
+            start,
+            end,
+            colIndex: 0,
+            totalCols: 1
+        };
+    });
+
+    items.sort((a, b) => a.start - b.start || b.end - a.end);
+
+    const clusters = [];
+    let currentCluster = [];
+    let clusterEnd = -1;
+
+    for (const item of items) {
+        if (currentCluster.length === 0) {
+            currentCluster.push(item);
+            clusterEnd = item.end;
+        } else if (item.start < clusterEnd) {
+            currentCluster.push(item);
+            clusterEnd = Math.max(clusterEnd, item.end);
+        } else {
+            clusters.push(currentCluster);
+            currentCluster = [item];
+            clusterEnd = item.end;
+        }
+    }
+    if (currentCluster.length > 0) {
+        clusters.push(currentCluster);
+    }
+
+    for (const cluster of clusters) {
+        const colEndTimes = [];
+
+        for (const item of cluster) {
+            let placed = false;
+            for (let c = 0; c < colEndTimes.length; c++) {
+                if (colEndTimes[c] <= item.start) {
+                    item.colIndex = c;
+                    colEndTimes[c] = item.end;
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                item.colIndex = colEndTimes.length;
+                colEndTimes.push(item.end);
+            }
+        }
+
+        const numCols = Math.max(1, colEndTimes.length);
+        for (const item of cluster) {
+            item.totalCols = numCols;
+        }
+    }
+
+    return items;
+}
 
 function iconSvg(
     name,
@@ -282,7 +385,7 @@ function taskTopPosition(
         due.getMinutes();
 
     const gridStart =
-        GRID_START_HOUR * 60;
+        gridStartHour * 60;
 
     return (
         (
@@ -1017,10 +1120,21 @@ function renderGrid() {
         'hidden'
     );
 
+    recalculateGridHours();
+
+    grid.style.height = `${(gridEndHour - gridStartHour) * PX_PER_HOUR}px`;
 
     const isDay =
         scheduleView === 'day';
 
+    const scheduleGridEl = document.querySelector('.schedule-grid');
+    if (scheduleGridEl) {
+        if (isDay) {
+            scheduleGridEl.classList.add('is-day-view');
+        } else {
+            scheduleGridEl.classList.remove('is-day-view');
+        }
+    }
 
     grid.style.gridTemplateColumns =
         isDay
@@ -1042,15 +1156,15 @@ function renderGrid() {
 
 
         for (
-            let hour = GRID_START_HOUR;
-            hour <= GRID_END_HOUR;
+            let hour = gridStartHour;
+            hour <= gridEndHour;
             hour++
         ) {
 
             const top =
                 (
                     hour -
-                    GRID_START_HOUR
+                    gridStartHour
                 ) *
                 PX_PER_HOUR;
 
@@ -1132,15 +1246,15 @@ function renderGrid() {
                 /* Grid lines */
 
                 for (
-                    let hour = GRID_START_HOUR;
-                    hour <= GRID_END_HOUR;
+                    let hour = gridStartHour;
+                    hour <= gridEndHour;
                     hour++
                 ) {
 
                     const top =
                         (
                             hour -
-                            GRID_START_HOUR
+                            gridStartHour
                         ) *
                         PX_PER_HOUR;
 
@@ -1154,7 +1268,7 @@ function renderGrid() {
 
 
                     if (
-                        hour < GRID_END_HOUR
+                        hour < gridEndHour
                     ) {
 
                         html += `
@@ -1200,25 +1314,18 @@ function renderGrid() {
                                 String(
                                     dow
                                 )
-                        )
-                        .sort(
-                            (a, b) =>
-                                String(
-                                    a.start_time
-                                ).localeCompare(
-                                    String(
-                                        b.start_time
-                                    )
-                                )
                         );
 
+                const laidOutEvents = computeEventLayout(dayEvents);
 
-                dayEvents.forEach(
-                    event => {
+                laidOutEvents.forEach(
+                    item => {
 
                         html +=
                             eventBlockHtml(
-                                event
+                                item.event,
+                                item.colIndex,
+                                item.totalCols
                             );
 
                     }
@@ -1308,7 +1415,7 @@ function renderGrid() {
 
 
                     const gridStart =
-                        GRID_START_HOUR * 60;
+                        gridStartHour * 60;
 
 
                     const top =
@@ -1324,8 +1431,8 @@ function renderGrid() {
 
                     const maxTop =
                         (
-                            GRID_END_HOUR -
-                            GRID_START_HOUR
+                            gridEndHour -
+                            gridStartHour
                         ) *
                         PX_PER_HOUR;
 
@@ -1479,7 +1586,9 @@ function renderGrid() {
 ========================================================= */
 
 function eventBlockHtml(
-    ev
+    ev,
+    colIndex = 0,
+    totalCols = 1
 ) {
 
     const [
@@ -1509,7 +1618,7 @@ function eventBlockHtml(
             0,
             (
                 startHour -
-                GRID_START_HOUR
+                gridStartHour
             ) * 60 +
             startMinute
         );
@@ -1518,13 +1627,13 @@ function eventBlockHtml(
     const endMins =
         Math.min(
             (
-                GRID_END_HOUR -
-                GRID_START_HOUR
+                gridEndHour -
+                gridStartHour
             ) * 60,
 
             (
                 endHour -
-                GRID_START_HOUR
+                gridStartHour
             ) * 60 +
             endMinute
         );
@@ -1587,16 +1696,20 @@ function eventBlockHtml(
             ? 'opacity-50'
             : '';
 
+    const widthPct = 100 / Math.max(1, totalCols);
+    const leftPct = (colIndex * 100) / Math.max(1, totalCols);
 
     return `
         <div
-            class="event-block absolute left-1 right-1 rounded-xl px-2 py-2 overflow-hidden cursor-pointer text-white text-[10px] leading-tight ${completedClass}"
+            class="event-block absolute rounded-xl px-2 py-1.5 overflow-hidden cursor-pointer text-white text-[10px] leading-tight shadow-sm hover:brightness-105 transition-all ${completedClass}"
             data-id="${escapeAttribute(
                 ev.id
             )}"
             style="
                 top:${top}px;
                 height:${height}px;
+                width:calc(${widthPct}% - 4px);
+                left:calc(${leftPct}% + 2px);
                 background:${escapeAttribute(
                     color
                 )}
@@ -4237,9 +4350,18 @@ function openEditSession(
         event.title || '';
 
 
-    form.course_id.value =
-        event.course_id ||
-        '';
+    if (form.course_id) {
+        populateCourseOptions();
+        if (event.course_id && !form.course_id.querySelector(`option[value="${event.course_id}"]`)) {
+            const opt = document.createElement('option');
+            opt.value = event.course_id;
+            opt.textContent = event.course_code ? `${event.course_code} — ${event.course_name || ''}` : `Course #${event.course_id}`;
+            form.course_id.appendChild(opt);
+        }
+        form.course_id.value =
+            event.course_id ||
+            '';
+    }
 
 
     if (

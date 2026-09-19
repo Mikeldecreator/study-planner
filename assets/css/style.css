@@ -567,9 +567,80 @@ html.dark .empty-state {
 }
 
 .course-donut {
-  width: 80px;
-  height: 80px;
-  display: block;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: conic-gradient(#059669 var(--progress, 0deg), #e2e8f0 var(--progress, 0deg) 360deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.35s ease;
+}
+
+.dark .course-donut {
+  background: conic-gradient(#10b981 var(--progress, 0deg), rgba(255, 255, 255, 0.12) var(--progress, 0deg) 360deg);
+}
+
+.course-donut::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dark .course-donut::before {
+  background: #171d1b;
+  box-shadow: none;
+}
+
+.course-donut > div {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-donut > div strong {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #073b35;
+}
+
+.dark .course-donut > div strong {
+  color: #ffffff;
+}
+
+.course-donut > div span {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.dark .course-donut > div span {
+  color: #94a3b8;
+}
+
+/* Timetable Week Grid Mobile Responsiveness */
+.schedule-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+.schedule-grid {
+  min-width: 680px;
+}
+
+.schedule-grid.is-day-view {
+  min-width: 0 !important;
+  width: 100% !important;
 }
 
 

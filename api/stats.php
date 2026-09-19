@@ -50,16 +50,16 @@ for ($i = 0; $i < 7; $i++) {
     $dayEnd   = $day->format('Y-m-d 23:59:59');
 
     $stmt = $db->prepare(
-        'SELECT
-            COUNT(*) AS due_count,
-            SUM(status = "completed") AS done_count
-         FROM tasks WHERE user_id = ? AND due_at BETWEEN ? AND ?'
+        "SELECT
+            COUNT(CASE WHEN due_at BETWEEN ? AND ? THEN 1 END) AS due_count,
+            COUNT(CASE WHEN status = 'completed' AND (due_at BETWEEN ? AND ? OR completed_at BETWEEN ? AND ?) THEN 1 END) AS done_count
+         FROM tasks WHERE user_id = ?"
     );
-    $stmt->execute([$userId, $dayStart, $dayEnd]);
+    $stmt->execute([$dayStart, $dayEnd, $dayStart, $dayEnd, $dayStart, $dayEnd, $userId]);
     $row = $stmt->fetch();
-    $due  = (int) $row['due_count'];
-    $done = (int) $row['done_count'];
-    $weekly[] = $due > 0 ? round($done / $due * 100) : 0;
+    $due  = (int) ($row['due_count'] ?? 0);
+    $done = (int) ($row['done_count'] ?? 0);
+    $weekly[] = $due > 0 ? min(100, (int) round($done / $due * 100)) : ($done > 0 ? 100 : 0);
 }
 
 // ---- Workload overview: hours by task type, this week ----

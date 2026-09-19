@@ -163,8 +163,18 @@ try {
             }
             unset($task);
 
+            // Fetch student's actual semester records from database
+            $semStmt = $db->prepare("SELECT DISTINCT name FROM semesters WHERE user_id = ? AND name != '' ORDER BY name ASC");
+            $semStmt->execute([$userId]);
+            $registeredSemesters = $semStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+            $courseSemesters = array_filter(array_unique(array_map(fn($c) => trim((string)($c['semester'] ?? '')), $courses)));
+            $allSemesters = array_values(array_unique(array_merge($registeredSemesters, $courseSemesters)));
+            sort($allSemesters);
+
             echo json_encode([
                 'courses' => $courses,
+                'semesters' => $allSemesters,
                 'summary' => [
                     'total_courses' => $courseCount,
                     'total_tasks' => $totalTasks,

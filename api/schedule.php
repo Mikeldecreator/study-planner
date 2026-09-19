@@ -220,7 +220,9 @@ switch ($method) {
             $title,
             $eventType,
             array_key_exists('course_id', $body)
-                ? ownedCourseIdOrNull($db, $body['course_id'], $userId)
+                ? (($body['course_id'] === '' || $body['course_id'] === null)
+                    ? (!empty($body['clear_course']) ? null : ($existing['course_id'] ?? null))
+                    : ownedCourseIdOrNull($db, $body['course_id'], $userId))
                 : ($existing['course_id'] ?? null),
             array_key_exists('task_id', $body)
                 ? ownedTaskIdOrNull($db, $body['task_id'], $userId)
