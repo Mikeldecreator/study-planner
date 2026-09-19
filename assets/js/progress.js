@@ -65,6 +65,12 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;');
 }
 
+function formatPercent(pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n) || n === 0) return '0%';
+  return n % 1 === 0 ? `${n}%` : `${n.toFixed(2)}%`;
+}
+
 function showProgressError(message) {
   const existing =
     document.getElementById(
@@ -372,17 +378,17 @@ function renderOverall(
 
   setText(
     'overall-pct',
-    `${overall}%`
+    formatPercent(overall)
   );
 
   setText(
     'overall-caption',
-    `${overall}% of your academic goals completed`
+    `${formatPercent(overall)} of your academic goals completed`
   );
 
   setText(
     'overall-legend-value',
-    `${overall}%`
+    formatPercent(overall)
   );
 
   const overallBar =
@@ -423,22 +429,29 @@ function renderOverall(
 
   const completedSessions =
     Number(
-      sessions.completed || 0
+      sessions.completed_sessions_count ??
+      sessions.completed ??
+      0
     );
 
   const scheduledSessions =
     Number(
-      sessions.scheduled || 0
+      sessions.scheduled_study_sessions ??
+      sessions.scheduled ??
+      0
     );
 
   const totalTasks =
-    completedTasks +
-    pendingTasks +
-    overdueTasks;
+    Number(
+      tasks.total ??
+      (completedTasks + pendingTasks + overdueTasks)
+    );
 
   const totalSessions =
-    completedSessions +
-    scheduledSessions;
+    Math.max(
+      completedSessions,
+      scheduledSessions
+    );
 
   setText(
     'progress-task-total',
@@ -484,23 +497,19 @@ setText(
 
   const taskProgress =
     totalTasks > 0
-      ? Math.round(
+      ? Number(
           (
-            completedTasks /
-            totalTasks
-          ) *
-            100
+            (completedTasks / totalTasks) * 100
+          ).toFixed(2)
         )
       : 0;
 
   const sessionProgress =
     totalSessions > 0
-      ? Math.round(
+      ? Number(
           (
-            completedSessions /
-            totalSessions
-          ) *
-            100
+            (completedSessions / totalSessions) * 100
+          ).toFixed(2)
         )
       : 0;
 
@@ -546,6 +555,8 @@ function renderOverallDonut(
     overallDonut = null;
   }
 
+  const numericProgress = clamp(progress, 0, 100);
+
   overallDonut =
     new Chart(
       canvas,
@@ -556,10 +567,10 @@ function renderOverallDonut(
           datasets: [
             {
               data: [
-                progress,
+                numericProgress,
                 Math.max(
                   0,
-                  100 - progress
+                  100 - numericProgress
                 )
               ],
 
@@ -628,36 +639,38 @@ function renderProgressChart(
       data.courses
     ) &&
     data.courses.length
-      ? Math.round(
-          data.courses.reduce(
-            (
-              total,
-              course
-            ) =>
-              total +
-              Number(
-                course.progress ||
-                0
-              ),
-            0
-          ) /
-            data.courses.length
+      ? Number(
+          (
+            data.courses.reduce(
+              (
+                total,
+                course
+              ) =>
+                total +
+                Number(
+                  course.progress ||
+                  0
+                ),
+              0
+            ) /
+              data.courses.length
+          ).toFixed(2)
         )
       : overall;
 
   setText(
     'courses-legend-value',
-    `${courses}%`
+    formatPercent(courses)
   );
 
   setText(
     'tasks-legend-value',
-    `${taskProgress}%`
+    formatPercent(taskProgress)
   );
 
   setText(
     'sessions-legend-value',
-    `${sessionProgress}%`
+    formatPercent(sessionProgress)
   );
 
   progressChart =
@@ -783,7 +796,7 @@ function renderProgressChart(
               callbacks: {
                 label:
                   context =>
-                    `${context.parsed.y}%`
+                    formatPercent(context.parsed.y)
               }
             }
           }
@@ -859,7 +872,9 @@ function renderSessionLegend(
       '#059669',
       'Completed',
       Number(
-        sessions.completed || 0
+        sessions.completed_sessions_count ??
+        sessions.completed ??
+        0
       )
     )}
 
@@ -867,7 +882,9 @@ function renderSessionLegend(
       '#3b82f6',
       'Scheduled',
       Number(
-        sessions.scheduled || 0
+        sessions.scheduled_study_sessions ??
+        sessions.scheduled ??
+        0
       )
     )}
 
@@ -1227,7 +1244,7 @@ function renderCourseRow(
               <span
                 class="text-base font-bold text-gray-900 dark:text-white"
               >
-                ${progress}%
+                ${formatPercent(progress)}
               </span>
 
               ${
@@ -1384,9 +1401,10 @@ function renderSecondaryStats(
     );
 
   const totalTasks =
-    completedTasks +
-    pendingTasks +
-    overdueTasks;
+    Number(
+      tasks.total ??
+      (completedTasks + pendingTasks + overdueTasks)
+    );
 
   const taskProgress =
     totalTasks > 0
@@ -1399,17 +1417,23 @@ function renderSecondaryStats(
 
   const completedSessions =
     Number(
-      sessions.completed || 0
+      sessions.completed_sessions_count ??
+      sessions.completed ??
+      0
     );
 
   const scheduledSessions =
     Number(
-      sessions.scheduled || 0
+      sessions.scheduled_study_sessions ??
+      sessions.scheduled ??
+      0
     );
 
   const totalSessions =
-    completedSessions +
-    scheduledSessions;
+    Math.max(
+      completedSessions,
+      scheduledSessions
+    );
 
   const sessionProgress =
     totalSessions > 0
@@ -1455,7 +1479,7 @@ function renderSecondaryStats(
     requestAnimationFrame(
       () => {
         taskBar.style.width =
-          `${taskProgress}%`;
+          `${Math.min(100, Math.max(0, taskProgress))}%`;
       }
     );
   }
@@ -1470,7 +1494,7 @@ function renderSecondaryStats(
     requestAnimationFrame(
       () => {
         sessionBar.style.width =
-          `${sessionProgress}%`;
+          `${Math.min(100, Math.max(0, sessionProgress))}%`;
       }
     );
   }

@@ -90,6 +90,12 @@ function escapeValue(value) {
     .replaceAll("'", '&#039;');
 }
 
+function formatPercent(pct) {
+  const n = Number(pct);
+  if (!Number.isFinite(n) || n === 0) return '0%';
+  return n % 1 === 0 ? `${n}%` : `${n.toFixed(2)}%`;
+}
+
 
 /*
  * ================================================================
@@ -199,7 +205,8 @@ async function loadReport() {
 
     try {
       renderSubjectBreakdown(
-        coursesData
+        coursesData,
+        report
       );
     } catch (e) {
       console.warn('renderSubjectBreakdown error:', e);
@@ -207,7 +214,8 @@ async function loadReport() {
 
     try {
       renderCoursePerformance(
-        coursesData
+        coursesData,
+        report
       );
     } catch (e) {
       console.warn('renderCoursePerformance error:', e);
@@ -329,9 +337,11 @@ function renderKpis(report) {
       label:
         'Completion Rate',
       value:
-        `${safeNumber(
-          report.completion_rate
-        )}%`
+        formatPercent(
+          safeNumber(
+            report.completion_rate
+          )
+        )
     },
 
     {
@@ -466,48 +476,69 @@ function renderPerformanceTrend(
     return;
   }
 
+  const container =
+    canvas.parentElement;
+
+  const trend =
+    report?.performance_trend;
+
+  if (performanceTrendChart) {
+    performanceTrendChart.destroy();
+    performanceTrendChart = null;
+  }
+
+  const existingNotice =
+    document.getElementById('trend-empty-state');
+  if (existingNotice) {
+    existingNotice.remove();
+  }
+
+  const hasHistory =
+    Boolean(
+      trend &&
+      trend.has_history &&
+      Array.isArray(trend.labels) &&
+      trend.labels.length > 0
+    );
+
+  if (!hasHistory) {
+    canvas.classList.add('hidden');
+    const notice = document.createElement('div');
+    notice.id = 'trend-empty-state';
+    notice.className = 'h-full min-h-[220px] flex flex-col items-center justify-center text-center p-6';
+    notice.innerHTML = `
+      <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mb-2.5">
+        <i data-lucide="trending-up" class="w-5 h-5"></i>
+      </div>
+      <div class="text-sm font-semibold text-gray-700 dark:text-gray-200">Limited Historical Activity</div>
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-sm">
+        Not enough completed tasks or recorded study sessions in this period to establish a historical trend. As you complete tasks and focus sessions, your progress trend will be mapped here honestly.
+      </p>
+    `;
+    container.appendChild(notice);
+    refreshLucide();
+    return;
+  }
+
+  canvas.classList.remove('hidden');
 
   const labels =
-    stats?.weekly_progress?.labels?.length
-      ? stats.weekly_progress.labels
-      : Array.isArray(
-          report.weekly_activity
-        )
-        ? report.weekly_activity.map(
-            item => item.label
-          )
-        : [
-            'Mon',
-            'Tue',
-            'Wed',
-            'Thu',
-            'Fri',
-            'Sat',
-            'Sun'
-          ];
-
+    trend.labels;
 
   const completion =
-    stats?.weekly_progress?.data?.length
-      ? stats.weekly_progress.data.map(
-          value => safeNumber(value)
-        )
-      : labels.map(
-          () => safeNumber(
-            report.completion_rate
-          )
-        );
-
+    trend.completion_rates.map(
+      value => safeNumber(value)
+    );
 
   const hours =
-    Array.isArray(
-      report.weekly_activity
-    )
-      ? report.weekly_activity.map(
-          item => safeNumber(item.hours)
-        )
-      : labels.map(() => 0);
+    trend.study_hours.map(
+      value => safeNumber(value)
+    );
 
+  const tasksCompleted =
+    trend.tasks_completed.map(
+      value => safeNumber(value)
+    );
 
   const maxHours =
     Math.max(
@@ -515,14 +546,6 @@ function renderPerformanceTrend(
       ...hours
     );
 
-
-  /*
-   * The chart uses a normalized percentage
-   * representation for study-hour values.
-   *
-   * The underlying actual study-hour values
-   * are still displayed in Weekly Study Time.
-   */
   const studyAsPercent =
     hours.map(
       value =>
@@ -531,68 +554,16 @@ function renderPerformanceTrend(
         )
     );
 
-
-  const totalCompleted =
-    safeNumber(
-      report.tasks_completed
-    );
-
-  const totalCreated =
-    Math.max(
-      1,
-      safeNumber(
-        report.tasks_created
-      )
-    );
-
-
-  const taskCompletionScore =
-    Math.min(
-      100,
-      Math.round(
-        (totalCompleted /
-          totalCreated) *
-          100
-      )
-    );
-
-
-  const tasksSeries =
-    labels.map(
-      (_, index) => {
-
-        const progress =
-          labels.length <= 1
-            ? 1
-            : index /
-              (labels.length - 1);
-
-        return Math.round(
-          taskCompletionScore *
-          progress
-        );
-      }
-    );
-
-
-  if (performanceTrendChart) {
-    performanceTrendChart.destroy();
-  }
-
-
   performanceTrendChart =
     new Chart(
       canvas,
       {
-
         type: 'line',
 
         data: {
-
           labels,
 
           datasets: [
-
             {
               label:
                 'Completion Rate',
@@ -662,7 +633,7 @@ function renderPerformanceTrend(
                 'Tasks Completed',
 
               data:
-                tasksSeries,
+                tasksCompleted,
 
               borderColor:
                 '#f59e0b',
@@ -685,13 +656,10 @@ function renderPerformanceTrend(
               fill:
                 false
             }
-
           ]
-
         },
 
         options: {
-
           responsive:
             true,
 
@@ -707,14 +675,12 @@ function renderPerformanceTrend(
           },
 
           plugins: {
-
             legend: {
               display:
                 false
             },
 
             tooltip: {
-
               backgroundColor:
                 '#123b33',
 
@@ -734,15 +700,27 @@ function renderPerformanceTrend(
                 11,
 
               displayColors:
-                true
-            }
+                true,
 
+              callbacks: {
+                label: context => {
+                  const datasetLabel = context.dataset.label || '';
+                  const idx = context.dataIndex;
+                  if (datasetLabel === 'Completion Rate') {
+                    return `Completion Rate: ${formatPercent(context.parsed.y)}`;
+                  } else if (datasetLabel === 'Study Hours') {
+                    return `Study Hours: ${hours[idx]}h`;
+                  } else if (datasetLabel === 'Tasks Completed') {
+                    return `Tasks Completed: ${tasksCompleted[idx]}`;
+                  }
+                  return `${datasetLabel}: ${context.parsed.y}`;
+                }
+              }
+            }
           },
 
           scales: {
-
             x: {
-
               grid: {
                 color:
                   getChartGridColor(),
@@ -760,11 +738,9 @@ function renderPerformanceTrend(
                     11
                 }
               }
-
             },
 
             y: {
-
               min:
                 0,
 
@@ -780,7 +756,6 @@ function renderPerformanceTrend(
               },
 
               ticks: {
-
                 color:
                   getChartTextColor(),
 
@@ -793,25 +768,18 @@ function renderPerformanceTrend(
                   value =>
                     `${value}%`
               }
-
             }
-
           }
-
         }
-
       }
     );
-
 
   const legend =
     document.getElementById(
       'performance-trend-legend'
     );
 
-
   if (legend) {
-
     const colors = [
       '#0f9f63',
       '#3b82f6',
@@ -824,11 +792,9 @@ function renderPerformanceTrend(
       'Tasks Completed'
     ];
 
-
     legend.innerHTML =
       labelsForLegend.map(
         (label, index) => `
-
           <span
             class="inline-flex
                    items-center
@@ -836,22 +802,16 @@ function renderPerformanceTrend(
                    text-[#5f7972]
                    dark:text-gray-400"
           >
-
             <span
               class="w-2 h-2
                      rounded-full"
               style="background:${colors[index]}"
             ></span>
-
             ${label}
-
           </span>
-
         `
       ).join('');
-
   }
-
 }
 
 
@@ -888,6 +848,7 @@ function renderTaskStatus(
 
 
   const breakdown =
+    report?.task_status_distribution ||
     stats?.task_breakdown ||
     {};
 
@@ -985,6 +946,15 @@ function renderTaskStatus(
               legend: {
                 display:
                   false
+              },
+              tooltip: {
+                callbacks: {
+                  label: context => {
+                    const val = context.parsed;
+                    const pct = total > 0 ? formatPercent((val / total) * 100) : '0%';
+                    return ` ${context.label}: ${val} (${pct})`;
+                  }
+                }
               }
             }
 
@@ -1006,12 +976,12 @@ function renderTaskStatus(
 
           const percent =
             total > 0
-              ? Math.round(
+              ? formatPercent(
                   (value /
                     total) *
                   100
                 )
-              : 0;
+              : '0%';
 
 
           return `
@@ -1049,10 +1019,10 @@ function renderTaskStatus(
                 class="text-[10px]
                        text-[#7c938d]
                        dark:text-gray-500
-                       w-9
+                       w-12
                        text-right"
               >
-                ${percent}%
+                ${percent}
               </span>
 
             </div>
@@ -1294,7 +1264,8 @@ function renderWeeklyStudy(report) {
  */
 
 function renderSubjectBreakdown(
-  coursesData
+  coursesData,
+  report
 ) {
 
   const container =
@@ -1315,11 +1286,15 @@ function renderSubjectBreakdown(
 
   const courses =
     Array.isArray(
-      coursesData?.courses
-    )
-      ? coursesData.courses
-          .slice(0, 6)
-      : [];
+      report?.course_comparison
+    ) &&
+    report.course_comparison.length > 0
+      ? report.course_comparison.slice(0, 6)
+      : Array.isArray(
+          coursesData?.courses
+        )
+        ? coursesData.courses.slice(0, 6)
+        : [];
 
 
   if (countEl) {
@@ -1389,6 +1364,7 @@ function renderSubjectBreakdown(
             Math.max(
               0,
               safeNumber(
+                course.completion_rate ??
                 course.progress
               )
             )
@@ -1481,7 +1457,7 @@ function renderSubjectBreakdown(
                        text-[#234940]
                        dark:text-white"
               >
-                ${progress}%
+                ${formatPercent(progress)}
               </span>
 
             </div>
@@ -1514,7 +1490,8 @@ function renderSubjectBreakdown(
  */
 
 function renderCoursePerformance(
-  coursesData
+  coursesData,
+  report
 ) {
 
   const container =
@@ -1530,11 +1507,15 @@ function renderCoursePerformance(
 
   const courses =
     Array.isArray(
-      coursesData?.courses
-    )
-      ? coursesData.courses
-          .slice(0, 5)
-      : [];
+      report?.course_comparison
+    ) &&
+    report.course_comparison.length > 0
+      ? report.course_comparison.slice(0, 5)
+      : Array.isArray(
+          coursesData?.courses
+        )
+        ? coursesData.courses.slice(0, 5)
+        : [];
 
 
   if (!courses.length) {
@@ -1593,6 +1574,7 @@ function renderCoursePerformance(
             Math.max(
               0,
               safeNumber(
+                course.completion_rate ??
                 course.progress
               )
             )
@@ -1615,13 +1597,22 @@ function renderCoursePerformance(
 
         const completed =
           safeNumber(
+            course.completed_tasks ??
             course.completed_count
           );
 
 
         const taskCount =
           safeNumber(
+            course.total_tasks ??
             course.task_count
+          );
+
+        const focusHours =
+          safeNumber(
+            course.focus_hours ??
+            course.focused_hours ??
+            0
           );
 
 
@@ -1734,7 +1725,7 @@ function renderCoursePerformance(
                          dark:text-white
                          shrink-0"
                 >
-                  ${progress}%
+                  ${formatPercent(progress)}
                 </div>
 
               </div>
@@ -1780,7 +1771,7 @@ function renderCoursePerformance(
                          text-gray-400
                          dark:text-gray-500"
                 >
-                  ${completed}/${taskCount} tasks
+                  ${completed}/${taskCount} tasks${focusHours > 0 ? ` • ${focusHours.toFixed(1)}h focus` : ''}
                 </span>
 
               </div>

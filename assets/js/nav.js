@@ -5,7 +5,7 @@ window.APP_READY = (async function bootstrap() {
   const sidebarSlot = document.getElementById('sidebar-slot');
 
   if (sidebarSlot) {
-    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v5');
+    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v6');
     if (cachedSidebar) {
       sidebarSlot.outerHTML = cachedSidebar;
       requestAnimationFrame(() => {
@@ -18,7 +18,7 @@ window.APP_READY = (async function bootstrap() {
         const response = await fetch('../assets/partials/sidebar.html');
         if (response.ok) {
           const html = await response.text();
-          sessionStorage.setItem('app_sidebar_html_v5', html);
+          sessionStorage.setItem('app_sidebar_html_v6', html);
           sidebarSlot.outerHTML = html;
           requestAnimationFrame(() => {
             if (window.lucide) {
@@ -206,7 +206,7 @@ window.updateUserAvatars = updateUserAvatars;
 function highlightActiveNavLink() {
   const page = document.body.dataset.page;
   const isFocusUrl = (page === 'tasks' && (window.location.search.includes('focus=1') || window.location.search.includes('focus_task_id')));
-  const activeKey = isFocusUrl ? 'focus' : page;
+  const activeKey = (isFocusUrl || page === 'study') ? 'focus' : page;
 
   document.querySelectorAll('[data-nav]').forEach(link => {
     if (link.dataset.nav === activeKey) {
