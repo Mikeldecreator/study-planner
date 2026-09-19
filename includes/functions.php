@@ -508,7 +508,7 @@ function buildTaskIntelligence(array $task): array
         $systemProgress = (float) ($timeMetrics['time_progress'] ?? 0.0);
     }
 
-    // User completion request and discrepancy detection (Informational Warning)
+    $userCompletionRequest = ($userStatus === 'completed');
     $progressDiscrepancy = false;
     $discrepancyNote = null;
 
