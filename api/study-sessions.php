@@ -367,7 +367,16 @@ switch ($method) {
                  SET ended_at = NOW(), duration_seconds = ?, status = 'stopped'
                  WHERE id = ? AND user_id = ?"
             );
-            $stmt->execute([$finalDuration, $session['id'], $userId]);
+            try {
+                $stmt->execute([$finalDuration, $session['id'], $userId]);
+            } catch (PDOException $e) {
+                if (str_contains($e->getMessage(), 'ended_at')) {
+                    $db->exec("ALTER TABLE `task_work_sessions` ADD COLUMN `ended_at` DATETIME DEFAULT NULL AFTER `started_at`");
+                    $stmt->execute([$finalDuration, $session['id'], $userId]);
+                } else {
+                    throw $e;
+                }
+            }
 
             $stmt = $db->prepare('SELECT * FROM task_work_sessions WHERE id = ? AND user_id = ?');
             $stmt->execute([$session['id'], $userId]);
@@ -446,7 +455,16 @@ switch ($method) {
                  SET ended_at = NOW(), duration_seconds = ?, status = 'completed'
                  WHERE id = ? AND user_id = ?"
             );
-            $stmt->execute([$finalDuration, $session['id'], $userId]);
+            try {
+                $stmt->execute([$finalDuration, $session['id'], $userId]);
+            } catch (PDOException $e) {
+                if (str_contains($e->getMessage(), 'ended_at')) {
+                    $db->exec("ALTER TABLE `task_work_sessions` ADD COLUMN `ended_at` DATETIME DEFAULT NULL AFTER `started_at`");
+                    $stmt->execute([$finalDuration, $session['id'], $userId]);
+                } else {
+                    throw $e;
+                }
+            }
 
             $stmt = $db->prepare('SELECT * FROM task_work_sessions WHERE id = ? AND user_id = ?');
             $stmt->execute([$session['id'], $userId]);

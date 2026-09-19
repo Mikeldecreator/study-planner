@@ -124,6 +124,7 @@ try {
 } catch (Throwable $e) {
     echo "  [NOTICE] task_work_sessions status ENUM: " . $e->getMessage() . "\n";
 }
+ensureColumn($db, 'task_work_sessions', 'ended_at', "DATETIME DEFAULT NULL AFTER `started_at`");
 
 // 3. Idempotent Index Additions
 function ensureIndex(PDO $db, string $table, string $indexName, string $columns): void {

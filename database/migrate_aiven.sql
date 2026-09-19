@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS task_work_sessions (
     user_id INT NOT NULL,
     task_id INT NOT NULL,
     started_at DATETIME NOT NULL,
+    ended_at DATETIME DEFAULT NULL,
     duration_seconds INT NOT NULL DEFAULT 0,
     status ENUM('running','paused','completed','stopped','active','cancelled') NOT NULL DEFAULT 'running',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
