@@ -268,17 +268,12 @@ switch ($method) {
                 sessionApiJson(['error' => 'Session is not currently running.'], 422);
             }
 
-            // Calculate elapsed seconds since started_at (server-side only)
-            $startedTs = strtotime((string) $session['started_at']);
-            $elapsed = ($startedTs !== false) ? max(0, time() - $startedTs) : 0;
-            $newDuration = max(0, (int) $session['duration_seconds'] + $elapsed);
-
             $stmt = $db->prepare(
                 "UPDATE task_work_sessions
-                 SET duration_seconds = ?, status = 'paused'
+                 SET duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())), status = 'paused'
                  WHERE id = ? AND user_id = ?"
             );
-            $stmt->execute([$newDuration, $session['id'], $userId]);
+            $stmt->execute([$session['id'], $userId]);
 
             $stmt = $db->prepare('SELECT * FROM task_work_sessions WHERE id = ? AND user_id = ?');
             $stmt->execute([$session['id'], $userId]);
@@ -354,25 +349,27 @@ switch ($method) {
                 sessionApiJson(['error' => 'Session is already closed.'], 422);
             }
 
-            // Calculate final duration
-            $finalDuration = (int) $session['duration_seconds'];
             if ($session['status'] === 'running') {
-                $startedTs = strtotime((string) $session['started_at']);
-                $elapsed = ($startedTs !== false) ? max(0, time() - $startedTs) : 0;
-                $finalDuration = max(0, $finalDuration + $elapsed);
+                $stmt = $db->prepare(
+                    "UPDATE task_work_sessions
+                     SET ended_at = NOW(),
+                         duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())),
+                         status = 'stopped'
+                     WHERE id = ? AND user_id = ?"
+                );
+            } else {
+                $stmt = $db->prepare(
+                    "UPDATE task_work_sessions
+                     SET ended_at = NOW(), status = 'stopped'
+                     WHERE id = ? AND user_id = ?"
+                );
             }
-
-            $stmt = $db->prepare(
-                "UPDATE task_work_sessions
-                 SET ended_at = NOW(), duration_seconds = ?, status = 'stopped'
-                 WHERE id = ? AND user_id = ?"
-            );
             try {
-                $stmt->execute([$finalDuration, $session['id'], $userId]);
+                $stmt->execute([$session['id'], $userId]);
             } catch (PDOException $e) {
                 if (str_contains($e->getMessage(), 'ended_at')) {
                     $db->exec("ALTER TABLE `task_work_sessions` ADD COLUMN `ended_at` DATETIME DEFAULT NULL AFTER `started_at`");
-                    $stmt->execute([$finalDuration, $session['id'], $userId]);
+                    $stmt->execute([$session['id'], $userId]);
                 } else {
                     throw $e;
                 }
@@ -381,6 +378,7 @@ switch ($method) {
             $stmt = $db->prepare('SELECT * FROM task_work_sessions WHERE id = ? AND user_id = ?');
             $stmt->execute([$session['id'], $userId]);
             $updated = $stmt->fetch();
+            $finalDuration = (int) ($updated['duration_seconds'] ?? 0);
 
             // Trigger completion notification if meaningful focus time (>= 60s)
             if ($finalDuration >= 60) {
@@ -412,10 +410,24 @@ switch ($method) {
                 }
             }
 
+            // Check for authoritative time-based task completion upon stopping
+            $autoCompleted = function_exists('checkAndPersistTaskTimeCompletion')
+                ? checkAndPersistTaskTimeCompletion($db, $userId, (int) $session['task_id'])
+                : false;
+
+            $totalFocused = getTaskTotalFocusedSeconds($db, $userId, (int) $session['task_id']);
+            $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?');
+            $stmt->execute([(int) $session['task_id'], $userId]);
+            $task = $stmt->fetch();
+            $timeProgress = $task ? calculateTaskTimeProgress($task, $totalFocused) : null;
+
             sessionApiJson([
-                'ok'      => true,
-                'session' => $updated,
-                'message' => 'Study session stopped.',
+                'ok'                 => true,
+                'session'            => $updated,
+                'task_auto_completed'=> $autoCompleted,
+                'task'               => $task ? decorateTask($task) : null,
+                'task_time_progress' => $timeProgress,
+                'message'            => 'Study session stopped.',
             ]);
         }
 
@@ -442,25 +454,27 @@ switch ($method) {
                 sessionApiJson(['error' => 'Session is already completed.'], 422);
             }
 
-            // Calculate final duration
-            $finalDuration = (int) $session['duration_seconds'];
             if ($session['status'] === 'running') {
-                $startedTs = strtotime((string) $session['started_at']);
-                $elapsed = ($startedTs !== false) ? max(0, time() - $startedTs) : 0;
-                $finalDuration = max(0, $finalDuration + $elapsed);
+                $stmt = $db->prepare(
+                    "UPDATE task_work_sessions
+                     SET ended_at = NOW(),
+                         duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())),
+                         status = 'completed'
+                     WHERE id = ? AND user_id = ?"
+                );
+            } else {
+                $stmt = $db->prepare(
+                    "UPDATE task_work_sessions
+                     SET ended_at = NOW(), status = 'completed'
+                     WHERE id = ? AND user_id = ?"
+                );
             }
-
-            $stmt = $db->prepare(
-                "UPDATE task_work_sessions
-                 SET ended_at = NOW(), duration_seconds = ?, status = 'completed'
-                 WHERE id = ? AND user_id = ?"
-            );
             try {
-                $stmt->execute([$finalDuration, $session['id'], $userId]);
+                $stmt->execute([$session['id'], $userId]);
             } catch (PDOException $e) {
                 if (str_contains($e->getMessage(), 'ended_at')) {
                     $db->exec("ALTER TABLE `task_work_sessions` ADD COLUMN `ended_at` DATETIME DEFAULT NULL AFTER `started_at`");
-                    $stmt->execute([$finalDuration, $session['id'], $userId]);
+                    $stmt->execute([$session['id'], $userId]);
                 } else {
                     throw $e;
                 }
@@ -469,6 +483,7 @@ switch ($method) {
             $stmt = $db->prepare('SELECT * FROM task_work_sessions WHERE id = ? AND user_id = ?');
             $stmt->execute([$session['id'], $userId]);
             $updated = $stmt->fetch();
+            $finalDuration = (int) ($updated['duration_seconds'] ?? 0);
 
             // Trigger completion notification if meaningful focus time (>= 60s)
             if ($finalDuration >= 60) {
@@ -500,9 +515,14 @@ switch ($method) {
                 }
             }
 
-            // Fetch task to compute updated time progress (without modifying task status or manual progress)
+            // Check for authoritative time-based task completion upon completing session
+            $autoCompleted = function_exists('checkAndPersistTaskTimeCompletion')
+                ? checkAndPersistTaskTimeCompletion($db, $userId, (int) $session['task_id'])
+                : false;
+
+            // Fetch task to compute updated time progress
             $stmt = $db->prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?');
-            $stmt->execute([$session['task_id'], $userId]);
+            $stmt->execute([(int) $session['task_id'], $userId]);
             $task = $stmt->fetch();
 
             $totalFocused = getTaskTotalFocusedSeconds($db, $userId, (int) $session['task_id']);
@@ -511,6 +531,8 @@ switch ($method) {
             sessionApiJson([
                 'ok'                 => true,
                 'session'            => $updated,
+                'task_auto_completed'=> $autoCompleted,
+                'task'               => $task ? decorateTask($task) : null,
                 'task_time_progress' => $timeProgress,
                 'message'            => 'Study session completed.',
             ]);

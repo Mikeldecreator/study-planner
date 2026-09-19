@@ -165,8 +165,7 @@ function clampNumber(value, min, max, fallback = 0) {
 function formatProgressPercent(val) {
   const n = Math.min(100, Math.max(0, Number(val) || 0));
   if (n === 0) return '0%';
-  if (n >= 100) return '100%';
-  if (Number.isInteger(n)) return `${n}%`;
+  if (n === 100) return '100%';
   return `${n.toFixed(2)}%`;
 }
 
@@ -175,18 +174,19 @@ function resolveTaskProgress(task) {
   if (status === 'completed' || task?.is_system_completed) {
     return 100;
   }
+  const duration = Math.max(0, Number(task?.duration_hours) || 0);
   const focusedSec = Number(task?.focused_seconds || task?.total_focused_seconds || 0);
+
+  // Strict Rule: For active tasks with estimated workload: focused_seconds / estimated_seconds * 100
+  if (duration > 0) {
+    const estSec = duration * 3600;
+    const timePct = estSec > 0 ? (focusedSec / estSec) * 100 : 0;
+    return Math.min(100, Math.max(0, timePct));
+  }
+
   const timeProgress = Number(task?.time_progress_percent ?? task?.time_progress ?? task?.system_progress ?? 0);
   const manualProgress = Number(task?.user_progress ?? task?.progress_percent ?? 0);
-
-  let p = 0;
-  if (focusedSec > 0 && timeProgress > 0) {
-    p = manualProgress > 0 ? Math.max(timeProgress, manualProgress) : timeProgress;
-  } else if (timeProgress > 0) {
-    p = timeProgress;
-  } else {
-    p = manualProgress;
-  }
+  const p = timeProgress > 0 ? timeProgress : manualProgress;
   return Math.min(100, Math.max(0, p));
 }
 
@@ -1722,6 +1722,10 @@ function renderTable(tasks) {
     displayTasks = allList.filter(t => t.urgency === 'due_soon');
   } else if (ACTIVE_TAB === 'overdue') {
     displayTasks = allList.filter(t => t.urgency === 'overdue' || (t.status !== 'completed' && localDate(t.due_at) && localDate(t.due_at) < new Date()));
+  } else if (ACTIVE_TAB === 'all') {
+    // ACTIVE_TAB 'all' shows all active tasks in My Work.
+    // Completed tasks appear in the Completed tab and the Completed archive below.
+    displayTasks = allList.filter(t => String(t.system_status || t.status || '') !== 'completed');
   }
 
   const visible =
@@ -5042,8 +5046,7 @@ async function handleUndoComplete(taskId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: taskId,
-        status: 'pending',
-        progress_percent: 0,
+        action: 'reopen',
         csrf_token: window.CSRF_TOKEN || ''
       })
     });
@@ -5414,7 +5417,7 @@ async function updateTimerTaskMeta(task, cachedMetrics = null) {
     const barEl = getEl('timer-progress-bar');
     const pct = metrics.time_progress?.time_progress_percent ?? 0;
     if (pctEl) {
-      pctEl.textContent = `${pct}%`;
+      pctEl.textContent = formatProgressPercent(pct);
     }
     if (barEl) {
       barEl.style.width = `${Math.min(100, Math.max(0, pct))}%`;
@@ -5423,7 +5426,7 @@ async function updateTimerTaskMeta(task, cachedMetrics = null) {
 
   // Provide immediate visual feedback from task data before network call
   const initialFocusedSeconds = Number(task.focused_seconds || task.total_focused_seconds || 0);
-  const initialPct = Number(task.system_progress !== undefined ? task.system_progress : (task.time_progress_percent !== undefined ? task.time_progress_percent : (task.progress_percent || 0)));
+  const initialPct = resolveTaskProgress(task);
   const focusedEl = getEl('timer-task-focused');
   if (focusedEl) {
     focusedEl.textContent = formatDurationHuman(initialFocusedSeconds);
@@ -5431,7 +5434,7 @@ async function updateTimerTaskMeta(task, cachedMetrics = null) {
   const pctEl = getEl('timer-progress-pct');
   const barEl = getEl('timer-progress-bar');
   if (pctEl) {
-    pctEl.textContent = `${initialPct}%`;
+    pctEl.textContent = formatProgressPercent(initialPct);
   }
   if (barEl) {
     barEl.style.width = `${Math.min(100, Math.max(0, initialPct))}%`;

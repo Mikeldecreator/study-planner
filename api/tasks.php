@@ -129,6 +129,24 @@ switch ($method) {
     case 'GET':
         session_write_close();
 
+        // Authoritatively check and persist completion for active tasks that reached their estimated workload
+        if (function_exists('checkAndPersistTaskTimeCompletion')) {
+            $autoCheckStmt = $db->prepare("
+                SELECT t.id, t.duration_hours,
+                       (SELECT COALESCE(SUM(CASE WHEN status = 'running' THEN duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) ELSE duration_seconds END), 0)
+                        FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS total_focused
+                FROM tasks t
+                WHERE t.user_id = ? AND t.status != 'completed' AND t.duration_hours > 0
+            ");
+            $autoCheckStmt->execute([$userId]);
+            foreach ($autoCheckStmt->fetchAll() as $cand) {
+                $estSec = (int) round(((float)$cand['duration_hours']) * 3600);
+                if ($estSec > 0 && (int)$cand['total_focused'] >= $estSec) {
+                    checkAndPersistTaskTimeCompletion($db, $userId, (int)$cand['id']);
+                }
+            }
+        }
+
         $sql = '
             SELECT
                 t.*,
@@ -898,47 +916,38 @@ switch ($method) {
             );
         }
 
-        $newStatus =
-            normalizeTaskStatus(
-                (string)(
-                    $body['status']
-                    ?? 'pending'
-                )
+        $wasAlreadyCompleted = ($existing['status'] === 'completed');
+        $isReopenAction = (!empty($body['action']) && $body['action'] === 'reopen')
+            || (!empty($body['reopen']))
+            || (isset($body['status']) && $body['status'] !== 'completed' && $wasAlreadyCompleted && !empty($body['is_reopen']));
+
+        if ($wasAlreadyCompleted && !$isReopenAction) {
+            // Case 5: Completed tasks must remain completed when edited
+            $newStatus = 'completed';
+            $completedAt = $existing['completed_at'] ?: date('Y-m-d H:i:s');
+            $progress = 100;
+        } elseif ($isReopenAction) {
+            // Case 6: Deliberate Undo / Reopen
+            // Preserves actual study-session history and factual focused time
+            $totalFocused = getTaskTotalFocusedSeconds($db, $userId, $id);
+            $newStatus = ($totalFocused > 0) ? 'in_progress' : 'pending';
+            $completedAt = null;
+            $rawDuration = (float)($body['duration_hours'] ?? $existing['duration_hours'] ?? 0);
+            if ($rawDuration > 0 && $totalFocused > 0) {
+                $progress = min(99, (int)floor(($totalFocused / ($rawDuration * 3600)) * 100));
+            } else {
+                $progress = 0;
+            }
+        } else {
+            // Standard status update (e.g. Deliberate Manual Completion or normal edit)
+            $newStatus = normalizeTaskStatus(
+                (string)($body['status'] ?? $existing['status'] ?? 'pending')
             );
-
-        $wasAlreadyCompleted =
-            $existing['status'] ===
-            'completed';
-
-        $completedAt = null;
-
-        if (
-            $newStatus ===
-            'completed'
-        ) {
-            $completedAt =
-                $wasAlreadyCompleted
-                    ? $existing['completed_at']
-                    : date(
-                        'Y-m-d H:i:s'
-                    );
-        }
-
-        $progress =
-            $newStatus ===
-            'completed'
+            $completedAt = ($newStatus === 'completed') ? date('Y-m-d H:i:s') : null;
+            $progress = ($newStatus === 'completed')
                 ? 100
-                : max(
-                    0,
-                    min(
-                        100,
-                        (int)(
-                            $body[
-                                'progress_percent'
-                            ] ?? 0
-                        )
-                    )
-                );
+                : max(0, min(100, (int)($body['progress_percent'] ?? $existing['progress_percent'] ?? 0)));
+        }
 
         $dueAt =
             trim(

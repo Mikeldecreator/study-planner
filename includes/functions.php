@@ -351,26 +351,89 @@ function courseRiskScore($gradePoint, $credits): int
  * - rawStatus === 'in_progress' -> 'in_progress'
  * - default -> 'pending'
  */
+/**
+ * Authoritatively check if a task's cumulative focused study time
+ * has reached its full estimated workload. If so, persist completion to database.
+ * Strictly enforces:
+ * - Condition A: Only triggers when focused_seconds >= estimated_seconds (duration_hours > 0).
+ * - Persists completion directly to `tasks` table once.
+ * - Does not re-trigger if already completed.
+ */
+function checkAndPersistTaskTimeCompletion(PDO $db, int $userId, int $taskId): bool
+{
+    if ($taskId <= 0 || $userId <= 0) {
+        return false;
+    }
+
+    $stmt = $db->prepare('SELECT id, user_id, title, status, duration_hours, course_id FROM tasks WHERE id = ? AND user_id = ?');
+    $stmt->execute([$taskId, $userId]);
+    $task = $stmt->fetch();
+
+    if (!$task) {
+        return false;
+    }
+
+    // Already completed — stay completed, do nothing
+    if ($task['status'] === 'completed') {
+        return false;
+    }
+
+    $durationHours = (float)($task['duration_hours'] ?? 0);
+    if ($durationHours <= 0) {
+        // No estimated workload defined; cannot auto-complete by time
+        return false;
+    }
+
+    $estimatedSeconds = (int) round($durationHours * 3600);
+    $totalFocusedSeconds = getTaskTotalFocusedSeconds($db, $userId, $taskId);
+
+    if ($totalFocusedSeconds >= $estimatedSeconds && $estimatedSeconds > 0) {
+        $upd = $db->prepare("UPDATE tasks SET status = 'completed', progress_percent = 100, completed_at = NOW() WHERE id = ? AND user_id = ? AND status != 'completed'");
+        $upd->execute([$taskId, $userId]);
+
+        if ($upd->rowCount() > 0) {
+            logActivity($userId, "Task automatically completed: {$task['title']} (Estimated workload reached)", 'success');
+
+            // Mark prior notifications as read
+            $stmtNotif = $db->prepare('UPDATE notifications SET read_at = NOW() WHERE task_id = ? AND user_id = ? AND read_at IS NULL');
+            $stmtNotif->execute([$taskId, $userId]);
+
+            // Create completion notification
+            $eventKey = "task_auto_completed_{$taskId}";
+            $chk = $db->prepare('SELECT id FROM notifications WHERE user_id = ? AND event_key = ? LIMIT 1');
+            $chk->execute([$userId, $eventKey]);
+            if (!$chk->fetch()) {
+                $notifMsg = "Your task '{$task['title']}' reached its estimated workload ({$durationHours}h) and has been automatically completed.";
+                $ins = $db->prepare("INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at) VALUES (?, ?, 'in_app', ?, ?, NOW())");
+                $ins->execute([$userId, $taskId, $eventKey, $notifMsg]);
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function determineSystemTaskStatus(array $task, array $timeMetrics): string
 {
     $rawStatus = (string)($task['status'] ?? 'pending');
-    $userProgress = max(0, min(100, (int)($task['progress_percent'] ?? 0)));
     $focusedSeconds = (int)($timeMetrics['focused_seconds'] ?? 0);
     $systemProgress = (float)($timeMetrics['time_progress'] ?? 0.0);
+    $hasEstimate = !empty($timeMetrics['has_estimate']);
 
-    // 1. Manual Completion is Authoritative:
-    // When a student explicitly marks a task completed (or userProgress reached 100%),
-    // manual completion is the authoritative completion status.
-    if ($rawStatus === 'completed' || $userProgress >= 100) {
+    // 1. Authoritative Deliberate Completion:
+    // When a task is marked completed in the database
+    if ($rawStatus === 'completed') {
         return 'completed';
     }
 
-    // 2. Objective completion: system progress >= 100%
-    if ($systemProgress >= 100.0) {
+    // 2. Time-Based Completion:
+    // Strictly when user actually focused for the full estimated workload (has estimate and reached 100%)
+    if ($hasEstimate && $systemProgress >= 100.0) {
         return 'completed';
     }
 
-    // 3. Active study work: focused time > 0 and system progress < 100%
+    // 3. Active study work: focused time > 0 and not completed
     if ($focusedSeconds > 0) {
         return 'in_progress';
     }
@@ -446,21 +509,12 @@ function buildTaskIntelligence(array $task): array
     }
 
     // User completion request and discrepancy detection (Informational Warning)
-    $userCompletionRequest = ($userStatus === 'completed' || $userProgress >= 100);
     $progressDiscrepancy = false;
     $discrepancyNote = null;
 
-    if ($userCompletionRequest) {
-        // If user marked complete, but recorded study time is lower than estimated workload
-        if ($timeMetrics['has_estimate'] && $systemProgress < 100.0) {
-            $progressDiscrepancy = true;
-            if ($focusedSeconds === 0) {
-                $discrepancyNote = 'Task marked complete with no recorded focus time.';
-            } else {
-                $discrepancyNote = "Task marked complete with limited recorded study time ({$timeMetrics['focused_hours']}h of {$timeMetrics['estimated_duration_hours']}h estimate).";
-            }
-        }
-    } elseif (abs($userProgress - $systemProgress) >= 20.0) {
+    // Completed tasks must NOT be tagged with discrepancy warnings.
+    // Factually distinguish actual focused time from completed status without conflict.
+    if (!$isSystemCompleted && abs($userProgress - $systemProgress) >= 20.0) {
         $progressDiscrepancy = true;
         $discrepancyNote = "User reported progress ({$userProgress}%) differs from system progress ({$systemProgress}%).";
     }
