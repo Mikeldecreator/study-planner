@@ -137,7 +137,7 @@ switch ($method) {
                 c.color AS course_color,
                 c.credits AS course_credits,
                 c.grade_point AS course_grade_point,
-                (SELECT COALESCE(SUM(duration_seconds), 0) FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS focused_seconds
+                (SELECT COALESCE(SUM(CASE WHEN status = \'running\' THEN duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) ELSE duration_seconds END), 0) FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS focused_seconds
             FROM tasks t
             LEFT JOIN courses c
                 ON c.id = t.course_id
@@ -153,10 +153,23 @@ switch ($method) {
             !empty($_GET['status']) &&
             $_GET['status'] !== 'all'
         ) {
-            if ($_GET['status'] === 'overdue') {
+            $filterStatus = strtolower(trim((string)$_GET['status']));
+            if ($filterStatus === 'overdue') {
                 $sql .= "
                     AND t.status != 'completed'
                     AND t.due_at < NOW()
+                ";
+            } elseif ($filterStatus === 'due_soon') {
+                $days = defined('DUE_SOON_WINDOW_DAYS') ? (int)DUE_SOON_WINDOW_DAYS : 3;
+                $sql .= "
+                    AND t.status != 'completed'
+                    AND t.due_at >= NOW()
+                    AND t.due_at <= DATE_ADD(NOW(), INTERVAL {$days} DAY)
+                ";
+            } elseif ($filterStatus === 'pending') {
+                $sql .= "
+                    AND t.status != 'completed'
+                    AND t.status IN ('pending', 'not_started')
                 ";
             } else {
                 $sql .= '
@@ -165,7 +178,7 @@ switch ($method) {
 
                 $params[] =
                     normalizeTaskStatus(
-                        (string)$_GET['status']
+                        $filterStatus
                     );
             }
         }
@@ -252,98 +265,59 @@ switch ($method) {
                 $stmt->fetchAll()
             );
 
+        $sortBy = strtolower(trim((string)($_GET['sort'] ?? 'smart')));
+
         usort(
             $tasks,
             static function (
                 array $a,
                 array $b
-            ): int {
-                $scoreA =
-                    (int)(
-                        $a[
-                            'smart_priority_score'
-                        ] ?? 0
-                    );
-
-                $scoreB =
-                    (int)(
-                        $b[
-                            'smart_priority_score'
-                        ] ?? 0
-                    );
-
-                if ($scoreA !== $scoreB) {
-                    return $scoreB <=> $scoreA;
+            ) use ($sortBy): int {
+                if ($sortBy === 'due_asc') {
+                    $dueA = strtotime((string)($a['due_at'] ?? '')) ?: PHP_INT_MAX;
+                    $dueB = strtotime((string)($b['due_at'] ?? '')) ?: PHP_INT_MAX;
+                    if ($dueA !== $dueB) return $dueA <=> $dueB;
+                } elseif ($sortBy === 'due_desc') {
+                    $dueA = strtotime((string)($a['due_at'] ?? '')) ?: 0;
+                    $dueB = strtotime((string)($b['due_at'] ?? '')) ?: 0;
+                    if ($dueA !== $dueB) return $dueB <=> $dueA;
+                } elseif ($sortBy === 'priority_desc') {
+                    $pOrder = ['high' => 3, 'medium' => 2, 'low' => 1];
+                    $pA = $pOrder[$a['priority'] ?? 'medium'] ?? 2;
+                    $pB = $pOrder[$b['priority'] ?? 'medium'] ?? 2;
+                    if ($pA !== $pB) return $pB <=> $pA;
+                } elseif ($sortBy === 'progress_asc') {
+                    $prA = (float)($a['system_progress'] ?? $a['time_progress_percent'] ?? $a['progress_percent'] ?? 0);
+                    $prB = (float)($b['system_progress'] ?? $b['time_progress_percent'] ?? $b['progress_percent'] ?? 0);
+                    if ($prA != $prB) return $prA <=> $prB;
+                } elseif ($sortBy === 'progress_desc') {
+                    $prA = (float)($a['system_progress'] ?? $a['time_progress_percent'] ?? $a['progress_percent'] ?? 0);
+                    $prB = (float)($b['system_progress'] ?? $b['time_progress_percent'] ?? $b['progress_percent'] ?? 0);
+                    if ($prA != $prB) return $prB <=> $prA;
+                } elseif ($sortBy === 'title_asc') {
+                    $res = strcasecmp((string)($a['title'] ?? ''), (string)($b['title'] ?? ''));
+                    if ($res !== 0) return $res;
                 }
 
-                $riskA =
-                    (int)(
-                        $a[
-                            'task_risk_score'
-                        ] ?? 0
-                    );
+                // Default: Smart priority score DESC, risk DESC, progress ASC, due ASC, remaining DESC
+                $scoreA = (int)($a['smart_priority_score'] ?? 0);
+                $scoreB = (int)($b['smart_priority_score'] ?? 0);
+                if ($scoreA !== $scoreB) return $scoreB <=> $scoreA;
 
-                $riskB =
-                    (int)(
-                        $b[
-                            'task_risk_score'
-                        ] ?? 0
-                    );
+                $riskA = (int)($a['task_risk_score'] ?? 0);
+                $riskB = (int)($b['task_risk_score'] ?? 0);
+                if ($riskA !== $riskB) return $riskB <=> $riskA;
 
-                if ($riskA !== $riskB) {
-                    return $riskB <=> $riskA;
-                }
+                $progressA = (float)($a['system_progress'] ?? $a['time_progress_percent'] ?? $a['progress_percent'] ?? 0);
+                $progressB = (float)($b['system_progress'] ?? $b['time_progress_percent'] ?? $b['progress_percent'] ?? 0);
+                if ($progressA != $progressB) return $progressA <=> $progressB;
 
-                $progressA =
-                    (int)(
-                        $a[
-                            'progress_percent'
-                        ] ?? 0
-                    );
+                $dueA = strtotime((string)($a['due_at'] ?? '')) ?: PHP_INT_MAX;
+                $dueB = strtotime((string)($b['due_at'] ?? '')) ?: PHP_INT_MAX;
+                if ($dueA !== $dueB) return $dueA <=> $dueB;
 
-                $progressB =
-                    (int)(
-                        $b[
-                            'progress_percent'
-                        ] ?? 0
-                    );
-
-                if ($progressA !== $progressB) {
-                    return $progressA <=> $progressB;
-                }
-
-                $dueA =
-                    strtotime(
-                        (string)(
-                            $a['due_at'] ?? ''
-                        )
-                    ) ?: PHP_INT_MAX;
-
-                $dueB =
-                    strtotime(
-                        (string)(
-                            $b['due_at'] ?? ''
-                        )
-                    ) ?: PHP_INT_MAX;
-
-                if ($dueA !== $dueB) {
-                    return $dueA <=> $dueB;
-                }
-
-                $remainingA =
-                    (float)(
-                        $a[
-                            'remaining_hours'
-                        ] ?? 0
-                    );
-
-                $remainingB =
-                    (float)(
-                        $b[
-                            'remaining_hours'
-                        ] ?? 0
-                    );
-
+                $remainingA = (float)($a['remaining_hours'] ?? 0);
+                $remainingB = (float)($b['remaining_hours'] ?? 0);
                 return $remainingB <=> $remainingA;
             }
         );
@@ -358,7 +332,7 @@ switch ($method) {
                     c.color AS course_color,
                     c.credits AS course_credits,
                     c.grade_point AS course_grade_point,
-                    (SELECT COALESCE(SUM(duration_seconds), 0) FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS focused_seconds
+                    (SELECT COALESCE(SUM(CASE WHEN status = \'running\' THEN duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) ELSE duration_seconds END), 0) FROM task_work_sessions WHERE task_id = t.id AND user_id = t.user_id) AS focused_seconds
                 FROM tasks t
                 LEFT JOIN courses c
                     ON c.id = t.course_id

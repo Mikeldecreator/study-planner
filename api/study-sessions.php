@@ -41,12 +41,13 @@ switch ($method) {
     case 'GET':
         session_write_close();
 
-        // 1. Current active session (?active=1)
-        if (isset($_GET['active'])) {
+        // 1. Current active session (?active=1 or ?action=active)
+        if (isset($_GET['active']) || (isset($_GET['action']) && $_GET['action'] === 'active')) {
             $active = getUserActiveStudySession($db, $userId);
             sessionApiJson([
                 'ok'             => true,
                 'active_session' => $active,
+                'session'        => $active,
             ]);
         }
 
@@ -173,6 +174,18 @@ switch ($method) {
 
         if ($action === '') {
             sessionApiJson(['error' => 'Action parameter is required.'], 422);
+        }
+
+        // ====================================================================
+        // ACTION: active
+        // ====================================================================
+        if ($action === 'active') {
+            $active = getUserActiveStudySession($db, $userId);
+            sessionApiJson([
+                'ok'             => true,
+                'active_session' => $active,
+                'session'        => $active,
+            ]);
         }
 
         // ====================================================================

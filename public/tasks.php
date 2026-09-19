@@ -308,8 +308,9 @@ requirePageLogin();
             <button data-tab="all" class="task-tab-btn">All Work <span data-tab-count="all"></span></button>
             <button data-tab="pending" class="task-tab-btn">Pending <span data-tab-count="pending"></span></button>
             <button data-tab="in_progress" class="task-tab-btn">In Progress <span data-tab-count="in_progress"></span></button>
-            <button data-tab="completed" class="task-tab-btn">Completed <span data-tab-count="completed"></span></button>
+            <button data-tab="due_soon" class="task-tab-btn">Due Soon <span data-tab-count="due_soon"></span></button>
             <button data-tab="overdue" class="task-tab-btn">Overdue <span data-tab-count="overdue"></span></button>
+            <button data-tab="completed" class="task-tab-btn">Completed <span data-tab-count="completed"></span></button>
           </div>
 
           <div class="tasks-card overflow-hidden">
@@ -319,13 +320,16 @@ requirePageLogin();
                   <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                   <input type="search" id="task-search" placeholder="Search tasks..." aria-label="Search tasks" class="task-filter-control pl-10">
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 lg:flex gap-2">
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-2">
                   <select id="filter-course" aria-label="Filter by course" class="task-filter-control min-w-[145px]"><option value="">All Courses</option></select>
                   <select id="filter-type" aria-label="Filter by type" class="task-filter-control min-w-[120px]">
                     <option value="">All Types</option><option value="assignment">Assignment</option><option value="project">Project</option><option value="test">Test</option><option value="exam">Exam</option><option value="research">Research</option><option value="lab_report">Lab Report</option><option value="study_session">Study Session</option><option value="other">Other</option>
                   </select>
                   <select id="filter-priority" aria-label="Filter by priority" class="task-filter-control min-w-[125px]">
                     <option value="">All Priorities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+                  </select>
+                  <select id="filter-sort" aria-label="Sort tasks" class="task-filter-control min-w-[130px]">
+                    <option value="smart">Smart Priority</option><option value="due_asc">Due: Soonest</option><option value="due_desc">Due: Furthest</option><option value="priority_desc">Priority: High &rarr; Low</option><option value="progress_asc">Progress: Low &rarr; High</option><option value="progress_desc">Progress: High &rarr; Low</option><option value="title_asc">Title: A &rarr; Z</option>
                   </select>
                 </div>
               </div>
@@ -499,7 +503,8 @@ requirePageLogin();
               <div><label class="task-form-label">Course</label><select id="filter-course-side" class="task-filter-control"><option value="">All Courses</option></select></div>
               <div><label class="task-form-label">Type</label><select id="filter-type-side" class="task-filter-control"><option value="">All Types</option><option value="assignment">Assignment</option><option value="project">Project</option><option value="test">Test</option><option value="exam">Exam</option><option value="research">Research</option><option value="lab_report">Lab Report</option><option value="study_session">Study Session</option><option value="other">Other</option></select></div>
               <div><label class="task-form-label">Priority</label><select id="filter-priority-side" class="task-filter-control"><option value="">All Priorities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
-              <div><label class="task-form-label">Status</label><select id="filter-status-side" class="task-filter-control"><option value="">All Statuses</option><option value="not_started">Not Started</option><option value="pending">Pending</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="overdue">Overdue</option></select></div>
+              <div><label class="task-form-label">Status</label><select id="filter-status-side" class="task-filter-control"><option value="">All Statuses</option><option value="not_started">Not Started</option><option value="pending">Pending</option><option value="in_progress">In Progress</option><option value="due_soon">Due Soon</option><option value="overdue">Overdue</option><option value="completed">Completed</option></select></div>
+              <div><label class="task-form-label">Sort By</label><select id="filter-sort-side" class="task-filter-control"><option value="smart">Smart Priority</option><option value="due_asc">Due: Soonest</option><option value="due_desc">Due: Furthest</option><option value="priority_desc">Priority: High &rarr; Low</option><option value="progress_asc">Progress: Low &rarr; High</option><option value="progress_desc">Progress: High &rarr; Low</option><option value="title_asc">Title: A &rarr; Z</option></select></div>
               <button id="apply-filters" type="button" class="w-full btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg py-2.5 text-sm font-semibold"><i data-lucide="filter" class="w-4 h-4"></i> Apply Filters</button>
             </div>
           </div>

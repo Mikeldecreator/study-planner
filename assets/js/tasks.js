@@ -162,12 +162,37 @@ function clampNumber(value, min, max, fallback = 0) {
   return Math.min(max, Math.max(min, n));
 }
 
+function formatProgressPercent(val) {
+  const n = Math.min(100, Math.max(0, Number(val) || 0));
+  if (n === 0) return '0%';
+  if (n >= 100) return '100%';
+  if (Number.isInteger(n)) return `${n}%`;
+  return `${n.toFixed(2)}%`;
+}
+
+function resolveTaskProgress(task) {
+  const status = String(task?.system_status || task?.status || '');
+  if (status === 'completed' || task?.is_system_completed) {
+    return 100;
+  }
+  const focusedSec = Number(task?.focused_seconds || task?.total_focused_seconds || 0);
+  const timeProgress = Number(task?.time_progress_percent ?? task?.time_progress ?? task?.system_progress ?? 0);
+  const manualProgress = Number(task?.user_progress ?? task?.progress_percent ?? 0);
+
+  let p = 0;
+  if (focusedSec > 0 && timeProgress > 0) {
+    p = manualProgress > 0 ? Math.max(timeProgress, manualProgress) : timeProgress;
+  } else if (timeProgress > 0) {
+    p = timeProgress;
+  } else {
+    p = manualProgress;
+  }
+  return Math.min(100, Math.max(0, p));
+}
+
 function getLiveTaskState(task, nowMs = Date.now()) {
   const due = localDate(task?.due_at);
-  const rawProgress = task?.system_progress !== undefined
-    ? task.system_progress
-    : (task?.time_progress_percent !== undefined ? task.time_progress_percent : task?.progress_percent);
-  const progress = clampNumber(rawProgress, 0, 100, 0);
+  const progress = resolveTaskProgress(task);
   const duration = Math.max(0, Number(task?.duration_hours) || 0);
   const backendRemaining = Number(task?.remaining_hours);
 
@@ -825,45 +850,36 @@ function buildQuery() {
   const params =
     new URLSearchParams();
 
-  if (
-    ACTIVE_TAB !== 'all' &&
-    ACTIVE_TAB !== 'overdue'
-  ) {
+  if (ACTIVE_TAB !== 'all') {
     params.set(
       'status',
       ACTIVE_TAB
     );
   }
 
-  if (
-    ACTIVE_TAB ===
-    'overdue'
-  ) {
-    params.set(
-      'status',
-      'overdue'
-    );
-  }
-
   const course =
-    getEl('filter-course')
-      ?.value ||
+    getEl('filter-course')?.value ||
+    getEl('filter-course-side')?.value ||
     '';
 
   const type =
-    getEl('filter-type')
-      ?.value ||
+    getEl('filter-type')?.value ||
+    getEl('filter-type-side')?.value ||
     '';
 
   const priority =
-    getEl('filter-priority')
-      ?.value ||
+    getEl('filter-priority')?.value ||
+    getEl('filter-priority-side')?.value ||
+    '';
+
+  const sort =
+    getEl('filter-sort')?.value ||
+    getEl('filter-sort-side')?.value ||
     '';
 
   const q =
-    getEl('task-search')
-      ?.value
-      .trim() ||
+    getEl('task-search')?.value.trim() ||
+    getEl('filter-search-side')?.value.trim() ||
     '';
 
   if (course) {
@@ -884,6 +900,13 @@ function buildQuery() {
     params.set(
       'priority',
       priority
+    );
+  }
+
+  if (sort && sort !== 'smart') {
+    params.set(
+      'sort',
+      sort
     );
   }
 
@@ -1064,24 +1087,11 @@ async function loadTasks() {
                 id="retry-tasks"
                 class="mt-2 text-emerald-700
                        dark:text-emerald-400
-                       font-semibold">
+                       font-semibold hover:underline">
 
                 Try again
 
               </button>
-
-              <a
-                href="schedule.php?add=1&task_id=${esc(task.id)}${task.course_id ? `&course_id=${esc(task.course_id)}` : ''}"
-                class="task-action-btn mr-1 inline-flex items-center justify-center text-gray-500 hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-300"
-                title="Schedule study for this task"
-                aria-label="Schedule study for ${esc(task.title)}">
-
-                <i
-                  data-lucide="calendar-plus"
-                  class="w-4 h-4">
-                </i>
-
-              </a>
 
             </div>
 
@@ -1245,10 +1255,7 @@ function renderCompletedTasks(tasks) {
   }
 
   tbody.innerHTML = completed.map(task => {
-    const rawProgress = task.system_progress !== undefined
-      ? task.system_progress
-      : (task.time_progress_percent !== undefined ? task.time_progress_percent : 100);
-    const progress = Math.min(100, Math.max(0, Number(rawProgress) || 100));
+    const progress = 100;
 
     const totalSec = Number(task.total_focused_seconds || task.focused_seconds || 0);
     const focusedText = totalSec > 0 ? formatDurationHuman(totalSec) : '0m';
@@ -1572,6 +1579,9 @@ function renderTabCounts(s) {
     completed:
       completed,
 
+    due_soon:
+      Number(s.due_soon || 0),
+
     overdue:
       overdue
 
@@ -1700,9 +1710,19 @@ function renderTable(tasks) {
   }
 
   const isCompletedTab = ACTIVE_TAB === 'completed';
-  const displayTasks = isCompletedTab
-    ? (Array.isArray(tasks) ? tasks : []).filter(t => String(t.system_status || t.status || '') === 'completed')
-    : (Array.isArray(tasks) ? tasks : []).filter(t => String(t.system_status || t.status || '') !== 'completed');
+  const allList = Array.isArray(tasks) ? tasks : [];
+  let displayTasks = allList;
+  if (ACTIVE_TAB === 'completed') {
+    displayTasks = allList.filter(t => String(t.system_status || t.status || '') === 'completed');
+  } else if (ACTIVE_TAB === 'pending') {
+    displayTasks = allList.filter(t => ['pending', 'not_started'].includes(String(t.system_status || t.status || '')));
+  } else if (ACTIVE_TAB === 'in_progress') {
+    displayTasks = allList.filter(t => String(t.system_status || t.status || '') === 'in_progress');
+  } else if (ACTIVE_TAB === 'due_soon') {
+    displayTasks = allList.filter(t => t.urgency === 'due_soon');
+  } else if (ACTIVE_TAB === 'overdue') {
+    displayTasks = allList.filter(t => t.urgency === 'overdue' || (t.status !== 'completed' && localDate(t.due_at) && localDate(t.due_at) < new Date()));
+  }
 
   const visible =
     filteredForPage(
@@ -1786,20 +1806,7 @@ function renderTable(tasks) {
       .map(
         task => {
 
-          const rawProgress = task.system_progress !== undefined
-            ? task.system_progress
-            : (task.time_progress_percent !== undefined ? task.time_progress_percent : task.progress_percent);
-
-          const progress =
-            Math.min(
-              100,
-              Math.max(
-                0,
-                Number(
-                  rawProgress
-                ) || 0
-              )
-            );
+          const progress = resolveTaskProgress(task);
 
           const d =
             localDate(
@@ -2139,7 +2146,7 @@ function renderTable(tasks) {
                          text-[#496861]
                          dark:text-gray-400">
 
-                  ${progress}%
+                  ${formatProgressPercent(progress)}
 
                 </span>
 
@@ -2191,6 +2198,15 @@ function renderTable(tasks) {
                   <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
                 </button>
               ` : `
+                <button
+                  type="button"
+                  class="task-action-btn complete-task-btn text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 mr-1"
+                  data-id="${esc(task.id)}"
+                  title="Mark task completed"
+                  aria-label="Mark completed ${esc(task.title)}">
+                  <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                </button>
+
                 <button
                   type="button"
                   class="task-action-btn text-emerald-700 dark:text-emerald-300 timer-task-btn"
@@ -2254,6 +2270,35 @@ function renderTable(tasks) {
     .querySelectorAll('.undo-task-btn')
     .forEach(btn => {
       btn.addEventListener('click', () => handleUndoComplete(btn.dataset.id));
+    });
+
+  /* Complete task buttons */
+  tbody
+    .querySelectorAll('.complete-task-btn')
+    .forEach(btn => {
+      btn.addEventListener('click', () => openCompleteTaskConfirmModal(btn.dataset.id));
+    });
+
+  /* Timer buttons on rows */
+  tbody
+    .querySelectorAll('.timer-task-btn')
+    .forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const taskId = btn.dataset.workItemId || btn.dataset.id;
+        if (!taskId) return;
+        if (CURRENT_FOCUS_SESSION && String(CURRENT_FOCUS_SESSION.task_id) === String(taskId)) {
+          if (CURRENT_FOCUS_SESSION.status === 'running') {
+            await handleTimerPause();
+          } else if (CURRENT_FOCUS_SESSION.status === 'paused') {
+            await handleTimerResume();
+          }
+        } else {
+          await selectTaskForTimer(taskId, true);
+          if (!CURRENT_FOCUS_SESSION) {
+            await handleTimerStart();
+          }
+        }
+      });
     });
 
   /* Focus buttons */
@@ -3027,6 +3072,11 @@ function syncSideFiltersFromMain() {
     [
       'filter-priority',
       'filter-priority-side'
+    ],
+
+    [
+      'filter-sort',
+      'filter-sort-side'
     ]
   ];
 
@@ -3093,6 +3143,11 @@ function syncMainFiltersFromSide() {
     [
       'filter-priority-side',
       'filter-priority'
+    ],
+
+    [
+      'filter-sort-side',
+      'filter-sort'
     ]
   ];
 
@@ -3153,10 +3208,12 @@ function resetFilters() {
     'filter-course',
     'filter-type',
     'filter-priority',
+    'filter-sort',
 
     'filter-course-side',
     'filter-type-side',
     'filter-priority-side',
+    'filter-sort-side',
 
     'filter-status-side',
 
@@ -3198,7 +3255,8 @@ function bindFilters() {
   [
     'filter-course',
     'filter-type',
-    'filter-priority'
+    'filter-priority',
+    'filter-sort'
   ].forEach(
     id => {
 
@@ -3224,7 +3282,8 @@ function bindFilters() {
   [
     'filter-course-side',
     'filter-type-side',
-    'filter-priority-side'
+    'filter-priority-side',
+    'filter-sort-side'
   ].forEach(
     id => {
 
@@ -3237,6 +3296,8 @@ function bindFilters() {
 
             CURRENT_PAGE =
               1;
+
+            loadTasks();
 
           }
         );
@@ -3780,26 +3841,14 @@ async function openEditTask(id) {
       );
   }
 
-  const rawProgress = task.system_progress !== undefined
-    ? task.system_progress
-    : (task.time_progress_percent !== undefined ? task.time_progress_percent : (task.progress_percent || 0));
-  const progress =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          rawProgress
-        ) || 0
-      )
-    );
+  const progress = resolveTaskProgress(task);
 
   const progressBadge =
     getEl(
       'task-modal-progress-badge'
     );
   if (progressBadge) {
-    progressBadge.textContent = `${progress}%`;
+    progressBadge.textContent = formatProgressPercent(progress);
   }
 
   const progressBar =
@@ -4958,9 +5007,21 @@ async function executeTaskCompletion(taskId) {
 
   try {
     if (typeof CURRENT_FOCUS_SESSION !== 'undefined' && CURRENT_FOCUS_SESSION && String(CURRENT_FOCUS_SESSION.task_id) === String(taskId)) {
-      closeCompleteTaskConfirmModal();
-      await handleTimerComplete();
-      return;
+      try {
+        await studySessionApi('POST', {}, {
+          action: 'complete',
+          session_id: CURRENT_FOCUS_SESSION.id
+        });
+      } catch (sessErr) {
+        console.warn('Could not complete study session along with task:', sessErr);
+      }
+      if (typeof stopFocusTicker === 'function') stopFocusTicker();
+      CURRENT_FOCUS_SESSION = null;
+      const digitsEl = getEl('timer-digits');
+      if (digitsEl) digitsEl.textContent = '00:00:00';
+      if (typeof setTimerUIState === 'function') setTimerUIState('idle');
+      const select = getEl('timer-task-select');
+      if (select) select.disabled = false;
     }
 
     await apiJson(`${API}/tasks.php`, {
@@ -5007,73 +5068,63 @@ async function handleUndoComplete(taskId) {
   }
 }
 
-async function handleTimerComplete() {
-  if (typeof IS_TIMER_BUSY !== 'undefined' && IS_TIMER_BUSY) return;
-  if (typeof CURRENT_FOCUS_SESSION === 'undefined' || !CURRENT_FOCUS_SESSION) return;
-
-  IS_TIMER_BUSY = true;
-  const btnComplete = getEl('timer-btn-complete');
-  setButtonBusy(btnComplete, true, 'Completing…');
-  setTimerFeedback('');
-
-  try {
-    const res = await studySessionApi('POST', {}, {
-      action: 'complete',
-      session_id: CURRENT_FOCUS_SESSION.id
-    });
-
-    if (res.ok && res.data.session) {
-      if (typeof stopFocusTicker === 'function') stopFocusTicker();
-      const finalSec = res.data.session.duration_seconds || 0;
-      const taskId = CURRENT_FOCUS_SESSION.task_id;
-      CURRENT_FOCUS_SESSION = null;
-
-      const digitsEl = getEl('timer-digits');
-      if (digitsEl) digitsEl.textContent = '00:00:00';
-
-      if (typeof setTimerUIState === 'function') setTimerUIState('idle');
-      const humanDur = formatDurationHuman(finalSec);
-      setTimerFeedback(`Study session completed! ${humanDur} recorded.`, 'success');
-      toast(`Study session completed (${humanDur} recorded)`, 'success');
-
-      if (taskId) {
-        try {
-          await apiJson(`${API}/tasks.php`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: taskId,
-              status: 'completed',
-              progress_percent: 100,
-              csrf_token: window.CSRF_TOKEN || ''
-            })
-          });
-        } catch (taskErr) {
-          console.warn('Could not update task status:', taskErr);
-        }
-      }
-      await loadTasks();
-    } else {
-      setTimerFeedback(res.data.error || 'Could not complete session.', 'error');
+function openDeleteCompletedTaskModal(taskId) {
+  if (!taskId) return;
+  PENDING_DELETE_TASK_ID = taskId;
+  const modal = getEl('delete-task-modal');
+  if (!modal) {
+    if (confirm('Delete this completed work? This cannot be undone.')) {
+      executeDeleteCompletedTask(taskId);
     }
+    return;
+  }
+  const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
+  const titleEl = getEl('delete-modal-task-title');
+  if (titleEl) titleEl.textContent = matched?.title || 'Completed Task';
+  const badgeEl = getEl('delete-modal-course-badge');
+  if (badgeEl) badgeEl.textContent = matched?.course_code || 'General';
+  const timeEl = getEl('delete-modal-time-badge');
+  if (timeEl) {
+    const sec = Number(matched?.total_focused_seconds || matched?.focused_seconds || 0);
+    timeEl.textContent = sec > 0 ? `${formatDurationHuman(sec)} recorded` : '';
+  }
+  modal.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeDeleteCompletedTaskModal() {
+  const modal = getEl('delete-task-modal');
+  if (modal) modal.classList.add('hidden');
+  PENDING_DELETE_TASK_ID = null;
+}
+
+async function executeDeleteCompletedTask(taskId) {
+  if (!taskId) return;
+  const btn = getEl('confirm-delete-task');
+  setButtonBusy(btn, true, 'Deleting…');
+  try {
+    await apiJson(`${API}/tasks.php`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `id=${encodeURIComponent(taskId)}&csrf_token=${encodeURIComponent(window.CSRF_TOKEN || '')}`
+    });
+    toast('Task deleted.', 'success');
+    closeDeleteCompletedTaskModal();
+    await loadTasks();
   } catch (err) {
-    setTimerFeedback('Network error while completing session.', 'error');
+    console.error('Delete completed task error:', err);
+    toast(err.message || 'Could not delete task.', 'error');
   } finally {
-    IS_TIMER_BUSY = false;
-    setButtonBusy(btnComplete, false, 'Complete Session');
+    setButtonBusy(btn, false, 'Delete');
+    PENDING_DELETE_TASK_ID = null;
   }
 }
 
 function bindCompletionAndDeletionEvents() {
-  getEl('timer-btn-complete')?.addEventListener('click', openCompleteTaskConfirmModal);
-
   getEl('cancel-complete-task')?.addEventListener('click', closeCompleteTaskConfirmModal);
   getEl('confirm-complete-task')?.addEventListener('click', () => {
     if (PENDING_COMPLETE_TASK_ID) {
       executeTaskCompletion(PENDING_COMPLETE_TASK_ID);
-    } else if (typeof handleTimerComplete === 'function') {
-      closeCompleteTaskConfirmModal();
-      handleTimerComplete();
     } else {
       closeCompleteTaskConfirmModal();
     }
@@ -5323,8 +5374,12 @@ function populateTimerTaskDropdown() {
     select.appendChild(optgroup);
   }
 
-  if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+  if (CURRENT_FOCUS_SESSION && (CURRENT_FOCUS_SESSION.status === 'running' || CURRENT_FOCUS_SESSION.status === 'paused')) {
+    select.value = String(CURRENT_FOCUS_SESSION.task_id);
+    select.disabled = true;
+  } else if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
     select.value = currentVal;
+    select.disabled = false;
   } else if (!currentVal && pendingOrInProgress.length && !TIMER_SELECTED_TASK_ID) {
     selectTaskForTimer(pendingOrInProgress[0].id, false);
   }
@@ -5590,6 +5645,9 @@ async function handleTimerStop() {
       if (digitsEl) digitsEl.textContent = '00:00:00';
 
       setTimerUIState('idle');
+      const select = getEl('timer-task-select');
+      if (select) select.disabled = false;
+
       const humanDur = formatDurationHuman(finalSec);
       setTimerFeedback(`Session stopped. ${humanDur} recorded.`, 'info');
       toast(`Study session stopped (${humanDur} recorded)`, 'info');
@@ -5597,6 +5655,7 @@ async function handleTimerStop() {
       if (taskId) {
         selectTaskForTimer(taskId, false);
       }
+      await loadTasks();
     } else {
       setTimerFeedback(res.data.error || 'Could not stop session.', 'error');
     }
@@ -5632,6 +5691,9 @@ async function handleTimerComplete() {
       if (digitsEl) digitsEl.textContent = '00:00:00';
 
       setTimerUIState('idle');
+      const select = getEl('timer-task-select');
+      if (select) select.disabled = false;
+
       const humanDur = formatDurationHuman(finalSec);
       setTimerFeedback(`Study session completed! ${humanDur} recorded.`, 'success');
       toast(`Study session completed (${humanDur} recorded)`, 'success');
@@ -5639,6 +5701,7 @@ async function handleTimerComplete() {
       if (taskId) {
         selectTaskForTimer(taskId, false);
       }
+      await loadTasks();
     } else {
       setTimerFeedback(res.data.error || 'Could not complete session.', 'error');
     }
@@ -5652,15 +5715,16 @@ async function handleTimerComplete() {
 
 async function recoverActiveFocusSession() {
   try {
-    const res = await studySessionApi('GET', { active: 1 });
-    if (res.ok && res.data.active_session) {
-      const session = res.data.active_session;
+    const res = await studySessionApi('GET', { action: 'active' });
+    const session = (res.ok && res.data) ? (res.data.active_session || res.data.session) : null;
+    if (session) {
       CURRENT_FOCUS_SESSION = session;
       TIMER_SELECTED_TASK_ID = Number(session.task_id);
 
       const select = getEl('timer-task-select');
       if (select) {
         select.value = String(session.task_id);
+        select.disabled = true;
       }
 
       updateTimerTaskMeta({
@@ -5688,6 +5752,8 @@ async function recoverActiveFocusSession() {
     } else {
       CURRENT_FOCUS_SESSION = null;
       setTimerUIState('idle');
+      const select = getEl('timer-task-select');
+      if (select) select.disabled = false;
     }
   } catch (err) {
     console.warn('Could not recover active focus session:', err);

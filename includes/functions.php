@@ -431,11 +431,19 @@ function buildTaskIntelligence(array $task): array
 
     $timeMetrics = calculateTaskTimeProgress($task, $focusedSeconds);
     $rawDuration = isset($task['duration_hours']) ? (float) $task['duration_hours'] : 0.0;
-    $systemProgress = (float) ($timeMetrics['time_progress'] ?? 0.0);
-
     // Foundation 8D: System Task State Engine determines authoritative status
     $systemStatus = determineSystemTaskStatus($task, $timeMetrics);
     $isSystemCompleted = ($systemStatus === 'completed');
+
+    if ($isSystemCompleted) {
+        $systemProgress = 100.0;
+        $timeMetrics['time_progress'] = 100.0;
+        $timeMetrics['time_progress_percent'] = 100.0;
+        $timeMetrics['remaining_seconds'] = 0;
+        $timeMetrics['remaining_hours'] = 0.0;
+    } else {
+        $systemProgress = (float) ($timeMetrics['time_progress'] ?? 0.0);
+    }
 
     // User completion request and discrepancy detection (Informational Warning)
     $userCompletionRequest = ($userStatus === 'completed' || $userProgress >= 100);
@@ -2767,7 +2775,7 @@ function calculateTaskTimeProgress(array $task, int $focusedSeconds): array
     $estimatedMinutes = round($estimatedSeconds / 60, 1);
 
     if ($estimatedHours > 0) {
-        $timeProgress = round(($focusedSeconds / $estimatedSeconds) * 100, 1);
+        $timeProgress = round(($focusedSeconds / $estimatedSeconds) * 100, 2);
         $timeProgress = max(0.0, min(100.0, $timeProgress));
         $remainingSeconds = max(0, $estimatedSeconds - $focusedSeconds);
         $remainingMinutes = round($remainingSeconds / 60, 1);
@@ -3234,7 +3242,7 @@ function generateRecommendedStudyPlan(PDO $db, int $userId, ?int $dayOfWeek = nu
             'duration_label'   => $durationLabel,
             'due_label'        => $isOverdue ? 'Overdue' : $dueText,
             'urgency'          => $isOverdue ? 'overdue' : ($task['urgency'] ?? 'upcoming'),
-            'system_progress'  => (int) ($task['system_progress'] ?? $task['progress_percent'] ?? 0),
+            'system_progress'  => round((float) ($task['system_progress'] ?? $task['progress_percent'] ?? 0), 2),
             'remaining_hours'  => round($remainingHours, 1),
             'action_label'     => 'Start Studying',
             'reason'           => $reason,
