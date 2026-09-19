@@ -2383,31 +2383,18 @@ function renderTable(tasks) {
     );
 
 
-  const start =
-    (CURRENT_PAGE - 1) *
-      PAGE_SIZE +
-    1;
+  const total = displayTasks.length;
+  const start = total > 0 ? (CURRENT_PAGE - 1) * PAGE_SIZE + 1 : 0;
+  const end = Math.min(CURRENT_PAGE * PAGE_SIZE, total);
 
-  const end =
-    Math.min(
-      CURRENT_PAGE * PAGE_SIZE,
-      activeTasks.length
-    );
-
-  const resultLabel =
-    getEl(
-      'task-results-label'
-    );
-
+  const resultLabel = getEl('task-results-label');
   if (resultLabel) {
-
-    resultLabel.textContent =
-      `Showing ${start}–${end} of ${activeTasks.length} active tasks`;
+    resultLabel.textContent = isCompletedTab
+      ? `Showing ${start}–${end} of ${total} completed tasks`
+      : `Showing ${start}–${end} of ${total} active tasks`;
   }
 
-  renderPagination(
-    activeTasks.length
-  );
+  renderPagination(total);
 
   if (window.lucide) {
     window.lucide.createIcons();
@@ -5340,8 +5327,9 @@ function populateTimerTaskDropdown() {
 
   select.innerHTML = '<option value="">— Select a task to focus —</option>';
 
-  const pendingOrInProgress = ALL_TASKS.filter(t => t.status !== 'completed');
-  const completed = ALL_TASKS.filter(t => t.status === 'completed');
+  const allList = Array.isArray(ALL_TASKS) ? ALL_TASKS : [];
+  const pendingOrInProgress = allList.filter(t => String(t.system_status || t.status || '').toLowerCase() !== 'completed');
+  const completed = allList.filter(t => String(t.system_status || t.status || '').toLowerCase() === 'completed');
 
   const countHint = getEl('timer-task-count-hint');
   if (countHint) {
@@ -5429,6 +5417,22 @@ async function updateTimerTaskMeta(task, cachedMetrics = null) {
       barEl.style.width = `${Math.min(100, Math.max(0, pct))}%`;
     }
   };
+
+  // Provide immediate visual feedback from task data before network call
+  const initialFocusedSeconds = Number(task.focused_seconds || task.total_focused_seconds || 0);
+  const initialPct = Number(task.system_progress !== undefined ? task.system_progress : (task.time_progress_percent !== undefined ? task.time_progress_percent : (task.progress_percent || 0)));
+  const focusedEl = getEl('timer-task-focused');
+  if (focusedEl) {
+    focusedEl.textContent = formatDurationHuman(initialFocusedSeconds);
+  }
+  const pctEl = getEl('timer-progress-pct');
+  const barEl = getEl('timer-progress-bar');
+  if (pctEl) {
+    pctEl.textContent = `${initialPct}%`;
+  }
+  if (barEl) {
+    barEl.style.width = `${Math.min(100, Math.max(0, initialPct))}%`;
+  }
 
   if (cachedMetrics) {
     applyMetrics(cachedMetrics);
