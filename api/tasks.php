@@ -233,11 +233,11 @@ switch ($method) {
             $params[] = $q;
         }
 
-        $sql .= '
+        $sql .= "
             ORDER BY
-                t.status = "completed" ASC,
+                t.status = 'completed' ASC,
                 t.due_at ASC
-        ';
+        ";
 
         $stmt =
             $db->prepare($sql);

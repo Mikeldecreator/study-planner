@@ -122,11 +122,11 @@ try {
                 $storedProgress = (int)($course['progress_percent'] ?? 0);
                 $course['progress'] = max($storedProgress, $taskProgress, ($taskCount > 0 && $completed === $taskCount) ? 100 : 0);
                 if ($course['progress'] >= 100 && ($course['status'] ?? 'pending') !== 'completed') {
-                    $sync = $db->prepare('UPDATE courses SET progress_percent=100,status="completed",completed_at=COALESCE(completed_at,NOW()) WHERE id=? AND user_id=?');
+                    $sync = $db->prepare("UPDATE courses SET progress_percent=100,status='completed',completed_at=COALESCE(completed_at,NOW()) WHERE id=? AND user_id=?");
                     $sync->execute([$course['id'],$userId]);
                     $course['status']='completed'; $course['progress_percent']=100;
                 } elseif ($course['progress'] > 0 && ($course['status'] ?? 'pending') === 'pending') {
-                    $sync = $db->prepare('UPDATE courses SET status="in_progress" WHERE id=? AND user_id=?');
+                    $sync = $db->prepare("UPDATE courses SET status='in_progress' WHERE id=? AND user_id=?");
                     $sync->execute([$course['id'],$userId]);
                     $course['status']='in_progress';
                 }

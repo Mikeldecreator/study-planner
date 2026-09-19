@@ -66,7 +66,7 @@ function normalizeTimer(PDO $db,array $timer,string $type,int $id,int $userId,ar
     $total=secondsNow($timer); $progress=progressFromTime($timer,(float)$item['estimate_hours']);
     $complete=$progress>=100 || $timer['status']==='completed';
     if($complete && $timer['status']!=='completed') {
-        $stmt=$db->prepare('UPDATE work_timers SET total_work_seconds=?, status="completed", started_at=NULL, paused_at=NOW(), completed_at=NOW() WHERE id=? AND user_id=?');
+        $stmt=$db->prepare("UPDATE work_timers SET total_work_seconds=?, status='completed', started_at=NULL, paused_at=NOW(), completed_at=NOW() WHERE id=? AND user_id=?");
         $stmt->execute([$total,$timer['id'],$userId]);
     }
     if($complete || $progress>0) syncItem($db,$type,$id,$userId,$complete?100:$progress,$complete);
@@ -98,46 +98,46 @@ if($action==='start' || $action==='resume') {
     $now=date('Y-m-d H:i:s');
     $db->beginTransaction();
     try {
-        $runningStmt=$db->prepare('SELECT * FROM work_timers WHERE user_id=? AND status="running"');
+        $runningStmt=$db->prepare("SELECT * FROM work_timers WHERE user_id=? AND status='running'");
         $runningStmt->execute([$userId]);
         foreach($runningStmt->fetchAll() as $runningTimer){
             $runningType=(string)$runningTimer['item_type']; $runningId=(int)$runningTimer['item_id'];
             $runningItem=ownedItem($db,$runningType,$runningId,$userId);
             if($runningItem){
                 $runningTotal=secondsNow($runningTimer); $runningProgress=progressFromTime($runningTimer,(float)$runningItem['estimate_hours']);
-                $saveRunning=$db->prepare('UPDATE work_timers SET total_work_seconds=?, status="paused", started_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?');
+                $saveRunning=$db->prepare("UPDATE work_timers SET total_work_seconds=?, status='paused', started_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?");
                 $saveRunning->execute([$runningTotal,$runningTimer['id'],$userId]);
                 syncItem($db,$runningType,$runningId,$userId,$runningProgress,false);
             }
         }
         if(!$timer) {
-            $stmt=$db->prepare('INSERT INTO work_timers(user_id,item_type,item_id,total_work_seconds,base_progress,status,started_at) VALUES(?,?,?,?,?,"running",?)');
+            $stmt=$db->prepare("INSERT INTO work_timers(user_id,item_type,item_id,total_work_seconds,base_progress,status,started_at) VALUES(?,?,?,?,?,'running',?)");
             $stmt->execute([$userId,$type,$id,0,(int)$item['progress_percent'],$now]);
         } else {
             // On resume, the saved progress becomes the new baseline while total work remains cumulative.
-            $stmt=$db->prepare('UPDATE work_timers SET status="running", started_at=?, paused_at=NULL WHERE id=? AND user_id=?');
+            $stmt=$db->prepare("UPDATE work_timers SET status='running', started_at=?, paused_at=NULL WHERE id=? AND user_id=?");
             $stmt->execute([$now,$timer['id'],$userId]);
         }
-        if($type==='task'){ $db->prepare('UPDATE tasks SET status="in_progress" WHERE id=? AND user_id=? AND status<>"completed"')->execute([$id,$userId]); }
-        elseif($type==='course'){ $db->prepare('UPDATE courses SET status="in_progress" WHERE id=? AND user_id=? AND status<>"completed"')->execute([$id,$userId]); }
+        if($type==='task'){ $db->prepare("UPDATE tasks SET status='in_progress' WHERE id=? AND user_id=? AND status<>'completed'")->execute([$id,$userId]); }
+        elseif($type==='course'){ $db->prepare("UPDATE courses SET status='in_progress' WHERE id=? AND user_id=? AND status<>'completed'")->execute([$id,$userId]); }
         $db->commit();
     } catch(Throwable $e) { if($db->inTransaction())$db->rollBack(); throw $e; }
 } elseif($action==='pause') {
     if($timer) {
         $total=secondsNow($timer); $progress=progressFromTime($timer,(float)$item['estimate_hours']);
-        $stmt=$db->prepare('UPDATE work_timers SET total_work_seconds=?, status="paused", started_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?'); $stmt->execute([$total,$timer['id'],$userId]);
+        $stmt=$db->prepare("UPDATE work_timers SET total_work_seconds=?, status='paused', started_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?"); $stmt->execute([$total,$timer['id'],$userId]);
         syncItem($db,$type,$id,$progress,false);
     }
 } elseif($action==='complete') {
     $total=$timer?secondsNow($timer):0;
     if($timer) {
-        $stmt=$db->prepare('UPDATE work_timers SET total_work_seconds=?, status="completed", started_at=NULL, paused_at=NOW(), completed_at=NOW() WHERE id=? AND user_id=?'); $stmt->execute([$total,$timer['id'],$userId]);
+        $stmt=$db->prepare("UPDATE work_timers SET total_work_seconds=?, status='completed', started_at=NULL, paused_at=NOW(), completed_at=NOW() WHERE id=? AND user_id=?"); $stmt->execute([$total,$timer['id'],$userId]);
     } else {
-        $stmt=$db->prepare('INSERT INTO work_timers(user_id,item_type,item_id,total_work_seconds,base_progress,status,paused_at,completed_at) VALUES(?,?,?,?,?,"completed",NOW(),NOW())'); $stmt->execute([$userId,$type,$id,0,(int)$item['progress_percent']]);
+        $stmt=$db->prepare("INSERT INTO work_timers(user_id,item_type,item_id,total_work_seconds,base_progress,status,paused_at,completed_at) VALUES(?,?,?,?,?,'completed',NOW(),NOW())"); $stmt->execute([$userId,$type,$id,0,(int)$item['progress_percent']]);
     }
     syncItem($db,$type,$id,100,true); logActivity($userId,"Completed {$item['title']}",'success');
 } elseif($action==='reopen') {
-    if($timer) { $stmt=$db->prepare('UPDATE work_timers SET status="paused", started_at=NULL, completed_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?'); $stmt->execute([$timer['id'],$userId]); }
+    if($timer) { $stmt=$db->prepare("UPDATE work_timers SET status='paused', started_at=NULL, completed_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?"); $stmt->execute([$timer['id'],$userId]); }
     syncItem($db,$type,$id,min(99,(int)$item['progress_percent']),false);
 } else timerError('Unknown timer action.',422);
 
