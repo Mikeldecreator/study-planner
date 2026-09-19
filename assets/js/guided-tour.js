@@ -83,8 +83,17 @@
       this.boundResizeHandler = this.reposition.bind(this);
     }
 
-    start(startStep = 0) {
+    async start(startStep = 0) {
       if (this.isActive) return;
+
+      // Ensure sidebar is loaded before targeting sidebar navigation elements
+      const maxWait = 20; // 2 seconds max
+      let waited = 0;
+      while (!document.querySelector('[data-nav="dashboard"]') && !document.getElementById('app-sidebar') && waited < maxWait) {
+        await new Promise(r => setTimeout(r, 100));
+        waited++;
+      }
+
       this.isActive = true;
       this.currentStep = startStep;
 
@@ -151,6 +160,12 @@
       const targetEl = this.resolveTarget(step);
 
       if (!targetEl) {
+        // Retry once after 200ms before skipping to allow dynamic elements to settle
+        if (!step._retried) {
+          step._retried = true;
+          setTimeout(() => this.renderStep(index), 200);
+          return;
+        }
         // Skip step if target not found on this page
         if (index < TOUR_STEPS.length - 1) {
           this.renderStep(index + 1);
@@ -317,6 +332,7 @@
         const csrf = window.CSRF_TOKEN || '';
         await fetch('../api/settings.php', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             'Content-Type': 'application/json',
             'X-CSRF-Token': csrf
@@ -478,10 +494,11 @@
         }
 
         // Check if new user who has not completed the tour
-        if (me.tour_completed === false) {
+        const isTourDone = me.tour_completed === true || me.tour_completed === 1 || me.tour_completed === '1';
+        if (!isTourDone) {
           const page = document.body.dataset.page || '';
           if (page === 'dashboard' || window.location.pathname.endsWith('dashboard.php') || window.location.pathname.endsWith('/')) {
-            setTimeout(() => window.GuidedTour.start(), 600);
+            setTimeout(() => window.GuidedTour.start(), 800);
           }
         }
 

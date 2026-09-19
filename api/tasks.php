@@ -724,14 +724,24 @@ switch ($method) {
                 '
             );
 
+        $rawCourseId = $body['course_id'] ?? null;
+        $courseId = null;
+        if ($rawCourseId !== null && $rawCourseId !== '') {
+            $courseId = ownedCourseIdOrNull($db, $rawCourseId, $userId);
+            if ($courseId === null) {
+                taskApiJson(
+                    [
+                        'error' => 'Selected course does not exist or does not belong to your account.'
+                    ],
+                    422
+                );
+            }
+        }
+
         $stmt->execute([
             $userId,
 
-            ownedCourseIdOrNull(
-                $db,
-                $body['course_id'] ?? null,
-                $userId
-            ),
+            $courseId,
 
             $title,
 
@@ -984,6 +994,20 @@ switch ($method) {
                 '
             );
 
+        $rawCourseId = array_key_exists('course_id', $body) ? $body['course_id'] : ($existing['course_id'] ?? null);
+        $courseId = null;
+        if ($rawCourseId !== null && $rawCourseId !== '') {
+            $courseId = ownedCourseIdOrNull($db, $rawCourseId, $userId);
+            if ($courseId === null) {
+                taskApiJson(
+                    [
+                        'error' => 'Selected course does not exist or does not belong to your account.'
+                    ],
+                    422
+                );
+            }
+        }
+
         $stmt->execute([
             trim(
                 (string)(
@@ -1035,11 +1059,7 @@ switch ($method) {
 
             $completedAt,
 
-            ownedCourseIdOrNull(
-                $db,
-                array_key_exists('course_id', $body) ? $body['course_id'] : ($existing['course_id'] ?? null),
-                $userId
-            ),
+            $courseId,
 
             $id,
 

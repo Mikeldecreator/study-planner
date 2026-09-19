@@ -748,81 +748,59 @@ async function apiJson(
    COURSES
 ========================================================= */
 
+function populateCourseDropdowns() {
+  const opts = COURSES_CACHE
+    .map(
+      course => `
+      <option value="${esc(course.id)}">
+        ${esc(course.code)} — ${esc(course.name || course.title || '')}
+      </option>
+    `
+    )
+    .join('');
+
+  const taskCourse = getEl('task-course-select');
+  const mainCourse = getEl('filter-course');
+  const sideCourse = getEl('filter-course-side');
+
+  if (taskCourse) {
+    const prev = taskCourse.value;
+    taskCourse.innerHTML = '<option value="">No course (General Task)</option>' + opts;
+    if (prev && Array.from(taskCourse.options).some(o => o.value === String(prev))) {
+      taskCourse.value = prev;
+    }
+  }
+
+  if (mainCourse) {
+    const prev = mainCourse.value;
+    mainCourse.innerHTML = '<option value="">All Courses</option>' + opts;
+    if (prev && Array.from(mainCourse.options).some(o => o.value === String(prev))) {
+      mainCourse.value = prev;
+    }
+  }
+
+  if (sideCourse) {
+    const prev = sideCourse.value;
+    sideCourse.innerHTML = '<option value="">All Courses</option>' + opts;
+    if (prev && Array.from(sideCourse.options).some(o => o.value === String(prev))) {
+      sideCourse.value = prev;
+    }
+  }
+}
+
 async function loadCourseOptions() {
-
   try {
-
-    const data =
-      await apiJson(
-        `${API}/courses.php`
-      );
-
-    COURSES_CACHE =
-      Array.isArray(
-        data.courses
-      )
-        ? data.courses
-        : [];
-
-    const opts =
-      COURSES_CACHE
-        .map(
-          course => `
-          <option value="${esc(course.id)}">
-            ${esc(course.code)} — ${esc(course.name)}
-          </option>
-        `
-        )
-        .join('');
-
-    const taskCourse =
-      getEl(
-        'task-course-select'
-      );
-
-    const mainCourse =
-      getEl(
-        'filter-course'
-      );
-
-    const sideCourse =
-      getEl(
-        'filter-course-side'
-      );
-
-    if (taskCourse) {
-      taskCourse.insertAdjacentHTML(
-        'beforeend',
-        opts
-      );
-    }
-
-    if (mainCourse) {
-      mainCourse.insertAdjacentHTML(
-        'beforeend',
-        opts
-      );
-    }
-
-    if (sideCourse) {
-      sideCourse.insertAdjacentHTML(
-        'beforeend',
-        opts
-      );
-    }
-
+    const data = await apiJson(`${API}/courses.php`);
+    COURSES_CACHE = Array.isArray(data.courses) ? data.courses : [];
+    populateCourseDropdowns();
+    return COURSES_CACHE;
   } catch (error) {
-
-    console.error(
-      'Course options failed:',
-      error
-    );
-
+    console.error('Course options failed:', error);
     toast(
       'Courses could not be loaded. You can still add tasks without a course.',
       'error'
     );
-
+    return [];
   }
 }
 
@@ -3617,9 +3595,26 @@ function resetTaskForm() {
 }
 
 
-function openAddTask() {
+function openAddTask(defaultCourseId = null) {
 
   resetTaskForm();
+
+  if (COURSES_CACHE && COURSES_CACHE.length > 0) {
+    populateCourseDropdowns();
+  }
+
+  const form = getEl('task-form');
+  if (form && form.elements.course_id) {
+    const courseToSelect = defaultCourseId 
+      || getEl('filter-course')?.value 
+      || getEl('filter-course-side')?.value 
+      || new URLSearchParams(window.location.search).get('course_id') 
+      || '';
+
+    if (courseToSelect && Array.from(form.elements.course_id.options).some(o => o.value === String(courseToSelect))) {
+      form.elements.course_id.value = String(courseToSelect);
+    }
+  }
 
   openModal();
 }
@@ -3659,6 +3654,9 @@ function openEditTask(id) {
     return;
   }
 
+  if (COURSES_CACHE && COURSES_CACHE.length > 0) {
+    populateCourseDropdowns();
+  }
 
   if (
     form.elements.id
@@ -3689,7 +3687,7 @@ function openEditTask(id) {
   ) {
 
     form.elements.course_id.value =
-      task.course_id || '';
+      task.course_id ? String(task.course_id) : '';
   }
 
   if (
@@ -4393,13 +4391,26 @@ function bindImport() {
       const typeOpts = TASK_TYPES.map(t => `<option value="${t.val}" ${item.type === t.val ? 'selected' : ''}>${t.label}</option>`).join('');
       const priorityOpts = PRIORITIES.map(p => `<option value="${p.val}" ${item.priority === p.val ? 'selected' : ''}>${p.label}</option>`).join('');
 
+      const cleanItemCode = String(item.course_code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      let selectedCourseId = item.course_id ? String(item.course_id) : '';
+      if (!selectedCourseId && cleanItemCode && COURSES_CACHE.length > 0) {
+        const found = COURSES_CACHE.find(c => String(c.code).toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanItemCode);
+        if (found) selectedCourseId = String(found.id);
+      }
+
+      const courseOpts = '<option value="">General / No course</option>' +
+        COURSES_CACHE.map(c => `<option value="${esc(c.id)}" ${String(c.id) === selectedCourseId ? 'selected' : ''}>${esc(c.code)} — ${esc(c.name || c.title || '')}</option>`).join('');
+
       return `
         <tr data-index="${idx}" class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
           <td class="p-2">
             <input type="text" class="task-form-control text-xs p-1.5 min-h-[32px] font-medium w-full" data-field="title" placeholder="Task title" value="${esc(item.title || '')}" required>
           </td>
           <td class="p-2">
-            <input type="text" class="task-form-control text-xs p-1.5 min-h-[32px] uppercase w-full" data-field="course_code" placeholder="e.g. CSC 401" value="${esc(item.course_code || '')}">
+            <select class="task-form-control text-xs p-1.5 min-h-[32px] w-full" data-field="course_id">
+              ${courseOpts}
+            </select>
+            <input type="hidden" data-field="course_code" value="${esc(item.course_code || '')}">
           </td>
           <td class="p-2">
             <select class="task-form-control text-xs p-1.5 min-h-[32px] w-full" data-field="type">
@@ -4551,6 +4562,7 @@ function bindImport() {
       const itemsToSave = [];
       rows.forEach(tr => {
         const title = (tr.querySelector('input[data-field="title"]')?.value || '').trim();
+        const courseIdVal = tr.querySelector('select[data-field="course_id"]')?.value || '';
         const code = (tr.querySelector('input[data-field="course_code"]')?.value || '').trim();
         const type = tr.querySelector('select[data-field="type"]')?.value || 'assignment';
         const dueDate = tr.querySelector('input[data-field="due_date"]')?.value || '';
@@ -4560,6 +4572,7 @@ function bindImport() {
         if (title) {
           itemsToSave.push({
             title,
+            course_id: courseIdVal ? Number(courseIdVal) : null,
             course_code: code,
             type,
             due_date: dueDate,

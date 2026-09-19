@@ -484,10 +484,17 @@ try {
                     docImportError('No work items provided for import.', 'EMPTY_ITEMS', 422);
                 }
 
-                // Map courses
+                // Map courses (both exact and normalized without spaces/hyphens)
                 $cStmt = $db->prepare('SELECT UPPER(code) as code, id FROM courses WHERE user_id = ?');
                 $cStmt->execute([$userId]);
                 $courseMap = $cStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+                $courseMapNorm = [];
+                $validCourseIds = [];
+                foreach ($courseMap as $cCode => $cId) {
+                    $clean = preg_replace('/[^A-Za-z0-9]/', '', $cCode);
+                    $courseMapNorm[$clean] = (int)$cId;
+                    $validCourseIds[(int)$cId] = true;
+                }
 
                 // Fetch existing task titles to prevent duplicates
                 $tStmt = $db->prepare('SELECT LOWER(TRIM(title)), course_id FROM tasks WHERE user_id = ?');
@@ -514,7 +521,15 @@ try {
                     if ($title === '') continue;
 
                     $cCode = strtoupper(trim((string) ($task['course_code'] ?? '')));
-                    $courseId = !empty($task['course_id']) ? (int) $task['course_id'] : ($courseMap[$cCode] ?? null);
+                    $cleanCode = preg_replace('/[^A-Za-z0-9]/', '', $cCode);
+                    $courseId = null;
+                    if (!empty($task['course_id']) && isset($validCourseIds[(int)$task['course_id']])) {
+                        $courseId = (int)$task['course_id'];
+                    } elseif (isset($courseMap[$cCode])) {
+                        $courseId = (int)$courseMap[$cCode];
+                    } elseif (isset($courseMapNorm[$cleanCode])) {
+                        $courseId = (int)$courseMapNorm[$cleanCode];
+                    }
 
                     // Check duplicate
                     $tKey = strtolower($title) . '_' . ($courseId ?? 0);

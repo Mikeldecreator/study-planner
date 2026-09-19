@@ -349,7 +349,12 @@ class DocumentProcessor {
             $streamStart = $headerOffset + strlen($headerStr);
 
             $streamLength = null;
-            if (preg_match('/\/Length\s+(\d+)/', $dict, $lm)) {
+            if (preg_match('/\/Length\s+(\d+)\s+\d+\s+R/', $dict, $irm)) {
+                $indObj = (int)$irm[1];
+                if (preg_match('/\b' . $indObj . '\s+\d+\s+obj\s*(\d+)\s*endobj/s', $pdfData, $om)) {
+                    $streamLength = (int)$om[1];
+                }
+            } elseif (preg_match('/\/Length\s+(\d+)/', $dict, $lm)) {
                 $streamLength = (int)$lm[1];
             }
 
@@ -364,14 +369,18 @@ class DocumentProcessor {
             }
 
             $endPos = stripos($pdfData, 'endstream', $streamStart);
-            if (empty($filters) && $endPos !== false) {
-                $streamBytes = substr($pdfData, $streamStart, $endPos - $streamStart);
-                $streamBytes = rtrim($streamBytes, "\r\n");
+            if ($endPos !== false) {
+                $rawDistance = $endPos - $streamStart;
+                if ($streamLength !== null && abs($rawDistance - $streamLength) <= 10) {
+                    $streamBytes = substr($pdfData, $streamStart, $streamLength);
+                } else {
+                    $streamBytes = substr($pdfData, $streamStart, $rawDistance);
+                    $streamBytes = rtrim($streamBytes, "\r\n");
+                }
             } elseif ($streamLength !== null && $streamStart + $streamLength <= strlen($pdfData)) {
                 $streamBytes = substr($pdfData, $streamStart, $streamLength);
             } else {
-                if ($endPos === false) $endPos = strlen($pdfData);
-                $streamBytes = substr($pdfData, $streamStart, $endPos - $streamStart);
+                $streamBytes = substr($pdfData, $streamStart);
                 $streamBytes = rtrim($streamBytes, "\r\n");
             }
 
@@ -679,9 +688,41 @@ class DocumentProcessor {
      * Reads a specific file inside a PKZip binary string without requiring the ZipArchive extension.
      */
     public static function readZipFilePurePhp(string $zipData, string $targetFilename): ?string {
-        $offset = 0;
         $len = strlen($zipData);
+        if ($len < 30) return null;
 
+        // 1. Try Central Directory records first (PK\x01\x02) - handles streaming ZIPs where local header compSize is 0
+        $cdPos = 0;
+        while (($cdPos = strpos($zipData, "PK\x01\x02", $cdPos)) !== false) {
+            if ($cdPos + 46 > $len) break;
+            $compression = unpack('v', substr($zipData, $cdPos + 10, 2))[1];
+            $compSize = unpack('V', substr($zipData, $cdPos + 20, 4))[1];
+            $fnLen = unpack('v', substr($zipData, $cdPos + 28, 2))[1];
+            $extraLen = unpack('v', substr($zipData, $cdPos + 30, 2))[1];
+            $commentLen = unpack('v', substr($zipData, $cdPos + 32, 2))[1];
+            $localOffset = unpack('V', substr($zipData, $cdPos + 42, 4))[1];
+            $fn = substr($zipData, $cdPos + 46, $fnLen);
+
+            if ($fn === $targetFilename) {
+                if ($localOffset + 30 <= $len && substr($zipData, $localOffset, 4) === "PK\x03\x04") {
+                    $locFnLen = unpack('v', substr($zipData, $localOffset + 26, 2))[1];
+                    $locExtraLen = unpack('v', substr($zipData, $localOffset + 28, 2))[1];
+                    $dataOffset = $localOffset + 30 + $locFnLen + $locExtraLen;
+                    if ($dataOffset + $compSize <= $len) {
+                        $compData = substr($zipData, $dataOffset, $compSize);
+                        if ($compression === 0) return $compData;
+                        if ($compression === 8) {
+                            $decomp = @gzinflate($compData);
+                            if ($decomp !== false) return $decomp;
+                        }
+                    }
+                }
+            }
+            $cdPos += 46 + $fnLen + $extraLen + $commentLen;
+        }
+
+        // 2. Fallback: Local File Headers (PK\x03\x04)
+        $offset = 0;
         while ($offset < $len - 30) {
             if (substr($zipData, $offset, 4) !== "PK\x03\x04") {
                 $offset++;
@@ -694,12 +735,15 @@ class DocumentProcessor {
             $fn = substr($zipData, $offset + 30, $fnLen);
             $dataOffset = $offset + 30 + $fnLen + $extraLen;
 
-            if ($fn === $targetFilename) {
+            if ($fn === $targetFilename && $compSize > 0) {
                 $compData = substr($zipData, $dataOffset, $compSize);
                 if ($compression === 0) return $compData;
-                if ($compression === 8) return @gzinflate($compData);
+                if ($compression === 8) {
+                    $decomp = @gzinflate($compData);
+                    if ($decomp !== false) return $decomp;
+                }
             }
-            $offset = $dataOffset + $compSize;
+            $offset = ($compSize > 0) ? ($dataOffset + $compSize) : ($dataOffset + 1);
         }
 
         return null;
@@ -1260,11 +1304,14 @@ class DocumentProcessor {
 
         // Fetch user courses for code and ID mapping
         $courseMap = [];
+        $courseMapNorm = [];
         if ($db && $userId) {
             $stmt = $db->prepare('SELECT id, UPPER(code) as code, name FROM courses WHERE user_id = ?');
             $stmt->execute([$userId]);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $c) {
                 $courseMap[$c['code']] = $c;
+                $clean = preg_replace('/[^A-Za-z0-9]/', '', strtoupper($c['code']));
+                $courseMapNorm[$clean] = $c;
             }
         }
 
@@ -1281,7 +1328,7 @@ class DocumentProcessor {
 
         $dayRegex = '/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b/i';
         $timeRangeRegex = '/\b(\d{1,2}(?:[:\.]\d{2})?\s*(?:am|pm)?)\s*(?:-|–|to)\s*(\d{1,2}(?:[:\.]\d{2})?\s*(?:am|pm)?)\b/i';
-        $courseCodeRegex = '/\b([A-Za-z]{2,4})\s*[-]?\s*(\d{3}[A-Za-z]?)\b/i';
+        $courseCodeRegex = '/\b([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)\b/i';
 
         // Check if table contains tab-delimited grid structure (e.g. from DOCX tables or coordinates)
         $gridLines = [];
@@ -1335,7 +1382,7 @@ class DocumentProcessor {
                                     $lecturer = trim($lecm[0]);
                                 }
                                 $eventType = stripos($cellText, 'lab') !== false ? 'lab' : 'lecture';
-                                $matchedCourse = $courseMap[$cCode] ?? null;
+                                $matchedCourse = $courseMap[$cCode] ?? $courseMapNorm[preg_replace('/[^A-Za-z0-9]/', '', $cCode)] ?? null;
 
                                 $slotKey = "{$day}_{$startTime}_{$endTime}_{$cCode}";
                                 if (isset($seenSlots[$slotKey])) continue;
@@ -1387,7 +1434,7 @@ class DocumentProcessor {
                                     $lecturer = trim($lecm[0]);
                                 }
                                 $eventType = stripos($cellText, 'lab') !== false ? 'lab' : 'lecture';
-                                $matchedCourse = $courseMap[$cCode] ?? null;
+                                $matchedCourse = $courseMap[$cCode] ?? $courseMapNorm[preg_replace('/[^A-Za-z0-9]/', '', $cCode)] ?? null;
 
                                 $slotKey = "{$rowDay}_{$startTime}_{$endTime}_{$cCode}";
                                 if (isset($seenSlots[$slotKey])) continue;
@@ -1436,7 +1483,8 @@ class DocumentProcessor {
                 // Look for Course Code
                 if (preg_match($courseCodeRegex, $trimmed, $cMatch)) {
                     $courseCode = strtoupper($cMatch[1]) . ' ' . strtoupper($cMatch[2]);
-                    $matchedCourse = $courseMap[$courseCode] ?? null;
+                    $cleanCode = preg_replace('/[^A-Za-z0-9]/', '', $courseCode);
+                    $matchedCourse = $courseMap[$courseCode] ?? $courseMapNorm[$cleanCode] ?? null;
                     $courseId = $matchedCourse ? (int) $matchedCourse['id'] : null;
                     $courseName = $matchedCourse ? $matchedCourse['name'] : $courseCode;
 
@@ -1533,11 +1581,14 @@ class DocumentProcessor {
 
         // Fetch user courses for course matching
         $courseMap = [];
+        $courseMapNorm = [];
         if ($db && $userId) {
             $stmt = $db->prepare('SELECT id, UPPER(code) as code, name FROM courses WHERE user_id = ?');
             $stmt->execute([$userId]);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $c) {
                 $courseMap[$c['code']] = $c;
+                $clean = preg_replace('/[^A-Za-z0-9]/', '', strtoupper($c['code']));
+                $courseMapNorm[$clean] = $c;
             }
         }
 
@@ -1549,7 +1600,7 @@ class DocumentProcessor {
             $existingTasks = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
         }
 
-        $courseCodeRegex = '/\b([A-Za-z]{2,4})\s*[-]?\s*(\d{3}[A-Za-z]?)\b/i';
+        $courseCodeRegex = '/\b([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)\b/i';
         $workRegex = '/\b(Assignment(?:\s*\d+)?|Project(?:\s*(?:Phase|Milestone)?\s*\d+)?|Test(?:\s*\d+)?|Continuous\s*Assessment(?:\s*\d+)?|C\.?A\.?(?:\s*\d+)?|Mid-?Semester\s*Test|Quiz(?:\s*\d+)?|Lab\s*Report(?:\s*\d+)?|Laboratory\s*(?:Report|Experiment)|Term\s*Paper|Presentation|Seminar|Exam(?:ination)?|Homework|Problem\s*Set)\b/i';
 
         // Check if this is a structured assignment form / cover sheet with labeled multi-line fields
@@ -1572,7 +1623,7 @@ class DocumentProcessor {
             if ($t === '') continue;
 
             // Key: Course Code
-            if (preg_match('/course\s*code\s*[:\t]?\s*([A-Za-z]{2,4}\s*[-]?\s*\d{3}[A-Za-z]?)/i', $t, $m)) {
+            if (preg_match('/course\s*code\s*[:\t]?\s*([A-Za-z]{2,6}[\s\-_.]*\d{2,4}[A-Za-z]?)/i', $t, $m)) {
                 $isStructuredForm = true;
                 $formMeta['course_code'] = strtoupper(preg_replace('/\s+/', ' ', $m[1]));
             }
@@ -1659,12 +1710,13 @@ class DocumentProcessor {
             }
 
             $desc = implode("\n", $formMeta['instructions']);
-            $matchedCourse = $courseMap[$formMeta['course_code']] ?? null;
+            $cleanMeta = preg_replace('/[^A-Za-z0-9]/', '', $formMeta['course_code']);
+            $matchedCourse = $courseMap[$formMeta['course_code']] ?? $courseMapNorm[$cleanMeta] ?? null;
 
             return [[
                 'title'          => $finalTitle,
                 'course_id'      => $matchedCourse ? (int) $matchedCourse['id'] : null,
-                'course_code'    => $formMeta['course_code'],
+                'course_code'    => $matchedCourse ? $matchedCourse['code'] : $formMeta['course_code'],
                 'type'           => $formMeta['work_type'],
                 'priority'       => $formMeta['priority'],
                 'due_date'       => $formMeta['due_date'],
@@ -1682,8 +1734,11 @@ class DocumentProcessor {
             // Track Course context
             if (preg_match($courseCodeRegex, $trimmed, $cMatch)) {
                 $code = strtoupper($cMatch[1]) . ' ' . strtoupper($cMatch[2]);
+                $clean = preg_replace('/[^A-Za-z0-9]/', '', $code);
                 if (isset($courseMap[$code])) {
                     $currentCourse = $courseMap[$code];
+                } elseif (isset($courseMapNorm[$clean])) {
+                    $currentCourse = $courseMapNorm[$clean];
                 } else {
                     $currentCourse = ['code' => $code, 'id' => null, 'name' => $code];
                 }

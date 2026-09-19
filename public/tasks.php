@@ -544,7 +544,13 @@ requirePageLogin();
       </div>
       <div><label class="task-form-label">Task title</label><input required name="title" maxlength="255" placeholder="e.g. Database Assignment" class="task-form-control"></div>
       <div><label class="task-form-label">Description <span class="font-normal text-gray-400">(optional)</span></label><textarea name="description" rows="3" placeholder="Add a short description..." class="task-form-control resize-none"></textarea></div>
-      <div><label class="task-form-label">Course</label><select name="course_id" id="task-course-select" class="task-form-control"><option value="">No course</option></select></div>
+      <div>
+        <label class="task-form-label">Course</label>
+        <select name="course_id" id="task-course-select" class="task-form-control">
+          <option value="">No course (General Task)</option>
+        </select>
+        <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Linking to an enrolled course updates its task progress and deadline analytics.</p>
+      </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div><label class="task-form-label">Type</label><select name="type" class="task-form-control"><option value="assignment">Assignment</option><option value="project">Project</option><option value="test">Test</option><option value="exam">Exam</option><option value="research">Research</option><option value="lab_report">Lab Report</option><option value="study_session">Study Session</option><option value="other">Other</option></select></div>
         <div><label class="task-form-label">Priority</label><select name="priority" class="task-form-control"><option value="low">Low priority</option><option value="medium" selected>Medium priority</option><option value="high">High priority</option></select></div>

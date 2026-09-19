@@ -118,7 +118,11 @@ async function loadReport() {
      */
     const reportRes =
       await fetch(
-        `${API}/reports.php?range=${range}`
+        `${API}/reports.php?range=${range}`,
+        {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        }
       );
 
     if (!reportRes.ok) {
@@ -133,67 +137,97 @@ async function loadReport() {
 
     /*
      * Existing Stats API.
-     *
-     * This gives us the real task breakdown and
-     * weekly progress already used elsewhere in
-     * the application.
      */
-    const statsRes =
-      await fetch(`${API}/stats.php`);
-
-    const stats =
-      statsRes.ok
-        ? await statsRes.json()
-        : null;
+    let stats = null;
+    try {
+      const statsRes =
+        await fetch(`${API}/stats.php`, {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        });
+      stats = statsRes.ok ? await statsRes.json() : null;
+    } catch (e) {
+      console.warn('Stats fetch non-critical failure:', e);
+    }
 
 
     /*
      * Existing Courses API.
-     *
-     * No backend changes are made.
      */
-    const coursesRes =
-      await fetch(`${API}/courses.php`);
+    let coursesData = null;
+    try {
+      const coursesRes =
+        await fetch(`${API}/courses.php`, {
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        });
+      coursesData = coursesRes.ok ? await coursesRes.json() : null;
+    } catch (e) {
+      console.warn('Courses fetch non-critical failure:', e);
+    }
 
-    const coursesData =
-      coursesRes.ok
-        ? await coursesRes.json()
-        : null;
 
+    try { renderReportLabel(report); } catch (e) { console.warn('renderReportLabel error:', e); }
 
-    renderReportLabel(report);
+    try { renderKpis(report); } catch (e) { console.warn('renderKpis error:', e); }
 
-    renderKpis(report);
+    try {
+      renderPerformanceTrend(
+        report,
+        stats
+      );
+    } catch (e) {
+      console.warn('renderPerformanceTrend error:', e);
+    }
 
-    renderPerformanceTrend(
-      report,
-      stats
-    );
+    try {
+      renderTaskStatus(
+        report,
+        stats
+      );
+    } catch (e) {
+      console.warn('renderTaskStatus error:', e);
+    }
 
-    renderTaskStatus(
-      report,
-      stats
-    );
+    try {
+      renderWeeklyStudy(
+        report
+      );
+    } catch (e) {
+      console.warn('renderWeeklyStudy error:', e);
+    }
 
-    renderWeeklyStudy(
-      report
-    );
+    try {
+      renderSubjectBreakdown(
+        coursesData
+      );
+    } catch (e) {
+      console.warn('renderSubjectBreakdown error:', e);
+    }
 
-    renderSubjectBreakdown(
-      coursesData
-    );
+    try {
+      renderCoursePerformance(
+        coursesData
+      );
+    } catch (e) {
+      console.warn('renderCoursePerformance error:', e);
+    }
 
-    renderCoursePerformance(
-      coursesData
-    );
+    try {
+      renderInsights(
+        report
+      );
+    } catch (e) {
+      console.warn('renderInsights error:', e);
+    }
 
-    renderInsights(
-      report
-    );
-
-    renderRecentReports(
-      report
-    );
+    try {
+      renderRecentReports(
+        report
+      );
+    } catch (e) {
+      console.warn('renderRecentReports error:', e);
+    }
 
     refreshLucide();
 
@@ -894,68 +928,71 @@ function renderTaskStatus(
 
   if (taskStatusChart) {
     taskStatusChart.destroy();
+    taskStatusChart = null;
   }
 
 
-  taskStatusChart =
-    new Chart(
-      canvas,
-      {
+  if (window.Chart) {
+    taskStatusChart =
+      new Chart(
+        canvas,
+        {
 
-        type:
-          'doughnut',
+          type:
+            'doughnut',
 
-        data: {
+          data: {
 
-          labels:
-            STATUS_CONFIG.map(
-              item => item.label
-            ),
+            labels:
+              STATUS_CONFIG.map(
+                item => item.label
+              ),
 
-          datasets: [
+            datasets: [
 
-            {
-              data,
+              {
+                data,
 
-              backgroundColor:
-                STATUS_CONFIG.map(
-                  item =>
-                    item.color
-                ),
+                backgroundColor:
+                  STATUS_CONFIG.map(
+                    item =>
+                      item.color
+                  ),
 
-              borderWidth:
-                0,
+                borderWidth:
+                  0,
 
-              hoverOffset:
-                4
+                hoverOffset:
+                  4
+              }
+
+            ]
+
+          },
+
+          options: {
+
+            responsive:
+              true,
+
+            maintainAspectRatio:
+              false,
+
+            cutout:
+              '70%',
+
+            plugins: {
+              legend: {
+                display:
+                  false
+              }
             }
 
-          ]
-
-        },
-
-        options: {
-
-          responsive:
-            true,
-
-          maintainAspectRatio:
-            false,
-
-          cutout:
-            '70%',
-
-          plugins: {
-            legend: {
-              display:
-                false
-            }
           }
 
         }
-
-      }
-    );
+      );
+  }
 
 
   if (legend) {
@@ -2199,23 +2236,35 @@ function renderGlobalError() {
         <div
           class="flex
                  items-center
+                 justify-between
+                 w-full
                  gap-3
                  text-red-600
                  dark:text-red-400"
         >
 
-          <i
-            data-lucide="alert-circle"
-            class="w-5 h-5"
-          ></i>
+          <div class="flex items-center gap-2">
+            <i
+              data-lucide="alert-circle"
+              class="w-5 h-5"
+            ></i>
 
-          <span
-            class="text-sm
-                   font-semibold"
+            <span
+              class="text-sm
+                     font-semibold"
+            >
+              Report data could not be loaded.
+              Please check your connection and try again.
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onclick="window.loadReport ? window.loadReport() : window.location.reload()"
+            class="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/50 transition-colors"
           >
-            Report data could not be loaded.
-            Please refresh and try again.
-          </span>
+            Retry
+          </button>
 
         </div>
 
@@ -2387,5 +2436,6 @@ window.APP_READY.then(
   }
 );
 
+window.loadReport = loadReport;
 
 refreshLucide();
