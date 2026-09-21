@@ -265,11 +265,13 @@ async function loadProgress(
 
   try {
 
+    const apiBase = typeof API !== 'undefined' ? API : (window.API || '../api');
     const response =
       await fetch(
-        `${API}/progress.php?range=${encodeURIComponent(range)}`,
+        `${apiBase}/progress.php?range=${encodeURIComponent(range)}`,
         {
           method: 'GET',
+          credentials: 'same-origin',
           headers: {
             'Accept':
               'application/json'
