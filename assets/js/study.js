@@ -171,19 +171,36 @@
     }
   }
 
+  async function getCsrfToken() {
+    if (window.CSRF_TOKEN) return window.CSRF_TOKEN;
+    try {
+      const res = await fetch(`${API}/csrf.php`, { credentials: 'same-origin' });
+      if (res.ok) {
+        const d = await res.json();
+        window.CSRF_TOKEN = d.csrf_token;
+        return d.csrf_token;
+      }
+    } catch (e) {}
+    return '';
+  }
+
   async function startTimer() {
     const select = document.getElementById('timer-task-select');
     const taskId = parseInt(select?.value, 10);
     if (!taskId) {
-      alert('Please select a task to focus on.');
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please select a task to focus on.', 'warning');
+      }
       return;
     }
 
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch(`${API}/study-sessions.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start', task_id: taskId, csrf_token: window.CSRF_TOKEN })
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'start', task_id: taskId, csrf_token: csrf })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start session');
@@ -194,17 +211,21 @@
       window.dispatchEvent(new CustomEvent('study-session-updated', { detail: { action: 'start', task_id: taskId } }));
     } catch (err) {
       console.error('Start timer error:', err);
-      alert(err.message);
+      if (typeof window.showToast === 'function') {
+        window.showToast(err.message, 'error');
+      }
     }
   }
 
   async function pauseTimer() {
     if (!ACTIVE_SESSION?.id) return;
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch(`${API}/study-sessions.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'pause', session_id: ACTIVE_SESSION.id, csrf_token: window.CSRF_TOKEN })
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'pause', session_id: ACTIVE_SESSION.id, csrf_token: csrf })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to pause session');
@@ -214,17 +235,21 @@
       updateTimerUIState('paused');
     } catch (err) {
       console.error('Pause timer error:', err);
-      alert(err.message);
+      if (typeof window.showToast === 'function') {
+        window.showToast(err.message, 'error');
+      }
     }
   }
 
   async function resumeTimer() {
     if (!ACTIVE_SESSION?.id) return;
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch(`${API}/study-sessions.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resume', session_id: ACTIVE_SESSION.id, csrf_token: window.CSRF_TOKEN })
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'resume', session_id: ACTIVE_SESSION.id, csrf_token: csrf })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to resume session');
@@ -234,7 +259,9 @@
       startClock(timerClockSeconds);
     } catch (err) {
       console.error('Resume timer error:', err);
-      alert(err.message);
+      if (typeof window.showToast === 'function') {
+        window.showToast(err.message, 'error');
+      }
     }
   }
 
@@ -242,10 +269,12 @@
     if (!ACTIVE_SESSION?.id) return;
     try {
       const actionName = autoComplete ? 'complete' : 'stop';
+      const csrf = await getCsrfToken();
       const res = await fetch(`${API}/study-sessions.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: actionName, session_id: ACTIVE_SESSION.id, csrf_token: window.CSRF_TOKEN })
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: actionName, session_id: ACTIVE_SESSION.id, csrf_token: csrf })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to stop session');
@@ -261,7 +290,9 @@
       window.dispatchEvent(new CustomEvent('study-session-updated', { detail: { action: 'stop' } }));
     } catch (err) {
       console.error('Stop timer error:', err);
-      alert(err.message);
+      if (typeof window.showToast === 'function') {
+        window.showToast(err.message, 'error');
+      }
     }
   }
 
