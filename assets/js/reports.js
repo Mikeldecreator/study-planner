@@ -2419,20 +2419,25 @@ document.addEventListener(
  * ================================================================
  */
 
-if (window.CURRENT_USER) {
-  loadReport();
-} else if (window.APP_READY && typeof window.APP_READY.then === 'function') {
-  window.APP_READY.then(
-    me => {
-      if (me || window.CURRENT_USER) {
-        loadReport();
-      }
-    }
-  ).catch(() => {
-    loadReport();
-  });
+let isReportLoaded = false;
+async function safeLoadReport() {
+  if (isReportLoaded) return;
+  isReportLoaded = true;
+  await loadReport();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', safeLoadReport);
 } else {
-  loadReport();
+  safeLoadReport();
+}
+
+if (window.APP_READY && typeof window.APP_READY.then === 'function') {
+  window.APP_READY.then(() => {
+    safeLoadReport();
+  }).catch(() => {
+    safeLoadReport();
+  });
 }
 
 window.loadReport = loadReport;

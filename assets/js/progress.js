@@ -1593,18 +1593,23 @@ async function initProgress() {
   initLucide();
 }
 
-if (window.CURRENT_USER) {
-  initProgress();
-} else if (window.APP_READY && typeof window.APP_READY.then === 'function') {
-  window.APP_READY.then(
-    async me => {
-      if (me || window.CURRENT_USER) {
-        await initProgress();
-      }
-    }
-  ).catch(async () => {
-    await initProgress();
-  });
+let isProgressLoaded = false;
+async function safeInitProgress() {
+  if (isProgressLoaded) return;
+  isProgressLoaded = true;
+  await initProgress();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', safeInitProgress);
 } else {
-  initProgress();
+  safeInitProgress();
+}
+
+if (window.APP_READY && typeof window.APP_READY.then === 'function') {
+  window.APP_READY.then(() => {
+    safeInitProgress();
+  }).catch(() => {
+    safeInitProgress();
+  });
 }

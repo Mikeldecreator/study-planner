@@ -495,16 +495,25 @@
     }
   }
 
-  if (window.CURRENT_USER) {
+  let isStudyLoaded = false;
+  function safeInitStudy() {
+    if (isStudyLoaded) return;
+    isStudyLoaded = true;
     initStudy();
-  } else if (window.APP_READY && typeof window.APP_READY.then === 'function') {
-    window.APP_READY.then(async me => {
-      if (me || window.CURRENT_USER) {
-        initStudy();
-      }
-    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', safeInitStudy);
   } else {
-    initStudy();
+    safeInitStudy();
+  }
+
+  if (window.APP_READY && typeof window.APP_READY.then === 'function') {
+    window.APP_READY.then(() => {
+      safeInitStudy();
+    }).catch(() => {
+      safeInitStudy();
+    });
   }
 
 })();
