@@ -1,5 +1,6 @@
 
 const API = '../api';
+window.API = API;
 
 window.APP_READY = (async function bootstrap() {
   const sidebarSlot = document.getElementById('sidebar-slot');

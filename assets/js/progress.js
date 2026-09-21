@@ -1568,32 +1568,41 @@ if (rangeSelect) {
 // Initialisation
 // ------------------------------------------------------
 
-window.APP_READY.then(
-  async me => {
+async function initProgress() {
+  initLucide();
 
-    if (!me) {
-      return;
+  const initialRange =
+    document.getElementById(
+      'range-select'
+    )?.value ||
+    'semester';
+
+  currentRange =
+    initialRange;
+
+  updateRangeButtons(
+    initialRange
+  );
+
+  await loadProgress(
+    initialRange
+  );
+
+  initLucide();
+}
+
+if (window.CURRENT_USER) {
+  initProgress();
+} else if (window.APP_READY && typeof window.APP_READY.then === 'function') {
+  window.APP_READY.then(
+    async me => {
+      if (me || window.CURRENT_USER) {
+        await initProgress();
+      }
     }
-
-    initLucide();
-
-    const initialRange =
-      document.getElementById(
-        'range-select'
-      )?.value ||
-      'semester';
-
-    currentRange =
-      initialRange;
-
-    updateRangeButtons(
-      initialRange
-    );
-
-    await loadProgress(
-      initialRange
-    );
-
-    initLucide();
-  }
-);
+  ).catch(async () => {
+    await initProgress();
+  });
+} else {
+  initProgress();
+}

@@ -118,13 +118,14 @@ async function loadReport() {
   setReportLoading(true);
 
   try {
+    const apiBase = typeof API !== 'undefined' ? API : (window.API || '../api');
 
     /*
      * Existing Reports API.
      */
     const reportRes =
       await fetch(
-        `${API}/reports.php?range=${range}`,
+        `${apiBase}/reports.php?range=${range}`,
         {
           credentials: 'same-origin',
           headers: { 'Accept': 'application/json' }
@@ -147,7 +148,7 @@ async function loadReport() {
     let stats = null;
     try {
       const statsRes =
-        await fetch(`${API}/stats.php`, {
+        await fetch(`${apiBase}/stats.php`, {
           credentials: 'same-origin',
           headers: { 'Accept': 'application/json' }
         });
@@ -163,7 +164,7 @@ async function loadReport() {
     let coursesData = null;
     try {
       const coursesRes =
-        await fetch(`${API}/courses.php`, {
+        await fetch(`${apiBase}/courses.php`, {
           credentials: 'same-origin',
           headers: { 'Accept': 'application/json' }
         });
@@ -2404,7 +2405,8 @@ document.addEventListener(
     if (action === 'download') {
       const rangeSelect = document.getElementById('range-select');
       const currentRange = rangeSelect ? rangeSelect.value : 'week';
-      window.location.href = `${API}/reports.php?range=${encodeURIComponent(currentRange)}&export=csv`;
+      const apiBase = typeof API !== 'undefined' ? API : (window.API || '../api');
+      window.location.href = `${apiBase}/reports.php?range=${encodeURIComponent(currentRange)}&export=csv`;
     }
 
   }
@@ -2417,15 +2419,21 @@ document.addEventListener(
  * ================================================================
  */
 
-window.APP_READY.then(
-  me => {
-
-    if (me) {
-      loadReport();
+if (window.CURRENT_USER) {
+  loadReport();
+} else if (window.APP_READY && typeof window.APP_READY.then === 'function') {
+  window.APP_READY.then(
+    me => {
+      if (me || window.CURRENT_USER) {
+        loadReport();
+      }
     }
-
-  }
-);
+  ).catch(() => {
+    loadReport();
+  });
+} else {
+  loadReport();
+}
 
 window.loadReport = loadReport;
 

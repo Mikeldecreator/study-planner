@@ -477,9 +477,7 @@
     }
   }
 
-  window.APP_READY.then(async me => {
-    if (!me) return;
-
+  function initStudy() {
     // Attach timer event listeners
     document.getElementById('timer-task-select')?.addEventListener('change', () => onTaskSelectChange(false));
     document.getElementById('timer-btn-start')?.addEventListener('click', startTimer);
@@ -487,7 +485,7 @@
     document.getElementById('timer-btn-resume')?.addEventListener('click', resumeTimer);
     document.getElementById('timer-btn-stop')?.addEventListener('click', () => stopTimer(false));
 
-    await loadStudyData();
+    loadStudyData();
 
     // Check URL parameters (e.g. ?task_id=X)
     const params = new URLSearchParams(window.location.search);
@@ -495,6 +493,18 @@
     if (taskId) {
       selectTaskInTimer(taskId, params.get('start') === '1');
     }
-  });
+  }
+
+  if (window.CURRENT_USER) {
+    initStudy();
+  } else if (window.APP_READY && typeof window.APP_READY.then === 'function') {
+    window.APP_READY.then(async me => {
+      if (me || window.CURRENT_USER) {
+        initStudy();
+      }
+    });
+  } else {
+    initStudy();
+  }
 
 })();
