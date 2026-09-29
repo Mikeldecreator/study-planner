@@ -233,6 +233,12 @@ function callGeminiAPI(
             return callGeminiAPI($apiKey, 'gemini-3.8-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount);
         }
 
+        // If quota exceeded on gemini-3.8-flash, try gemini-3.5-flash
+        if ($retryCount < 2 && $cleanModel === 'gemini-3.8-flash' && stripos($msg, 'quota exceeded') !== false) {
+            error_log("Gemini model gemini-3.8-flash quota exceeded; attempting fallback to gemini-3.5-flash.");
+            return callGeminiAPI($apiKey, 'gemini-3.5-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
+        }
+
         // Retry once on transient high demand or 503 spike
         if ($retryCount < 1 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
             usleep(1500000);
@@ -241,11 +247,12 @@ function callGeminiAPI(
 
         // Strip API key from error message if echoed by provider
         $safeMsg = preg_replace('/key=[a-zA-Z0-9_\-]+/', 'key=[REDACTED]', $msg);
+        $errCode = (stripos($msg, 'quota') !== false || $httpCode === 429) ? 'RATE_LIMITED' : 'API_ERROR';
         return [
             'ok'    => false,
             'model' => $cleanModel,
             'error' => 'AI Provider error: ' . $safeMsg,
-            'code'  => 'API_ERROR',
+            'code'  => $errCode,
         ];
     }
 

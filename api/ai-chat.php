@@ -96,6 +96,8 @@ $statusCode = 200;
 if (!$result['ok']) {
     if (isset($result['configured']) && $result['configured'] === false) {
         $statusCode = 503;
+    } elseif (($result['code'] ?? '') === 'RATE_LIMITED') {
+        $statusCode = 429;
     } else {
         $statusCode = 502;
     }
