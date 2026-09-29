@@ -157,7 +157,7 @@ switch ($action) {
             INSERT INTO tasks (
                 user_id, course_id, title, description, type, priority,
                 status, progress_percent, duration_hours, due_at
-            ) VALUES (?, ?, ?, ?, ?, ?, "pending", 0, 0, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
         ');
         $stmt->execute([
             $userId,
@@ -166,6 +166,7 @@ switch ($action) {
             $description,
             $type,
             $priority,
+            'pending',
             $dueAtFormatted
         ]);
 
@@ -351,13 +352,13 @@ switch ($action) {
         $wasAlreadyCompleted = ($existing['status'] === 'completed');
         $completedAt = date('Y-m-d H:i:s');
 
-        $stmtComp = $db->prepare('
+        $stmtComp = $db->prepare("
             UPDATE tasks SET
-                status = "completed",
+                status = 'completed',
                 progress_percent = 100,
                 completed_at = ?
             WHERE id = ? AND user_id = ?
-        ');
+        ");
         $stmtComp->execute([$completedAt, $taskId, $userId]);
 
         if (!$wasAlreadyCompleted) {
@@ -379,10 +380,10 @@ switch ($action) {
                 $stmtCheck = $db->prepare('SELECT id FROM notifications WHERE user_id = ? AND event_key = ? LIMIT 1');
                 $stmtCheck->execute([$userId, $eventKey]);
                 if (!$stmtCheck->fetch()) {
-                    $stmtIns = $db->prepare('
+                    $stmtIns = $db->prepare("
                         INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at)
-                        VALUES (?, ?, "in_app", ?, ?, NOW())
-                    ');
+                        VALUES (?, ?, 'in_app', ?, ?, NOW())
+                    ");
                     $stmtIns->execute([$userId, $taskId, $eventKey, $notifMsg]);
                 }
             } catch (\Throwable $e) {

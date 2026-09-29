@@ -702,12 +702,12 @@ function validateAndEnrichAIProposal(PDO $db, int $userId, array $proposal, arra
             }
 
             if (!$existingTask && $taskTitle !== '') {
-                $stmtT = $db->prepare('
+                $stmtT = $db->prepare("
                     SELECT id, title, due_at, priority, course_id FROM tasks
-                    WHERE user_id = ? AND status != "completed" AND (
+                    WHERE user_id = ? AND status != 'completed' AND (
                         LOWER(title) = LOWER(?) OR LOWER(title) LIKE ?
                     )
-                ');
+                ");
                 $stmtT->execute([$userId, $taskTitle, '%' . strtolower($taskTitle) . '%']);
                 $matches = $stmtT->fetchAll(PDO::FETCH_ASSOC);
 
