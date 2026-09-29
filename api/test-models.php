@@ -6,16 +6,23 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $apiKey = (string)(getenv('GEMINI_API_KEY') ?: (getenv('GOOGLE_API_KEY') ?: (getenv('GOOGLE_AI_API_KEY') ?: (getenv('AI_API_KEY') ?: ''))));
-$model = $_GET['model'] ?? 'gemini-2.5-flash';
+$model = $_GET['model'] ?? 'gemini-3.5-flash-lite';
 
 $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apiKey);
 
+$sysInstruction = "You are Study AI. When student says to add a task, output a JSON block with action_detected: true, requires_confirmation: true, action: {type: 'create_task', summary: '...', payload: {...}}, and answer: '...'.";
+
 $body = [
+    'system_instruction' => [
+        'parts' => [
+            ['text' => $sysInstruction]
+        ]
+    ],
     'contents' => [
         [
             'role' => 'user',
             'parts' => [
-                ['text' => 'Hello! Say OK in one word.']
+                ['text' => 'Add a work called Database ERD Assignment for CSC 414 due Friday at 2:30 PM.']
             ]
         ]
     ]
