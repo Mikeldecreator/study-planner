@@ -54,6 +54,32 @@ function priorityColorClasses(string $priority): string
     };
 }
 
+if (!function_exists('normalizeTaskType')) {
+    function normalizeTaskType(string $type): string
+    {
+        $allowed = [
+            'assignment',
+            'project',
+            'test',
+            'exam',
+            'research',
+            'study_session',
+            'lab_report',
+            'other'
+        ];
+
+        return in_array($type, $allowed, true) ? $type : 'assignment';
+    }
+}
+
+if (!function_exists('normalizeTaskPriority')) {
+    function normalizeTaskPriority(string $priority): string
+    {
+        $allowed = ['low', 'medium', 'high'];
+        return in_array($priority, $allowed, true) ? $priority : 'medium';
+    }
+}
+
 /** Friendly "Due Tomorrow" / "Due in 3 days" / "Overdue" strings for the UI. */
 function dueRelativeLabel(string $dueAt): string
 {

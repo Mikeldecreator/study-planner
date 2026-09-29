@@ -47,45 +47,49 @@ function normalizeTaskStatus(
         : 'not_started';
 }
 
-function normalizeTaskType(
-    string $type
-): string {
-    $allowed = [
-        'assignment',
-        'project',
-        'test',
-        'exam',
-        'research',
-        'study_session',
-        'lab_report',
-        'other'
-    ];
+if (!function_exists('normalizeTaskType')) {
+    function normalizeTaskType(
+        string $type
+    ): string {
+        $allowed = [
+            'assignment',
+            'project',
+            'test',
+            'exam',
+            'research',
+            'study_session',
+            'lab_report',
+            'other'
+        ];
 
-    return in_array(
-        $type,
-        $allowed,
-        true
-    )
-        ? $type
-        : 'assignment';
+        return in_array(
+            $type,
+            $allowed,
+            true
+        )
+            ? $type
+            : 'assignment';
+    }
 }
 
-function normalizeTaskPriority(
-    string $priority
-): string {
-    $allowed = [
-        'low',
-        'medium',
-        'high'
-    ];
+if (!function_exists('normalizeTaskPriority')) {
+    function normalizeTaskPriority(
+        string $priority
+    ): string {
+        $allowed = [
+            'low',
+            'medium',
+            'high'
+        ];
 
-    return in_array(
-        $priority,
-        $allowed,
-        true
-    )
-        ? $priority
-        : 'medium';
+        return in_array(
+            $priority,
+            $allowed,
+            true
+        )
+            ? $priority
+            : 'medium';
+    }
 }
 
 if (!function_exists('decorateTask')) {
