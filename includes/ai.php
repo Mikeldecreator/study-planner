@@ -239,9 +239,9 @@ function callGeminiAPI(
             return callGeminiAPI($apiKey, 'gemini-3.5-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
         }
 
-        // Retry once on transient high demand or 503 spike
-        if ($retryCount < 1 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
-            usleep(1500000);
+        // Retry on transient high demand or 503 spike (up to 3 retries)
+        if ($retryCount < 3 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
+            sleep(2);
             return callGeminiAPI($apiKey, $cleanModel, $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
         }
 
