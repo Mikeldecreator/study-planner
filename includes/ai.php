@@ -158,12 +158,7 @@ function callGeminiAPI(
     int $timeout,
     int $retryCount = 0
 ): array {
-    static $knownWorkingModel = null;
     $cleanModel = resolveAIModel('gemini', $model);
-    if ($cleanModel === 'gemini-2.5-flash' && $knownWorkingModel !== null) {
-        $cleanModel = $knownWorkingModel;
-    }
-
     $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($cleanModel) . ':generateContent?key=' . urlencode($apiKey);
 
     $contextJson = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -237,22 +232,21 @@ function callGeminiAPI(
         // Auto-upgrade if Google API specifically informs that model is unavailable to new users and directs to gemini-3.8-flash
         if (($cleanModel === 'gemini-2.5-flash' || $cleanModel === 'gemini-1.5-flash') &&
             (stripos($msg, 'no longer available to new users') !== false || stripos($msg, 'gemini-3.8-flash') !== false)) {
-            $knownWorkingModel = 'gemini-3.8-flash';
             error_log("Gemini model {$cleanModel} not available for key; automatically upgrading to gemini-3.8-flash per Google API directive.");
             return callGeminiAPI($apiKey, 'gemini-3.8-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount);
         }
 
-        // If quota exceeded on gemini-3.8-flash, try gemini-3.5-flash
-        if ($retryCount < 2 && $cleanModel === 'gemini-3.8-flash' && stripos($msg, 'quota exceeded') !== false) {
-            $knownWorkingModel = 'gemini-3.5-flash';
-            error_log("Gemini model gemini-3.8-flash quota exceeded; attempting fallback to gemini-3.5-flash.");
-            return callGeminiAPI($apiKey, 'gemini-3.5-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
+        // Cross-model redundancy on capacity spike / high demand
+        if ($retryCount < 2 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
+            $altModel = ($cleanModel === 'gemini-3.5-flash') ? 'gemini-3.8-flash' : 'gemini-3.5-flash';
+            usleep(1200000);
+            return callGeminiAPI($apiKey, $altModel, $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
         }
 
-        // Retry on transient high demand or 503 spike (up to 2 retries with brief pause)
-        if ($retryCount < 2 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
-            usleep(800000);
-            return callGeminiAPI($apiKey, $cleanModel, $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
+        // Cross-model redundancy if quota exceeded on 3.8
+        if ($retryCount < 2 && $cleanModel === 'gemini-3.8-flash' && stripos($msg, 'quota exceeded') !== false) {
+            error_log("Gemini model gemini-3.8-flash quota exceeded; attempting fallback to gemini-3.5-flash.");
+            return callGeminiAPI($apiKey, 'gemini-3.5-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
         }
 
         // Strip API key from error message if echoed by provider
