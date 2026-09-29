@@ -250,6 +250,294 @@
   }
 
   /**
+   * Authoritatively retrieve valid CSRF token
+   */
+  async function getCsrfToken() {
+    if (window.CSRF_TOKEN) {
+      return window.CSRF_TOKEN;
+    }
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.getAttribute('content')) {
+      window.CSRF_TOKEN = meta.getAttribute('content');
+      return window.CSRF_TOKEN;
+    }
+    try {
+      const res = await fetch('../api/csrf.php', { credentials: 'same-origin' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.csrf_token) {
+          window.CSRF_TOKEN = data.csrf_token;
+          return window.CSRF_TOKEN;
+        }
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  /**
+   * Render interactive action confirmation card
+   */
+  function renderActionCard(msg, wrapper) {
+    if (!msg.action || !msg.action.type) return;
+
+    const action = msg.action;
+    const type = action.type;
+    const payload = action.payload || {};
+    const contentCol = wrapper.querySelector('.max-w-\\[92\\%\\]') || wrapper.lastElementChild;
+    if (!contentCol) return;
+
+    const card = document.createElement('div');
+    card.className = 'ai-action-card mt-3 rounded-2xl border border-emerald-300/80 dark:border-emerald-800/60 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 dark:from-[#131E1A] dark:via-[#111A17] dark:to-[#0F1714] p-4 sm:p-5 shadow-sm space-y-3.5';
+
+    let cardTitle = 'Planner Action Proposal';
+    let cardBadge = 'Proposal';
+    let confirmLabel = 'Confirm';
+    let confirmIcon = 'check';
+    let detailsHtml = '';
+
+    switch (type) {
+      case 'create_task':
+        cardTitle = 'Add this work to your planner?';
+        cardBadge = 'Add Work';
+        confirmLabel = 'Add Work';
+        confirmIcon = 'plus-circle';
+        detailsHtml =
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Work Title</span>' +
+            '<span class="font-bold text-gray-900 dark:text-white text-right">' + escapeHtml(payload.title) + '</span>' +
+          '</div>' +
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Course</span>' +
+            '<span class="font-semibold text-emerald-800 dark:text-emerald-300 text-right">' +
+              (payload.course_code ? escapeHtml(payload.course_code + (payload.course_name ? ' • ' + payload.course_name : '')) : 'General (No Course)') +
+            '</span>' +
+          '</div>' +
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Due Date</span>' +
+            '<span class="font-semibold text-gray-900 dark:text-gray-100 text-right">' + escapeHtml(payload.due_at_display || payload.due_at) + '</span>' +
+          '</div>' +
+          '<div class="flex items-baseline justify-between gap-4 py-1">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Priority</span>' +
+            '<span class="font-bold text-xs uppercase px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200">' +
+              escapeHtml(payload.priority || 'medium') +
+            '</span>' +
+          '</div>';
+        break;
+
+      case 'update_task':
+        cardTitle = 'Update this work?';
+        cardBadge = 'Reschedule Work';
+        confirmLabel = 'Update Work';
+        confirmIcon = 'refresh-cw';
+        detailsHtml =
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Work Title</span>' +
+            '<span class="font-bold text-gray-900 dark:text-white text-right">' + escapeHtml(payload.task_title || payload.title) + '</span>' +
+          '</div>' +
+          (payload.due_at_display ?
+            '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+              '<span class="text-gray-500 dark:text-gray-400 font-medium">New Due Date</span>' +
+              '<span class="font-semibold text-emerald-700 dark:text-emerald-300 text-right">' + escapeHtml(payload.due_at_display) + '</span>' +
+            '</div>' : ''
+          ) +
+          (payload.title && payload.title !== payload.task_title ?
+            '<div class="flex items-baseline justify-between gap-4 py-1">' +
+              '<span class="text-gray-500 dark:text-gray-400 font-medium">New Title</span>' +
+              '<span class="font-semibold text-gray-900 dark:text-white text-right">' + escapeHtml(payload.title) + '</span>' +
+            '</div>' : ''
+          );
+        break;
+
+      case 'complete_task':
+        cardTitle = 'Mark this work as completed?';
+        cardBadge = 'Complete Work';
+        confirmLabel = 'Complete Work';
+        confirmIcon = 'check-circle';
+        detailsHtml =
+          '<div class="flex items-baseline justify-between gap-4 py-1">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Work Title</span>' +
+            '<span class="font-bold text-gray-900 dark:text-white text-right">' + escapeHtml(payload.task_title) + '</span>' +
+          '</div>';
+        break;
+
+      case 'create_schedule_item':
+        cardTitle = 'Add class to your timetable?';
+        cardBadge = 'Timetable Class';
+        confirmLabel = 'Add Class';
+        confirmIcon = 'calendar-plus';
+        detailsHtml =
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Class Title</span>' +
+            '<span class="font-bold text-gray-900 dark:text-white text-right">' + escapeHtml(payload.title) + '</span>' +
+          '</div>' +
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Day</span>' +
+            '<span class="font-semibold text-emerald-800 dark:text-emerald-300 text-right">' + escapeHtml(payload.day_name || ('Day ' + payload.day_of_week)) + '</span>' +
+          '</div>' +
+          '<div class="flex items-baseline justify-between gap-4 py-1">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Time</span>' +
+            '<span class="font-semibold text-gray-900 dark:text-gray-100 text-right">' + escapeHtml(payload.time_display || (payload.start_time + ' – ' + payload.end_time)) + '</span>' +
+          '</div>';
+        break;
+
+      case 'update_schedule_item':
+        cardTitle = 'Update timetable session?';
+        cardBadge = 'Update Class';
+        confirmLabel = 'Update Session';
+        confirmIcon = 'calendar';
+        detailsHtml =
+          '<div class="flex items-baseline justify-between gap-4 py-1">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Session Title</span>' +
+            '<span class="font-bold text-gray-900 dark:text-white text-right">' + escapeHtml(payload.title || 'Session') + '</span>' +
+          '</div>';
+        break;
+
+      case 'update_study_goal':
+        cardTitle = 'Update weekly study goal?';
+        cardBadge = 'Study Goal';
+        confirmLabel = 'Change Goal';
+        confirmIcon = 'target';
+        detailsHtml =
+          '<div class="flex items-baseline justify-between gap-4 py-1 border-b border-emerald-100/60 dark:border-white/5">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">Current Goal</span>' +
+            '<span class="font-semibold text-gray-600 dark:text-gray-400 text-right">' + escapeHtml(payload.current_goal_hours || 10) + ' hours/week</span>' +
+          '</div>' +
+          '<div class="flex items-baseline justify-between gap-4 py-1">' +
+            '<span class="text-gray-500 dark:text-gray-400 font-medium">New Goal</span>' +
+            '<span class="font-bold text-emerald-700 dark:text-emerald-300 text-right text-sm">' + escapeHtml(payload.weekly_goal_hours) + ' hours per week</span>' +
+          '</div>';
+        break;
+
+      default:
+        detailsHtml = '<div class="py-1 text-gray-600 dark:text-gray-300">' + escapeHtml(action.summary || 'Proposed action') + '</div>';
+    }
+
+    card.innerHTML =
+      '<div class="flex items-center justify-between gap-2 border-b border-emerald-200/50 dark:border-emerald-900/50 pb-2.5">' +
+        '<div class="flex items-center gap-2 text-xs font-bold text-emerald-900 dark:text-emerald-200">' +
+          '<i data-lucide="' + confirmIcon + '" class="w-4 h-4 text-emerald-600 shrink-0"></i>' +
+          '<span>' + escapeHtml(cardTitle) + '</span>' +
+        '</div>' +
+        '<span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100/80 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/50 dark:border-emerald-700/40">' +
+          escapeHtml(cardBadge) +
+        '</span>' +
+      '</div>' +
+      '<div class="space-y-1 text-xs text-gray-700 dark:text-gray-300">' +
+        detailsHtml +
+      '</div>' +
+      '<div class="ai-action-btn-row pt-2.5 border-t border-emerald-100 dark:border-emerald-900/40 flex items-center gap-2">' +
+      '</div>';
+
+    const btnRow = card.querySelector('.ai-action-btn-row');
+
+    if (msg.actionStatus === 'confirmed') {
+      btnRow.innerHTML =
+        '<div class="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-950/60 px-3 py-2 rounded-xl border border-emerald-300/50 dark:border-emerald-800/50 w-full">' +
+          '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>' +
+          '<span>Action confirmed and executed.</span>' +
+        '</div>';
+    } else if (msg.actionStatus === 'cancelled') {
+      btnRow.innerHTML =
+        '<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 italic bg-gray-100/70 dark:bg-white/5 px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 w-full">' +
+          '<i data-lucide="x-circle" class="w-4 h-4 text-gray-400 shrink-0"></i>' +
+          '<span>Action cancelled. No changes were made.</span>' +
+        '</div>';
+    } else {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'ai-action-confirm-btn flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-sm transition-all hover:shadow active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed';
+      confirmBtn.innerHTML = '<i data-lucide="' + confirmIcon + '" class="w-3.5 h-3.5"></i><span>' + escapeHtml(confirmLabel) + '</span>';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'ai-action-cancel-btn flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-colors active:scale-95';
+      cancelBtn.innerHTML = '<span>Cancel</span>';
+
+      btnRow.appendChild(confirmBtn);
+      btnRow.appendChild(cancelBtn);
+
+      // Handle Cancel: 100% zero write operations
+      cancelBtn.addEventListener('click', function () {
+        btnRow.innerHTML =
+          '<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 italic bg-gray-100/70 dark:bg-white/5 px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 w-full">' +
+            '<i data-lucide="x-circle" class="w-4 h-4 text-gray-400 shrink-0"></i>' +
+            '<span>Action cancelled. No changes were made.</span>' +
+          '</div>';
+        msg.actionStatus = 'cancelled';
+        saveHistoryToStorage();
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      });
+
+      // Handle Confirm: Execute via POST /api/ai-action.php
+      confirmBtn.addEventListener('click', async function () {
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.innerHTML =
+          '<span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>' +
+          '<span>Saving...</span>';
+
+        try {
+          const csrf = await getCsrfToken();
+          const response = await fetch('../api/ai-action.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': csrf
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              action: type,
+              payload: payload,
+              csrf_token: csrf
+            })
+          });
+
+          const resData = await response.json().catch(function () { return null; });
+
+          if (!response.ok || !resData || resData.ok !== true) {
+            const errText = (resData && resData.error) ? resData.error : 'Execution failed.';
+            btnRow.innerHTML =
+              '<div class="flex items-start gap-2 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-3 py-2 rounded-xl border border-red-200 dark:border-red-800/40 w-full">' +
+                '<i data-lucide="alert-circle" class="w-4 h-4 text-red-500 shrink-0 mt-0.5"></i>' +
+                '<span>' + escapeHtml(errText) + '</span>' +
+              '</div>';
+            msg.actionStatus = 'failed';
+            saveHistoryToStorage();
+          } else {
+            const successText = resData.message || 'Action executed successfully.';
+            btnRow.innerHTML =
+              '<div class="flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/70 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 w-full">' +
+                '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>' +
+                '<span>' + escapeHtml(successText) + '</span>' +
+              '</div>';
+            msg.actionStatus = 'confirmed';
+            saveHistoryToStorage();
+
+            // Fire portal-wide synchronizing events
+            window.dispatchEvent(new CustomEvent('study-planner:refresh-tasks'));
+            window.dispatchEvent(new CustomEvent('study-planner:refresh-schedule'));
+          }
+        } catch (networkErr) {
+          btnRow.innerHTML =
+            '<div class="flex items-start gap-2 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-3 py-2 rounded-xl border border-red-200 dark:border-red-800/40 w-full">' +
+              '<i data-lucide="alert-circle" class="w-4 h-4 text-red-500 shrink-0 mt-0.5"></i>' +
+              '<span>Network error while saving action. Please try again.</span>' +
+            '</div>';
+        }
+
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      });
+    }
+
+    contentCol.appendChild(card);
+  }
+
+  /**
    * Append a message element to the chat stream
    */
   function appendMessageToDOM(msg, shouldScroll) {
@@ -306,6 +594,11 @@
             '</div>' : ''
           ) +
         '</div>';
+
+      // Render interactive action confirmation card if action proposal exists
+      if (!isError && msg.action && msg.action.type) {
+        renderActionCard(msg, wrapper);
+      }
 
       // Wire copy button
       if (!isError) {
@@ -550,7 +843,10 @@
       const aiResponseMsg = {
         role: 'assistant',
         content: data.answer || 'No response returned from the assistant.',
-        time: formatCurrentTime()
+        time: formatCurrentTime(),
+        actionDetected: data.action_detected === true,
+        action: data.action || null,
+        actionStatus: 'pending'
       };
       conversationHistory.push(aiResponseMsg);
       appendMessageToDOM(aiResponseMsg, true);
