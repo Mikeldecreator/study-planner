@@ -59,29 +59,11 @@ window.APP_READY = (async function bootstrap() {
 
       // Synchronize unread badge immediately
       const unreadCount = bootData.unread_notifications || 0;
-      const sidebarBadge = document.getElementById('sidebar-unread-badge');
-      if (sidebarBadge) {
-        if (unreadCount > 0) {
-          sidebarBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
-          sidebarBadge.classList.remove('hidden');
-          sidebarBadge.classList.add('flex');
-        } else {
-          sidebarBadge.classList.add('hidden');
-          sidebarBadge.classList.remove('flex');
-          sidebarBadge.textContent = '';
-        }
-      }
-      const bellBadge = document.getElementById('bell-badge');
-      if (bellBadge) {
-        if (unreadCount > 0) {
-          bellBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
-          bellBadge.classList.remove('hidden');
-          bellBadge.classList.add('flex');
-        } else {
-          bellBadge.classList.add('hidden');
-          bellBadge.classList.remove('flex');
-          bellBadge.textContent = '';
-        }
+      updateBellBadges(unreadCount);
+
+      // Check for incoming academic notifications from Aiven
+      if (Array.isArray(bootData.latest_notifications) && bootData.latest_notifications.length > 0) {
+        displayIncomingNotifications(bootData.latest_notifications);
       }
     }
   } catch (err) {
@@ -342,49 +324,358 @@ function capitalize(str) {
     : '';
 }
 
+function updateBellBadges(unreadCount) {
+  unreadCount = Math.max(0, Number(unreadCount) || 0);
+  const sidebarBadge = document.getElementById('sidebar-unread-badge');
+  if (sidebarBadge) {
+    if (unreadCount > 0) {
+      sidebarBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+      sidebarBadge.classList.remove('hidden');
+      sidebarBadge.classList.add('flex');
+    } else {
+      sidebarBadge.classList.add('hidden');
+      sidebarBadge.classList.remove('flex');
+      sidebarBadge.textContent = '';
+    }
+  }
+  const bellBadge = document.getElementById('bell-badge');
+  if (bellBadge) {
+    if (unreadCount > 0) {
+      bellBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+      bellBadge.classList.remove('hidden');
+      bellBadge.classList.add('flex');
+    } else {
+      bellBadge.classList.add('hidden');
+      bellBadge.classList.remove('flex');
+      bellBadge.textContent = '';
+    }
+  }
+}
+window.updateBellBadges = updateBellBadges;
+
+function displayIncomingNotifications(notifications) {
+  if (!Array.isArray(notifications) || notifications.length === 0) return;
+
+  const now = Date.now();
+  const unseen = [];
+  for (const n of notifications) {
+    if (!n || !n.id) continue;
+    const seenIdKey = 'seen_popup_' + n.id;
+    const seenEventKey = n.event_key ? ('seen_popup_key_' + n.event_key) : null;
+    const localKey = 'notif_popped_' + (n.event_key || ('id_' + n.id));
+
+    if (sessionStorage.getItem(seenIdKey)) continue;
+    if (seenEventKey && sessionStorage.getItem(seenEventKey)) continue;
+
+    const lastPopped = localStorage.getItem(localKey);
+    if (lastPopped && (now - Number(lastPopped)) < 3600 * 1000 * 4) {
+      continue;
+    }
+
+    // Mark seen immediately across session and local storage
+    sessionStorage.setItem(seenIdKey, '1');
+    if (seenEventKey) sessionStorage.setItem(seenEventKey, '1');
+    localStorage.setItem(localKey, String(now));
+
+    unseen.push(n);
+  }
+
+  // Show at most 2 per page load, spaced out
+  const toShow = unseen.slice(0, 2);
+  toShow.forEach((n, idx) => {
+    setTimeout(() => {
+      let priority = 'important';
+      if (n.category === 'overdue' || n.tone === 'urgent') {
+        priority = 'high';
+      } else if (n.category === 'completion' || n.tone === 'success') {
+        priority = 'normal';
+      }
+
+      window.showToast({
+        title: n.title || 'Notification',
+        message: n.message || '',
+        type: n.category || n.tone || 'info',
+        priority: priority,
+        action: n.action_label && n.action_url ? {
+          label: n.action_label,
+          url: n.action_url
+        } : null,
+        notifId: n.id,
+        eventKey: n.event_key
+      });
+    }, idx * 1200);
+  });
+}
+window.displayIncomingNotifications = displayIncomingNotifications;
+
 /**
- * Lightweight toast notifications, used across pages instead of alert()
- * for success/info messages (alert() is still used for anything that
- * truly needs to block the user, e.g. confirming a delete).
- * Usage: window.showToast('Course added', 'success' | 'error' | 'info')
+ * Polished, non-blocking in-app notification popup / toast engine.
+ * Usage:
+ *   window.showToast('Work added successfully', 'success')
+ *   window.showToast({
+ *     title: 'Work added',
+ *     message: 'Assignment 1 was added to Calculus.',
+ *     type: 'success',
+ *     priority: 'normal',
+ *     action: { label: 'View Work', url: 'tasks.php' }
+ *   })
  */
-window.showToast = function showToast(message, type) {
-  type = type || 'info';
+window.showToast = function showToast(messageOrOptions, typeOrOptions = 'info', extraOptions = {}) {
+  let opts = {};
+  if (typeof messageOrOptions === 'object' && messageOrOptions !== null) {
+    opts = { ...messageOrOptions };
+  } else if (typeof typeOrOptions === 'object' && typeOrOptions !== null) {
+    opts = { message: String(messageOrOptions || ''), ...typeOrOptions };
+  } else {
+    opts = {
+      message: String(messageOrOptions || ''),
+      type: String(typeOrOptions || 'info'),
+      ...extraOptions
+    };
+  }
 
+  const rawMessage = String(opts.message || '');
+  let type = String(opts.type || 'info').toLowerCase();
+
+  // Deduce title if not explicitly provided
+  let title = opts.title ? String(opts.title) : '';
+  let cleanMessage = rawMessage;
+
+  // Clean redundant notification prefixes
+  cleanMessage = cleanMessage
+    .replace(/^(Deadline Reminder \([^)]+\)|Urgent Deadline \([^)]+\)|Overdue Task|Class Reminder \([^)]+\)|Study suggestion|Study opportunity|Academic Calendar|Examination Alert|Revision Week Alert)[:\s-]*/i, '')
+    .trim() || cleanMessage;
+
+  if (!title) {
+    if (/^work added/i.test(rawMessage) || /^task added/i.test(rawMessage)) {
+      title = 'Work added';
+      cleanMessage = rawMessage.replace(/^(work added|task added)[:\s-]*/i, '').trim() || rawMessage;
+    } else if (/^work completed/i.test(rawMessage) || /^marked as completed/i.test(rawMessage)) {
+      title = 'Work completed';
+      cleanMessage = rawMessage.replace(/^(work completed|marked as completed)[:\s-]*/i, '').trim() || rawMessage;
+    } else if (/^work reopened/i.test(rawMessage)) {
+      title = 'Work reopened';
+      cleanMessage = rawMessage.replace(/^work reopened[:\s-]*/i, '').trim() || rawMessage;
+    } else if (/^work edited/i.test(rawMessage) || /^task updated/i.test(rawMessage)) {
+      title = 'Work edited';
+      cleanMessage = rawMessage.replace(/^(work edited|task updated)[:\s-]*/i, '').trim() || rawMessage;
+    } else if (/^due soon/i.test(rawMessage) || /deadline reminder/i.test(rawMessage)) {
+      title = 'Due soon';
+      type = 'deadline';
+    } else if (/^overdue/i.test(rawMessage)) {
+      title = 'Overdue';
+      type = 'overdue';
+    } else if (/^class reminder/i.test(rawMessage)) {
+      title = 'Class reminder';
+      type = 'class_reminder';
+    } else if (/^study suggestion/i.test(rawMessage) || /study opportunity/i.test(rawMessage)) {
+      title = 'Study suggestion';
+      type = 'study_suggestion';
+    } else if (/^academic update/i.test(rawMessage) || /academic calendar/i.test(rawMessage) || /examination alert/i.test(rawMessage)) {
+      title = 'Academic update';
+      type = 'academic';
+    } else if (type === 'success') {
+      title = 'Success';
+    } else if (type === 'error') {
+      title = 'Error';
+    } else if (type === 'warning') {
+      title = 'Attention';
+    } else {
+      title = 'Notice';
+    }
+  }
+
+  // Deduce priority
+  let priority = opts.priority;
+  if (!priority) {
+    if (type === 'error' || type === 'overdue') {
+      priority = 'high';
+    } else if (['deadline', 'due_soon', 'study_suggestion', 'study', 'smart_study', 'class_reminder', 'academic', 'curriculum', 'warning'].includes(type)) {
+      priority = 'important';
+    } else {
+      priority = 'normal';
+    }
+  }
+
+  // Deduce duration
+  let duration = opts.duration;
+  if (!duration) {
+    if (priority === 'high') {
+      duration = 8500;
+    } else if (priority === 'important') {
+      duration = 7000;
+    } else {
+      duration = 4500;
+    }
+  }
+
+  // Resolve actions
+  let action = opts.action;
+  if (!action && opts.action_label && opts.action_url) {
+    action = { label: opts.action_label, url: opts.action_url };
+  } else if (!action && opts.notifId) {
+    if (type === 'overdue' || type === 'deadline' || type === 'due_soon') {
+      action = { label: 'View Work', url: 'tasks.php' };
+    } else if (type === 'study' || type === 'study_suggestion' || type === 'smart_study') {
+      action = { label: 'Study Now', url: 'study.php' };
+    } else if (type === 'class_reminder') {
+      action = { label: 'View Class', url: 'schedule.php' };
+    } else if (type === 'academic' || type === 'curriculum') {
+      action = { label: 'View Schedule', url: 'schedule.php' };
+    }
+  }
+
+  // Color styles
+  let badgeBg = 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400';
+  let borderClass = 'border-emerald-200/90 dark:border-emerald-800/60';
+  let accentClass = 'bg-emerald-500';
+  let iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+
+  if (priority === 'high' || type === 'error' || type === 'overdue') {
+    badgeBg = 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400';
+    borderClass = 'border-rose-300 dark:border-rose-700/60';
+    accentClass = 'bg-rose-600';
+    iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+  } else if (type === 'deadline' || type === 'due_soon' || type === 'warning') {
+    badgeBg = 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400';
+    borderClass = 'border-amber-300/90 dark:border-amber-700/60';
+    accentClass = 'bg-amber-500';
+    iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+  } else if (type === 'study' || type === 'study_suggestion' || type === 'smart_study') {
+    badgeBg = 'bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400';
+    borderClass = 'border-teal-300/90 dark:border-teal-700/60';
+    accentClass = 'bg-teal-500';
+    iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>`;
+  } else if (type === 'class_reminder') {
+    badgeBg = 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400';
+    borderClass = 'border-indigo-300/90 dark:border-indigo-700/60';
+    accentClass = 'bg-indigo-500';
+    iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>`;
+  } else if (type === 'academic' || type === 'curriculum') {
+    badgeBg = 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400';
+    borderClass = 'border-blue-300/90 dark:border-blue-700/60';
+    accentClass = 'bg-blue-500';
+    iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>`;
+  } else if (type === 'info') {
+    badgeBg = 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400';
+    borderClass = 'border-sky-200 dark:border-sky-800/60';
+    accentClass = 'bg-sky-500';
+    iconSvg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+  }
+
+  // Ensure stack exists
   let stack = document.getElementById('toast-stack');
-
   if (!stack) {
     stack = document.createElement('div');
     stack.id = 'toast-stack';
+    stack.className = 'fixed bottom-4 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-[9998] flex flex-col gap-2.5 max-w-full sm:max-w-sm sm:w-96 pointer-events-none transition-all duration-200';
+    stack.setAttribute('aria-live', priority === 'high' ? 'assertive' : 'polite');
+    stack.setAttribute('aria-atomic', 'false');
     document.body.appendChild(stack);
   }
 
   const toast = document.createElement('div');
+  toast.className = `pointer-events-auto bg-white/95 dark:bg-[#15231c]/95 text-gray-900 dark:text-gray-100 rounded-2xl shadow-xl dark:shadow-2xl border p-4 font-sans flex items-start gap-3.5 relative overflow-hidden backdrop-blur-md ${borderClass}`;
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(12px) scale(0.96)';
+  toast.style.transition = 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+  toast.setAttribute('role', priority === 'high' ? 'alert' : 'status');
 
-  toast.className = `toast toast-${type}`;
-
-  const icon =
-    type === 'success'
-      ? 'check-circle'
-      : (type === 'error' ? 'alert-circle' : 'info');
+  const actionHtml = action ? `
+    <div class="mt-2.5">
+      <a href="${action.url || '#'}" class="toast-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition shadow-xs">
+        <span>${escapeHtml(action.label)}</span>
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  ` : '';
 
   toast.innerHTML = `
-    <i data-lucide="${icon}" class="w-4 h-4 shrink-0"></i>
-    <span>${escapeHtml(message)}</span>
+    <div class="absolute left-0 top-0 bottom-0 w-1 ${accentClass}"></div>
+    <div class="w-9 h-9 rounded-xl ${badgeBg} flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+      ${iconSvg}
+    </div>
+    <div class="flex-1 min-w-0 pr-6">
+      <div class="flex items-center gap-2 mb-0.5">
+        <h4 class="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
+          ${escapeHtml(title)}
+        </h4>
+        ${priority === 'high' ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 uppercase tracking-wide">High</span>` : ''}
+        ${priority === 'important' && (type === 'deadline' || type === 'due_soon') ? `<span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 uppercase tracking-wide">Soon</span>` : ''}
+      </div>
+      <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">${escapeHtml(cleanMessage)}</p>
+      ${actionHtml}
+    </div>
+    <button type="button" class="toast-close-btn absolute right-2.5 top-2.5 p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition" aria-label="Dismiss notification">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    </button>
   `;
+
+  // Limit max simultaneous popups to 2 at any time
+  while (stack.children.length >= 2) {
+    stack.firstElementChild.remove();
+  }
 
   stack.appendChild(toast);
 
-  if (window.lucide) {
-    window.lucide.createIcons();
+  // Animate in
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0) scale(1)';
+  });
+
+  const dismiss = () => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(8px) scale(0.96)';
+    setTimeout(() => toast.remove(), 220);
+  };
+
+  // Close button
+  const closeBtn = toast.querySelector('.toast-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismiss();
+    });
   }
 
-  setTimeout(() => {
-    toast.classList.add('toast-out');
+  // Action button
+  if (action) {
+    const actionBtn = toast.querySelector('.toast-action-btn');
+    if (actionBtn) {
+      actionBtn.addEventListener('click', (e) => {
+        if (typeof action.onClick === 'function') {
+          e.preventDefault();
+          action.onClick();
+        }
+        if (opts.notifId) {
+          const csrf = window.CSRF_TOKEN || '';
+          fetch(`${API}/notifications.php`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+            body: JSON.stringify({ id: Number(opts.notifId), csrf_token: csrf })
+          }).then(r => r.json()).then(d => {
+            if (d && typeof d.unread_count === 'number') {
+              updateBellBadges(d.unread_count);
+            }
+          }).catch(() => {});
+        }
+        dismiss();
+      });
+    }
+  }
 
-    setTimeout(() => toast.remove(), 200);
-  }, 3200);
+  // Auto-dismiss with hover pause
+  let timer = setTimeout(dismiss, duration);
+  toast.addEventListener('mouseenter', () => clearTimeout(timer));
+  toast.addEventListener('mouseleave', () => {
+    timer = setTimeout(dismiss, Math.min(duration, 3000));
+  });
 };
+
+window.showNotificationPopup = window.showToast;
 
 /**
  * Animates a number counting up from 0 (or its current value) to `value`

@@ -101,7 +101,7 @@
     const bar=document.querySelector('[data-work-bar]'); if(bar) bar.style.width=`${progress}%`;
     const itemBar=document.querySelectorAll(`[data-work-progress-item="${active.type}:${active.id}"]`); itemBar.forEach(el => el.style.width=`${progress}%`);
     renderButtons();
-    if(progress>=100) completeActive(true);
+    if(progress>=100) completeActive(false, true);
   }
 
   async function start(type,id,title) {
@@ -127,13 +127,28 @@
     } catch(e) { if(!silent) window.showToast?.(e.message,'error'); }
   }
 
-  async function completeActive(silent=false) {
+  async function completeActive(silent=false, isAuto=false) {
     if(!active) return;
     const a=active;
+    const itemTitle = a.title || a.timer?.item_title || 'Work';
     try {
       const data=await request({item_type:a.type,item_id:a.id,action:'complete',csrf_token:window.CSRF_TOKEN||''});
       if(data.timer) cache.set(cacheKey(a.type,a.id),data.timer);
-      if(!silent) window.showToast?.('Marked as completed','success');
+      if(!silent) {
+        if (isAuto) {
+          window.showToast?.({
+            title: 'Work completed',
+            message: `"${itemTitle}" reached 100%.`,
+            type: 'success'
+          });
+        } else {
+          window.showToast?.({
+            title: 'Work completed',
+            message: `"${itemTitle}" has been marked complete.`,
+            type: 'success'
+          });
+        }
+      }
       active=null; stopInterval(); renderOverlay(); renderButtons();
       window.dispatchEvent(new CustomEvent('work-item-updated',{detail:{type:a.type,id:a.id,action:'complete'}}));
     } catch(e) { if(!silent) window.showToast?.(e.message,'error'); }

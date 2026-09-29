@@ -67,8 +67,9 @@ if ($db && function_exists('syncContextualNotifications')) {
     }
 }
 
-// Unread in-app notification count
+// Unread in-app notification count & latest unread list for popup alerts
 $unreadCount = 0;
+$latestNotifications = [];
 if ($db) {
     try {
         $stmt = $db->prepare(
@@ -77,8 +78,23 @@ if ($db) {
         );
         $stmt->execute([$userId]);
         $unreadCount = (int) $stmt->fetch()['n'];
+
+        if ($unreadCount > 0) {
+            $stmt = $db->prepare(
+                "SELECT n.id, n.task_id, n.channel, n.event_key, n.message, n.send_at, n.read_at, n.created_at,
+                        t.title AS task_title
+                 FROM notifications n
+                 LEFT JOIN tasks t ON t.id = n.task_id AND t.user_id = n.user_id
+                 WHERE n.user_id = ? AND n.channel = 'in_app' AND n.send_at <= NOW() AND n.read_at IS NULL
+                 ORDER BY n.send_at DESC LIMIT 5"
+            );
+            $stmt->execute([$userId]);
+            $rawRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $latestNotifications = array_map('decorateNotification', $rawRows);
+        }
     } catch (Throwable $e) {
         $unreadCount = 0;
+        $latestNotifications = [];
     }
 }
 
@@ -87,4 +103,5 @@ echo json_encode([
     'user' => $user,
     'csrf_token' => $csrfToken,
     'unread_notifications' => $unreadCount,
+    'latest_notifications' => $latestNotifications,
 ]);

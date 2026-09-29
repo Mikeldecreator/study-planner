@@ -1599,80 +1599,102 @@ function decorateNotification(array $notification): array
     $title = 'Notification';
     $actionUrl = 'notifications.php';
 
+    $actionLabel = null;
+
     if (stripos($msg, 'marked as completed') !== false || stripos($msg, 'work completed') !== false) {
         $category = 'completion';
         $tone = 'success';
         $title = 'Work completed';
         $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php?tab=completed";
+        $actionLabel = 'View Work';
     } elseif (stripos($msg, 'moved back to active work') !== false || stripos($msg, 'work reopened') !== false) {
         $category = 'completion';
         $tone = 'info';
         $title = 'Work reopened';
         $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php";
+        $actionLabel = 'View Work';
     } elseif (stripos($msg, 'study session completed') !== false) {
         $category = 'completion';
         $tone = 'success';
         $title = 'Study session completed';
         $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php";
+        $actionLabel = 'View Work';
     } elseif (stripos($msg, 'overdue') !== false) {
         $category = 'overdue';
         $tone = 'urgent';
-        $title = 'Overdue Task';
-        $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php";
+        $title = 'Overdue';
+        $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php?filter=overdue";
+        $actionLabel = 'View Work';
     } elseif (stripos($msg, 'urgent deadline') !== false || stripos($msg, '(2h)') !== false) {
         $category = 'deadline';
         $tone = 'urgent';
-        $title = 'Urgent Deadline';
+        $title = 'Due soon';
         $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php";
+        $actionLabel = 'View Work';
     } elseif (stripos($msg, 'deadline') !== false || stripos($msg, 'due') !== false) {
         $category = 'deadline';
         $tone = 'warning';
-        $title = 'Approaching Deadline';
+        $title = 'Due soon';
         $actionUrl = !empty($notification['task_id']) ? "tasks.php?id=" . (int)$notification['task_id'] : "tasks.php";
+        $actionLabel = 'View Work';
     } elseif (stripos($msg, 'class reminder') !== false) {
         $category = 'class_reminder';
         $tone = stripos($msg, '(10m)') !== false ? 'urgent' : (stripos($msg, '(30m)') !== false ? 'warning' : 'info');
-        $title = stripos($msg, '(10m)') !== false ? 'Class Starting Soon' : 'Class Reminder';
+        $title = 'Class reminder';
         $actionUrl = 'schedule.php';
+        $actionLabel = 'View Class';
     } elseif (stripos($msg, 'examination alert') !== false || stripos($msg, 'exam week') !== false) {
         $category = 'curriculum';
         $tone = 'urgent';
-        $title = 'Examination Alert';
+        $title = 'Academic update';
         $actionUrl = 'courses.php';
+        $actionLabel = 'View Schedule';
     } elseif (stripos($msg, 'revision week') !== false || stripos($msg, 'academic calendar') !== false) {
         $category = 'curriculum';
         $tone = 'info';
-        $title = 'Academic Calendar';
+        $title = 'Academic update';
         $actionUrl = 'courses.php';
+        $actionLabel = 'View Schedule';
+    } elseif (stripos($msg, 'study suggestion') !== false) {
+        $category = 'smart_study';
+        $tone = 'suggestion';
+        $title = 'Study suggestion';
+        $actionUrl = !empty($notification['task_id']) ? "study.php?task_id=" . (int)$notification['task_id'] : "study.php";
+        $actionLabel = 'Study Now';
     } elseif (stripos($msg, 'study opportunity') !== false || stripos($msg, 'free block') !== false) {
         $category = 'smart_study';
         $tone = 'suggestion';
-        $title = 'Study Opportunity';
-        $actionUrl = 'tasks.php';
+        $title = 'Study suggestion';
+        $actionUrl = 'study.php';
+        $actionLabel = 'Study Now';
     } elseif (stripos($msg, 'academic alert') !== false || stripos($msg, 'risk') !== false) {
         $category = 'course';
         $tone = 'warning';
-        $title = 'Academic Risk Alert';
+        $title = 'Academic update';
         $actionUrl = 'courses.php';
+        $actionLabel = 'View Course';
     } elseif (stripos($msg, 'study session') !== false || stripos($msg, 'missed') !== false) {
         $category = 'schedule';
         $tone = 'warning';
-        $title = 'Missed Study Session';
+        $title = 'Study session missed';
         $actionUrl = 'schedule.php';
+        $actionLabel = 'View Schedule';
     } elseif (stripos($msg, 'goal') !== false) {
         $category = 'goal';
         $tone = stripos($msg, 'achieved') !== false ? 'success' : 'info';
         $title = stripos($msg, 'achieved') !== false ? 'Study Goal Achieved' : 'Study Goal Update';
         $actionUrl = 'dashboard.php';
+        $actionLabel = 'View Dashboard';
     }
 
     return array_merge($notification, [
-        'category'   => $category,
-        'type'       => $tone,
-        'tone'       => $tone,
-        'title'      => $title,
-        'action_url' => $actionUrl,
-        'is_read'    => !empty($notification['read_at']),
+        'category'     => $category,
+        'type'         => $tone,
+        'tone'         => $tone,
+        'title'        => $title,
+        'action_url'   => $actionUrl,
+        'action_label' => $actionLabel,
+        'is_read'      => !empty($notification['read_at']),
     ]);
 }
 
@@ -1911,6 +1933,32 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                         $insertStmt->execute([$userId, null, $gapKey, $msg]);
                         $totalGenerated++;
                     }
+                }
+            }
+        }
+
+        // 5. ACADEMIC INTELLIGENCE: STUDY SUGGESTION FOR TOP ATTENTION-NEEDING TASK
+        if ($prefs['study_suggestions'] ?? true) {
+            $stmt = $db->prepare(
+                "SELECT t.id, t.title, t.due_at, t.duration_hours, c.code AS course_code
+                 FROM tasks t
+                 LEFT JOIN courses c ON c.id = t.course_id
+                 WHERE t.user_id = ? AND t.status != 'completed'
+                 ORDER BY (CASE WHEN t.due_at IS NOT NULL AND t.due_at < NOW() THEN 0
+                                WHEN t.due_at IS NOT NULL THEN 1 ELSE 2 END),
+                          t.due_at ASC, t.id ASC
+                 LIMIT 1"
+            );
+            $stmt->execute([$userId]);
+            $topTask = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($topTask) {
+                $topTaskId = (int)$topTask['id'];
+                $topTitle = $topTask['title'];
+                $suggKey = "study_sugg_{$topTaskId}_{$todayStr}";
+                if (!academicNotificationExists($db, $userId, $suggKey, "%Study suggestion: '{$topTitle}'%")) {
+                    $suggMsg = "Study suggestion: '{$topTitle}' may need your attention.";
+                    $insertStmt->execute([$userId, $topTaskId, $suggKey, $suggMsg]);
+                    $totalGenerated++;
                 }
             }
         }

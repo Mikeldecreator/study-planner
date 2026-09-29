@@ -269,6 +269,10 @@
     if (!ACTIVE_SESSION?.id) return;
     try {
       const actionName = autoComplete ? 'complete' : 'stop';
+      const currentTaskId = ACTIVE_SESSION.task_id;
+      const currentTask = (STUDY_DATA?.tasks || []).find(t => t.id === currentTaskId);
+      const taskTitle = currentTask?.title ? `"${currentTask.title}"` : 'Work';
+
       const csrf = await getCsrfToken();
       const res = await fetch(`${API}/study-sessions.php`, {
         method: 'POST',
@@ -284,6 +288,16 @@
       timerClockSeconds = 0;
       document.getElementById('timer-display').textContent = '00:00:00';
       ACTIVE_SESSION = null;
+
+      if (autoComplete || data.task_auto_completed) {
+        if (typeof window.showToast === 'function') {
+          window.showToast({
+            title: 'Work completed',
+            message: `${taskTitle} reached 100%.`,
+            type: 'success'
+          });
+        }
+      }
 
       // Reload study data to reflect recorded session
       await loadStudyData();

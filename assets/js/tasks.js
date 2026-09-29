@@ -70,7 +70,7 @@ function toast(message, type = 'info') {
   if (window.showToast) {
     window.showToast(message, type);
   } else if (type === 'error') {
-    alert(message);
+    alert(typeof message === 'object' ? (message.message || message.title) : message);
   }
 }
 
@@ -4029,10 +4029,12 @@ async function deleteTask(id) {
       }
     );
 
-    toast(
-      'Task deleted',
-      'success'
-    );
+    const taskName = task?.title ? `"${task.title}"` : 'Work';
+    toast({
+      title: 'Work deleted',
+      message: `${taskName} was deleted.`,
+      type: 'info'
+    });
 
     CURRENT_PAGE =
       1;
@@ -4259,12 +4261,22 @@ function bindModal() {
         closeModal();
 
 
-        toast(
-          isEdit
-            ? 'Task updated successfully'
-            : 'Task added successfully',
-          'success'
-        );
+        const taskName = payload.title ? payload.title.trim() : 'Work';
+        const course = (Array.isArray(COURSES_CACHE) ? COURSES_CACHE : []).find(c => String(c.id) === String(payload.course_id));
+        const courseLabel = course ? (course.code || course.name) : 'your work';
+        if (isEdit) {
+          toast({
+            title: 'Work edited',
+            message: `"${taskName}" updated.`,
+            type: 'success'
+          });
+        } else {
+          toast({
+            title: 'Work added',
+            message: `"${taskName}" was added to ${courseLabel}.`,
+            type: 'success'
+          });
+        }
 
 
         await loadTasks();
@@ -5026,7 +5038,13 @@ async function executeTaskCompletion(taskId) {
       })
     });
 
-    toast('Work marked as completed.', 'success');
+    const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
+    const taskName = matched?.title ? `"${matched.title}"` : 'Work';
+    toast({
+      title: 'Work completed',
+      message: `${taskName} has been marked complete.`,
+      type: 'success'
+    });
     closeCompleteTaskConfirmModal();
     await loadTasks();
   } catch (err) {
@@ -5041,6 +5059,10 @@ async function executeTaskCompletion(taskId) {
 async function handleUndoComplete(taskId) {
   if (!taskId) return;
   try {
+    const matched = (Array.isArray(ALL_LOADED_COMPLETED_TASKS) ? ALL_LOADED_COMPLETED_TASKS : []).find(t => String(t.id) === String(taskId))
+      || (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
+    const taskName = matched?.title ? `"${matched.title}"` : 'Work';
+
     await apiJson(`${API}/tasks.php`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -5050,7 +5072,11 @@ async function handleUndoComplete(taskId) {
         csrf_token: window.CSRF_TOKEN || ''
       })
     });
-    toast('Task moved back to active work.', 'info');
+    toast({
+      title: 'Work reopened',
+      message: `${taskName} is back in your active work.`,
+      type: 'info'
+    });
     await loadTasks();
   } catch (err) {
     console.error('Task undo error:', err);
@@ -5093,12 +5119,20 @@ async function executeDeleteCompletedTask(taskId) {
   const btn = getEl('confirm-delete-task');
   setButtonBusy(btn, true, 'Deleting…');
   try {
+    const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId))
+      || (Array.isArray(ALL_LOADED_COMPLETED_TASKS) ? ALL_LOADED_COMPLETED_TASKS : []).find(t => String(t.id) === String(taskId));
+    const taskName = matched?.title ? `"${matched.title}"` : 'Work';
+
     await apiJson(`${API}/tasks.php`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `id=${encodeURIComponent(taskId)}&csrf_token=${encodeURIComponent(window.CSRF_TOKEN || '')}`
     });
-    toast('Task deleted.', 'success');
+    toast({
+      title: 'Work deleted',
+      message: `${taskName} was deleted.`,
+      type: 'info'
+    });
     closeDeleteCompletedTaskModal();
     await loadTasks();
   } catch (err) {
@@ -5660,7 +5694,17 @@ async function handleTimerStop() {
 
       const humanDur = formatDurationHuman(finalSec);
       setTimerFeedback(`Session stopped. ${humanDur} recorded.`, 'info');
-      toast(`Study session stopped (${humanDur} recorded)`, 'info');
+      if (res.data.task_auto_completed) {
+        const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
+        const taskName = matched?.title ? `"${matched.title}"` : 'Work';
+        toast({
+          title: 'Work completed',
+          message: `${taskName} reached 100%.`,
+          type: 'success'
+        });
+      } else {
+        toast(`Study session stopped (${humanDur} recorded)`, 'info');
+      }
 
       if (taskId) {
         selectTaskForTimer(taskId, false);
@@ -5706,7 +5750,17 @@ async function handleTimerComplete() {
 
       const humanDur = formatDurationHuman(finalSec);
       setTimerFeedback(`Study session completed! ${humanDur} recorded.`, 'success');
-      toast(`Study session completed (${humanDur} recorded)`, 'success');
+      if (res.data.task_auto_completed) {
+        const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
+        const taskName = matched?.title ? `"${matched.title}"` : 'Work';
+        toast({
+          title: 'Work completed',
+          message: `${taskName} reached 100%.`,
+          type: 'success'
+        });
+      } else {
+        toast(`Study session completed (${humanDur} recorded)`, 'success');
+      }
 
       if (taskId) {
         selectTaskForTimer(taskId, false);

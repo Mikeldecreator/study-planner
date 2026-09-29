@@ -66,7 +66,11 @@ function dashboardFormatHours(value) {
 
 function dashboardShowToast(message, type = 'info') {
     if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
+        if (typeof message === 'object' && message !== null) {
+            window.showToast(message);
+        } else {
+            window.showToast(message, type);
+        }
     } else {
         console[type === 'error' ? 'error' : 'log'](message);
     }
@@ -2832,15 +2836,21 @@ function bindAddTask() {
                 }
 
 
-                closeAddTaskModal();
+                const courseSelect = form.elements['course_id'];
+                const selectedText = courseSelect && courseSelect.selectedIndex > 0
+                    ? courseSelect.options[courseSelect.selectedIndex].textContent.split('—')[0].trim()
+                    : '';
+                const courseTarget = selectedText || 'your work';
+                const taskName = payload.title ? payload.title.trim() : 'Work';
 
+                closeAddTaskModal();
                 form.reset();
 
-
-                dashboardShowToast(
-                    'Task added successfully.',
-                    'success'
-                );
+                dashboardShowToast({
+                    title: 'Work added',
+                    message: `"${taskName}" was added to ${courseTarget}.`,
+                    type: 'success'
+                });
 
 
                 /*

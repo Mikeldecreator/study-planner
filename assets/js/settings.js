@@ -81,10 +81,15 @@
             typeof window.showToast === 'function'
         ) {
 
-            window.showToast(
-                message,
-                type || 'info'
-            );
+            if (typeof message === 'object' && message !== null) {
+                window.showToast(message);
+            } else {
+                window.showToast({
+                    title: type === 'error' ? 'Attention' : 'Settings updated',
+                    message: message,
+                    type: type || 'info'
+                });
+            }
 
         } else {
 
