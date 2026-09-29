@@ -6,11 +6,28 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $apiKey = (string)(getenv('GEMINI_API_KEY') ?: (getenv('GOOGLE_API_KEY') ?: (getenv('GOOGLE_AI_API_KEY') ?: (getenv('AI_API_KEY') ?: ''))));
+$model = $_GET['model'] ?? 'gemini-2.5-flash';
 
-$ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models?key=' . urlencode($apiKey));
+$url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apiKey);
+
+$body = [
+    'contents' => [
+        [
+            'role' => 'user',
+            'parts' => [
+                ['text' => 'Hello! Say OK in one word.']
+            ]
+        ]
+    ]
+];
+
+$ch = curl_init($url);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => 15,
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => json_encode($body),
+    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    CURLOPT_TIMEOUT => 20,
     CURLOPT_SSL_VERIFYPEER => false,
 ]);
 $res = curl_exec($ch);
@@ -19,6 +36,7 @@ curl_close($ch);
 
 header('Content-Type: application/json');
 echo json_encode([
+    'model' => $model,
     'http_code' => $httpCode,
-    'models' => json_decode($res ?: '{}', true)
+    'response' => json_decode($res ?: '{}', true)
 ], JSON_PRETTY_PRINT);
