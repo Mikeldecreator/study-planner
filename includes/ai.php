@@ -168,15 +168,6 @@ function callGeminiAPI(
         'temperature'     => 0.2,
         'maxOutputTokens' => 1200,
     ];
-    if (str_starts_with($cleanModel, 'gemini-3')) {
-        $generationConfig['thinkingConfig'] = [
-            'thinkingLevel' => 'MINIMAL',
-        ];
-    } elseif (str_starts_with($cleanModel, 'gemini-2.5')) {
-        $generationConfig['thinkingConfig'] = [
-            'thinkingBudget' => 0,
-        ];
-    }
 
     $payload = [
         'system_instruction' => [
