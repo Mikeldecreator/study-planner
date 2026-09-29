@@ -25,6 +25,7 @@ define('VAPID_SUBJECT', getenv('VAPID_SUBJECT') ?: 'mailto:you@example.com');
 define('AI_PROVIDER', getenv('AI_PROVIDER') ?: 'gemini');
 define('AI_API_KEY', getenv('AI_API_KEY') ?: (getenv('GEMINI_API_KEY') ?: (getenv('GOOGLE_API_KEY') ?: (getenv('GOOGLE_AI_API_KEY') ?: (getenv('OPENAI_API_KEY') ?: '')))));
 define('AI_MODEL', getenv('AI_MODEL') ?: (getenv('AI_PROVIDER') === 'openai' ? 'gpt-4o-mini' : 'gemini-2.5-flash'));
+define('AI_TIMEOUT_SECONDS', (int) (getenv('AI_TIMEOUT_SECONDS') ?: 30));
 
 date_default_timezone_set('Africa/Lagos');
 

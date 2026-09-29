@@ -164,6 +164,20 @@ function callGeminiAPI(
     $contextJson = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     $promptText = "<academic_context>\n{$contextJson}\n</academic_context>\n\nStudent Question: {$userMessage}";
 
+    $generationConfig = [
+        'temperature'     => 0.2,
+        'maxOutputTokens' => 1200,
+    ];
+    if (str_starts_with($cleanModel, 'gemini-3')) {
+        $generationConfig['thinkingConfig'] = [
+            'thinkingLevel' => 'MINIMAL',
+        ];
+    } elseif (str_starts_with($cleanModel, 'gemini-2.5')) {
+        $generationConfig['thinkingConfig'] = [
+            'thinkingBudget' => 0,
+        ];
+    }
+
     $payload = [
         'system_instruction' => [
             'parts' => [
@@ -178,11 +192,10 @@ function callGeminiAPI(
                 ],
             ],
         ],
-        'generationConfig' => [
-            'temperature'     => 0.2,
-            'maxOutputTokens' => 1200,
-        ],
+        'generationConfig' => $generationConfig,
     ];
+
+    $effectiveTimeout = max(30, $timeout);
 
     $ch = curl_init($endpoint);
     curl_setopt_array($ch, [
@@ -193,7 +206,7 @@ function callGeminiAPI(
             'Content-Type: application/json',
             'x-goog-api-key: ' . $apiKey,
         ],
-        CURLOPT_TIMEOUT        => $timeout,
+        CURLOPT_TIMEOUT        => $effectiveTimeout,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
 
