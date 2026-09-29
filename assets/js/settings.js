@@ -1348,98 +1348,53 @@
 
 
     async function loadGoalData() {
-
-        const goal =
-            getGoal();
-
-
+        const goal = getGoal();
         let courses = [];
 
-
         try {
-
-            const data =
-                await fetchJson(
-                    `${API}/courses.php`
-                );
-
-
-            courses =
-                Array.isArray(
-                    data.courses
-                )
-                    ? data.courses
-                    : [];
-
+            const data = await fetchJson(`${API}/courses.php`);
+            courses = Array.isArray(data.courses) ? data.courses : [];
         } catch (error) {
-
-            console.warn(
-                'Could not load course goal data:',
-                error
-            );
-
+            console.warn('Could not load course goal data:', error);
         }
 
+        const weeklyInput = $('goal-weekly-hours');
+        if (weeklyInput && window.CURRENT_USER) {
+            weeklyInput.value = Number(window.CURRENT_USER.weekly_goal_hours || 15);
+        }
 
-        renderGoal(
-            goal,
-            courses
-        );
-
+        renderGoal(goal, courses);
     }
 
-
     async function submitGoal(event) {
-
         event.preventDefault();
 
+        const input = $('goal-input');
+        const targetInput = $('goal-target');
+        const weeklyInput = $('goal-weekly-hours');
 
-        const input =
-            $('goal-input');
-
-
-        const targetInput =
-            $('goal-target');
-
+        const weeklyHours = Math.max(1, Math.min(100, Number(weeklyInput?.value || 15)));
 
         const goal = {
-
-            title:
-                String(
-                    input?.value ||
-                    'Complete 5 courses this semester'
-                ).trim(),
-
-            target:
-                Math.max(
-                    1,
-                    Number(
-                        targetInput?.value ||
-                        5
-                    )
-                )
-
+            title: String(input?.value || 'Complete 5 courses this semester').trim(),
+            target: Math.max(1, Number(targetInput?.value || 5)),
+            weekly_goal_hours: weeklyHours
         };
 
+        saveGoal(goal);
 
-        saveGoal(
-            goal
-        );
-
+        try {
+            await savePreference({ weekly_goal_hours: weeklyHours });
+            if (window.CURRENT_USER) {
+                window.CURRENT_USER.weekly_goal_hours = weeklyHours;
+            }
+        } catch (err) {
+            console.warn('Could not persist weekly goal to database:', err);
+        }
 
         await loadGoalData();
-
-
-        closeModal(
-            goalModal
-        );
-
-
-        showToast(
-            'Academic goal updated.',
-            'success'
-        );
-
+        closeModal(goalModal);
+        showToast('Academic goal updated.', 'success');
     }
 
 
@@ -2711,140 +2666,47 @@ if (editTaglineButton) {
     ===================================================== */
 
     async function loadStats() {
+        try {
+            const data = await fetchJson(`${API}/settings.php`);
+            if (data && data.stats) {
+                const s = data.stats;
+                setCounter('stat-total-courses', s.total_courses ?? 0, '');
+                setCounter('stat-tasks-completed', s.tasks_completed ?? 0, '');
+                setCounter('stat-study-hours', s.study_hours ?? 0, 'h');
+                setCounter('stat-completion-rate', Math.round(s.completion_rate ?? 0), '%');
+                return;
+            }
+        } catch (err) {
+            console.warn('Direct settings stats fetch failed, falling back to aggregate:', err);
+        }
 
         try {
-
             const [
                 stats,
                 coursesData,
                 tasksData
-            ] =
-                await Promise.all([
-                    fetchJson(
-                        `${API}/stats.php`
-                    ),
-                    fetchJson(
-                        `${API}/courses.php`
-                    ),
-                    fetchJson(
-                        `${API}/tasks.php`
-                    )
-                ]);
+            ] = await Promise.all([
+                fetchJson(`${API}/stats.php`).catch(() => ({})),
+                fetchJson(`${API}/courses.php`).catch(() => ({ courses: [] })),
+                fetchJson(`${API}/tasks.php`).catch(() => ({ tasks: [] }))
+            ]);
 
+            const totalCourses = Array.isArray(coursesData.courses)
+                ? coursesData.courses.length
+                : Number(coursesData.summary?.total_courses || 0);
 
-            const totalCourses =
-                Array.isArray(
-                    coursesData.courses
-                )
-                    ? coursesData.courses.length
-                    : Number(
-                        coursesData.summary
-                            ?.total_courses ||
-                        0
-                    );
+            const completedTasks = Number(tasksData.summary?.completed || 0);
+            const totalTasks = Number(tasksData.summary?.total || 0);
+            const completionRate = totalTasks ? (completedTasks / totalTasks * 100) : 0;
+            const studyHours = Number(stats.study_hours || 0);
 
-
-            const completedTasks =
-                Number(
-                    tasksData.summary
-                        ?.completed ||
-                    0
-                );
-
-
-            let studyHours = 0;
-
-
-            if (
-                Array.isArray(
-                    tasksData.tasks
-                )
-            ) {
-
-                studyHours =
-                    tasksData.tasks.reduce(
-                        function (
-                            total,
-                            task
-                        ) {
-
-                            return (
-                                total +
-                                Number(
-                                    task.duration_hours ||
-                                    0
-                                )
-                            );
-
-                        },
-                        0
-                    );
-
-            }
-
-
-            const totalTasks =
-                Number(
-                    tasksData.summary
-                        ?.total ||
-                    0
-                );
-
-
-            const completionRate =
-                Number(
-                    stats.completion_rate ??
-                    (
-                        totalTasks
-                            ? (
-                                completedTasks /
-                                totalTasks *
-                                100
-                            )
-                            : 0
-                    )
-                );
-
-
-            setCounter(
-                'stat-total-courses',
-                totalCourses,
-                ''
-            );
-
-
-            setCounter(
-                'stat-tasks-completed',
-                completedTasks,
-                ''
-            );
-
-
-            setCounter(
-                'stat-study-hours',
-                studyHours,
-                'h'
-            );
-
-
-            setCounter(
-                'stat-completion-rate',
-                Math.round(
-                    completionRate
-                ),
-                '%'
-            );
-
-
+            setCounter('stat-total-courses', totalCourses, '');
+            setCounter('stat-tasks-completed', completedTasks, '');
+            setCounter('stat-study-hours', studyHours, 'h');
+            setCounter('stat-completion-rate', Math.round(completionRate), '%');
         } catch (error) {
-
-            console.error(
-                'Settings stats failed:',
-                error
-            );
-
+            console.error('Settings stats failed:', error);
         }
-
     }
 
 
@@ -3279,21 +3141,28 @@ if (editTaglineButton) {
             }
 
 
+            const restartTourBtn = $('restart-tour-btn');
+            if (restartTourBtn) {
+                restartTourBtn.addEventListener('click', () => {
+                    if (window.GuidedTour && typeof window.GuidedTour.start === 'function') {
+                        window.GuidedTour.start(0);
+                    } else {
+                        window.location.href = 'dashboard.php?tour=start';
+                    }
+                });
+            }
+
             await Promise.all([
                 loadStats(),
                 loadGoalData(),
                 refreshPushStatus()
             ]);
 
-
             if (
                 window.lucide &&
-                typeof window.lucide.createIcons ===
-                    'function'
+                typeof window.lucide.createIcons === 'function'
             ) {
-
                 window.lucide.createIcons();
-
             }
 
 

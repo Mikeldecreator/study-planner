@@ -9,65 +9,65 @@
   const TOUR_STEPS = [
     {
       target: '[data-nav="dashboard"]',
-      fallbackTarget: '#nav-home',
-      title: 'Welcome to Your Academic Home',
-      description: 'Think of this as your personal university hub. Here you get a daily briefing of your workload, today\'s schedule, and what needs your attention next.',
+      fallbackTarget: '#nav-home, a[href*="dashboard"]',
+      title: 'Welcome to Your Academic Hub 🎓',
+      description: 'Think of this as your personal university command center. Get a daily briefing of your active workload, today\'s classes, upcoming deadlines, and study pace right here.',
       position: 'right'
     },
     {
       target: '[data-nav="courses"]',
-      fallbackTarget: '#nav-courses',
-      title: 'My Courses',
-      description: 'All your registered subjects live here. View your course codes, credit units, lecturer details, and syllabus breakdown at any time.',
+      fallbackTarget: '#nav-courses, a[href*="courses"]',
+      title: 'Courses & Subject Catalog',
+      description: 'Keep all your enrolled courses, credit units, lecturer contacts, and syllabus materials organized in one place.',
       position: 'right'
     },
     {
       target: '[data-nav="schedule"]',
-      fallbackTarget: '#nav-schedule',
+      fallbackTarget: '#nav-schedule, a[href*="schedule"]',
       title: 'Class Timetable & Schedule',
-      description: 'Never miss a lecture or lab. Your weekly class schedule automatically shows you what is happening today and what classes are coming up next.',
+      description: 'Never miss a lecture or lab. Your weekly class schedule automatically highlights what is happening today and what class is coming up next.',
       position: 'right'
     },
     {
       target: '[data-nav="tasks"]',
-      fallbackTarget: '#nav-tasks',
-      title: 'Assignments, Projects & Tests',
-      description: 'Keep all your academic tasks organized in one place with automated priority ranking, progress tracking, and deadline countdowns.',
-      position: 'right'
-    },
-    {
-      target: '[data-nav="focus"]',
-      fallbackTarget: '#focus-timer-card',
-      title: 'Study Sessions & Focus Timer',
-      description: 'The built-in study timer helps you stay focused during study blocks and automatically logs your study hours toward your weekly academic goals.',
+      fallbackTarget: '#nav-tasks, a[href*="tasks"]',
+      title: 'Assignments, Projects & Workload',
+      description: 'Keep your academic deliverables on track. Prioritize tasks by urgency, break big projects into checklists, and log your progress.',
       position: 'right'
     },
     {
       target: '[data-nav="deadlines"]',
-      fallbackTarget: '#nav-deadlines',
-      title: 'Upcoming Deadlines',
-      description: 'Clear countdowns for upcoming assignments, tests, and exams so you always know how many days you have left to submit.',
+      fallbackTarget: '#nav-deadlines, a[href*="deadlines"]',
+      title: 'Due Soon & Deadlines',
+      description: 'Stay ahead of due dates. Live countdown timers show exactly how much time remains for submissions, tests, and upcoming exams.',
+      position: 'right'
+    },
+    {
+      target: '[data-nav="focus"]',
+      fallbackTarget: '#focus-timer-card, a[href*="study"]',
+      title: 'Focus Timer & Study Sessions',
+      description: 'Train deep academic focus with structured study sessions. Every minute logged here contributes directly to your weekly study goal.',
       position: 'right'
     },
     {
       target: '[data-nav="progress"]',
-      fallbackTarget: '#nav-progress',
-      title: 'Academic Standing & Progress',
-      description: 'Monitor your completion rates, weekly study streaks, and estimated GPA across the semester to stay on track for graduation.',
+      fallbackTarget: '#nav-progress, a[href*="progress"]',
+      title: 'Academic Progress & Analytics',
+      description: 'Watch your consistency pay off. Monitor completion rates, weekly study streaks, and subject distribution across the semester.',
       position: 'right'
     },
     {
       target: '[data-nav="notifications"]',
-      fallbackTarget: '#bell-btn',
-      title: 'Reminders & Alerts',
-      description: 'Receive gentle alerts when a deadline is approaching, a lecture is starting, or you have study goals to meet.',
+      fallbackTarget: '#bell-btn, #notification-bell, a[href*="notifications"]',
+      title: 'Notifications & Alerts',
+      description: 'Stay on top of what matters. Receive timely reminders for approaching deadlines, upcoming lectures, and study milestones.',
       position: 'right'
     },
     {
       target: '[data-nav="settings"]',
-      fallbackTarget: '#nav-settings',
-      title: 'Settings & Tour Replay',
-      description: 'Customize your dark mode, weekly study goal hours, notification preferences, or restart this guided tour whenever you need a refresher.',
+      fallbackTarget: '#nav-settings, a[href*="settings"]',
+      title: 'Settings, Goals & Tour Replay',
+      description: 'Tailor your experience: customize your weekly study hour target, adjust notification preferences, or restart this Smart Guide whenever you like.',
       position: 'right'
     }
   ];
@@ -79,12 +79,100 @@
       this.overlay = null;
       this.popover = null;
       this.highlight = null;
+      this.inviteModal = null;
+      this.sidebarWasOpened = false;
       this.boundKeyHandler = this.handleKeydown.bind(this);
       this.boundResizeHandler = this.reposition.bind(this);
     }
 
+    showInvitation() {
+      if (this.isActive || this.inviteModal || document.getElementById('tour-invitation-modal')) return;
+
+      const modal = document.createElement('div');
+      modal.id = 'tour-invitation-modal';
+      modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center p-4';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+
+      modal.innerHTML = `
+        <div id="tour-invite-backdrop" class="fixed inset-0 bg-[#071912]/70 backdrop-blur-sm transition-opacity duration-300"></div>
+        <div class="relative w-full max-w-md bg-white dark:bg-[#15231c] rounded-2xl shadow-2xl border border-emerald-500/30 p-6 text-gray-900 dark:text-gray-100 z-10 transition-all font-sans">
+          <div class="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl mb-4 shadow-inner">
+            🎓
+          </div>
+          <h3 class="text-lg sm:text-xl font-bold mb-2 text-gray-900 dark:text-gray-100 leading-snug">
+            Welcome! Would you like a quick tour of your Study Planner?
+          </h3>
+          <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
+            Let's take a friendly 1-minute walk through your courses, timetable, task priorities, focus timer, and progress analytics to help you get the most out of your semester.
+          </p>
+          <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100 dark:border-white/10">
+            <button id="tour-invite-skip" type="button" class="px-4 py-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition">
+              Skip
+            </button>
+            <button id="tour-invite-start" type="button" class="px-5 py-2 text-xs sm:text-sm font-semibold bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl shadow-md transition flex items-center gap-1.5">
+              <span>Start Tour</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+      this.inviteModal = modal;
+
+      const dismissModal = (shouldPersist = false) => {
+        if (this.inviteModal) {
+          this.inviteModal.remove();
+          this.inviteModal = null;
+        }
+        if (shouldPersist) {
+          this.persistCompletion();
+        }
+      };
+
+      const startBtn = modal.querySelector('#tour-invite-start');
+      const skipBtn = modal.querySelector('#tour-invite-skip');
+      const backdrop = modal.querySelector('#tour-invite-backdrop');
+
+      if (startBtn) {
+        startBtn.focus();
+        startBtn.addEventListener('click', () => {
+          dismissModal(false);
+          this.start(0);
+        });
+      }
+
+      if (skipBtn) {
+        skipBtn.addEventListener('click', () => {
+          dismissModal(true);
+        });
+      }
+
+      if (backdrop) {
+        backdrop.addEventListener('click', () => {
+          dismissModal(true);
+        });
+      }
+
+      const escHandler = (e) => {
+        if (e.key === 'Escape' && this.inviteModal) {
+          document.removeEventListener('keydown', escHandler);
+          dismissModal(true);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+    }
+
     async start(startStep = 0) {
-      if (this.isActive) return;
+      if (this.isActive) {
+        this.cleanup();
+      }
+
+      if (this.inviteModal) {
+        this.inviteModal.remove();
+        this.inviteModal = null;
+      }
 
       // Ensure sidebar is loaded before targeting sidebar navigation elements
       const maxWait = 25; // 2.5 seconds max
@@ -95,7 +183,7 @@
       }
 
       this.isActive = true;
-      this.currentStep = startStep;
+      this.currentStep = Math.max(0, Math.min(startStep, TOUR_STEPS.length - 1));
 
       // Ensure mobile sidebar is accessible or visible if target is in sidebar
       this.ensureSidebarVisible();
@@ -111,7 +199,10 @@
     ensureSidebarVisible() {
       const sidebar = document.getElementById('app-sidebar');
       if (sidebar && window.innerWidth < 1280) {
-        sidebar.classList.remove('-translate-x-full');
+        if (sidebar.classList.contains('-translate-x-full')) {
+          sidebar.classList.remove('-translate-x-full');
+          this.sidebarWasOpened = true;
+        }
       }
     }
 
@@ -119,20 +210,20 @@
       // Backdrop Overlay
       this.overlay = document.createElement('div');
       this.overlay.id = 'tour-backdrop-overlay';
-      this.overlay.className = 'fixed inset-0 z-50 pointer-events-auto transition-opacity duration-300';
+      this.overlay.className = 'fixed inset-0 z-[9990] pointer-events-auto transition-opacity duration-300';
       this.overlay.style.backgroundColor = 'rgba(7, 25, 18, 0.65)';
       this.overlay.style.backdropFilter = 'blur(2px)';
 
       // Spotlight Box
       this.highlight = document.createElement('div');
       this.highlight.id = 'tour-highlight-box';
-      this.highlight.className = 'fixed z-50 pointer-events-none rounded-xl transition-all duration-300';
-      this.highlight.style.boxShadow = '0 0 0 4px #10b981, 0 0 25px rgba(16, 185, 129, 0.45)';
+      this.highlight.className = 'fixed z-[9992] pointer-events-none rounded-xl transition-all duration-300';
+      this.highlight.style.boxShadow = '0 0 0 3px #10b981, 0 0 25px rgba(16, 185, 129, 0.45)';
 
       // Popover Card
       this.popover = document.createElement('div');
       this.popover.id = 'tour-popover-card';
-      this.popover.className = 'fixed z-50 w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white dark:bg-[#15231c] text-gray-900 dark:text-gray-100 rounded-2xl shadow-2xl border border-emerald-500/30 p-5 transition-all duration-300 font-sans';
+      this.popover.className = 'fixed z-[9995] w-80 sm:w-96 max-w-[calc(100vw-32px)] bg-white dark:bg-[#15231c] text-gray-900 dark:text-gray-100 rounded-2xl shadow-2xl border border-emerald-500/30 p-5 transition-all duration-300 font-sans';
       this.popover.setAttribute('role', 'dialog');
       this.popover.setAttribute('aria-modal', 'true');
 
@@ -144,7 +235,11 @@
     resolveTarget(step) {
       let el = document.querySelector(step.target);
       if (!el && step.fallbackTarget) {
-        el = document.querySelector(step.fallbackTarget);
+        const fallbacks = step.fallbackTarget.split(',').map(s => s.trim());
+        for (const sel of fallbacks) {
+          el = document.querySelector(sel);
+          if (el) break;
+        }
       }
       return el;
     }
@@ -176,7 +271,7 @@
       }
 
       // Scroll target into view
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
 
       // Highlight positioning
       setTimeout(() => {
@@ -261,22 +356,52 @@
 
       const rect = targetEl.getBoundingClientRect();
       const pad = 6;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
 
       // Position highlight box
-      this.highlight.style.top = `${Math.max(0, rect.top - pad)}px`;
-      this.highlight.style.left = `${Math.max(0, rect.left - pad)}px`;
-      this.highlight.style.width = `${rect.width + pad * 2}px`;
-      this.highlight.style.height = `${rect.height + pad * 2}px`;
+      const hlLeft = Math.max(0, rect.left - pad);
+      const hlTop = Math.max(0, rect.top - pad);
+      const hlWidth = Math.min(rect.width + pad * 2, viewportWidth - hlLeft - 4);
+      const hlHeight = rect.height + pad * 2;
+
+      this.highlight.style.top = `${hlTop}px`;
+      this.highlight.style.left = `${hlLeft}px`;
+      this.highlight.style.width = `${hlWidth}px`;
+      this.highlight.style.height = `${hlHeight}px`;
 
       // Position popover card
       const popoverRect = this.popover.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
+
+      // Mobile Layout (< 640px): dock cleanly top or bottom
+      if (viewportWidth < 640) {
+        this.popover.style.left = '16px';
+        this.popover.style.right = '16px';
+        this.popover.style.width = 'auto';
+        this.popover.style.maxWidth = 'none';
+
+        const targetCenterY = rect.top + rect.height / 2;
+        if (targetCenterY < viewportHeight / 2) {
+          // Target in upper half -> place popover near bottom
+          this.popover.style.top = 'auto';
+          this.popover.style.bottom = '16px';
+        } else {
+          // Target in lower half -> place popover near top
+          this.popover.style.top = '16px';
+          this.popover.style.bottom = 'auto';
+        }
+        return;
+      }
+
+      // Tablet / Desktop Layout
+      this.popover.style.right = 'auto';
+      this.popover.style.bottom = 'auto';
+      this.popover.style.maxWidth = 'calc(100vw - 32px)';
 
       let top = rect.bottom + 14;
       let left = rect.left;
 
-      // If sidebar link on desktop, place to the right
+      // If sidebar link on desktop, place to the right of the sidebar
       if (rect.left < 280 && rect.width < 280 && viewportWidth >= 768) {
         top = Math.max(16, rect.top);
         left = rect.right + 18;
@@ -369,6 +494,14 @@
       if (this.popover) {
         this.popover.remove();
         this.popover = null;
+      }
+
+      if (this.sidebarWasOpened && window.innerWidth < 1280) {
+        const sidebar = document.getElementById('app-sidebar');
+        if (sidebar) {
+          sidebar.classList.add('-translate-x-full');
+        }
+        this.sidebarWasOpened = false;
       }
     }
 
@@ -491,7 +624,7 @@
         // Check if URL has ?tour=start
         const params = new URLSearchParams(window.location.search);
         if (params.get('tour') === 'start') {
-          setTimeout(() => window.GuidedTour.start(), 400);
+          setTimeout(() => window.GuidedTour.start(0), 400);
           return;
         }
 
@@ -500,7 +633,7 @@
         if (!isTourDone) {
           const page = document.body.dataset.page || '';
           if (page === 'dashboard' || window.location.pathname.endsWith('dashboard.php') || window.location.pathname.endsWith('/')) {
-            setTimeout(() => window.GuidedTour.start(), 800);
+            setTimeout(() => window.GuidedTour.showInvitation(), 600);
           }
         }
 

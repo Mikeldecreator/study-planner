@@ -245,7 +245,6 @@ requirePageLogin();
                 class="notification-tab is-active px-4 py-4 text-sm font-semibold border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400"
               >
                 All
-
                 <span
                   data-tab-count="all"
                   class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[11px]"
@@ -254,14 +253,12 @@ requirePageLogin();
                 </span>
               </button>
 
-
               <button
                 type="button"
                 data-notification-tab="unread"
                 class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Unread
-
                 <span
                   data-tab-count="unread"
                   class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
@@ -270,30 +267,12 @@ requirePageLogin();
                 </span>
               </button>
 
-
-              <button
-                type="button"
-                data-notification-tab="system"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
-              >
-                System
-
-                <span
-                  data-tab-count="system"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
-                >
-                  0
-                </span>
-              </button>
-
-
               <button
                 type="button"
                 data-notification-tab="academic"
                 class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Academic
-
                 <span
                   data-tab-count="academic"
                   class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
@@ -302,16 +281,56 @@ requirePageLogin();
                 </span>
               </button>
 
+              <button
+                type="button"
+                data-notification-tab="deadline"
+                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+              >
+                Deadline
+                <span
+                  data-tab-count="deadline"
+                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                >
+                  0
+                </span>
+              </button>
 
               <button
                 type="button"
-                data-notification-tab="reminders"
+                data-notification-tab="class"
                 class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
-                Reminders
-
+                Class
                 <span
-                  data-tab-count="reminders"
+                  data-tab-count="class"
+                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                >
+                  0
+                </span>
+              </button>
+
+              <button
+                type="button"
+                data-notification-tab="study"
+                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+              >
+                Study
+                <span
+                  data-tab-count="study"
+                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                >
+                  0
+                </span>
+              </button>
+
+              <button
+                type="button"
+                data-notification-tab="general"
+                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+              >
+                General
+                <span
+                  data-tab-count="general"
                   class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
                 >
                   0
@@ -390,12 +409,31 @@ requirePageLogin();
 
                 <span
                   data-filter-count="all"
-                  class="text-xs text-[#58766F] dark:text-gray-400"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
                 >
                   0
                 </span>
               </label>
 
+              <label
+                class="flex items-center justify-between gap-3 px-1 py-2.5 cursor-pointer rounded-lg hover:bg-emerald-50/50 dark:hover:bg-white/[0.03]"
+              >
+                <span class="flex items-center gap-2.5 text-sm">
+                  <input
+                    type="checkbox"
+                    data-notification-filter="unread"
+                    class="accent-emerald-600 w-4 h-4"
+                  >
+                  Unread
+                </span>
+
+                <span
+                  data-filter-count="unread"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
+                >
+                  0
+                </span>
+              </label>
 
               <label
                 class="flex items-center justify-between gap-3 px-1 py-2.5 cursor-pointer rounded-lg hover:bg-emerald-50/50 dark:hover:bg-white/[0.03]"
@@ -411,12 +449,11 @@ requirePageLogin();
 
                 <span
                   data-filter-count="academic"
-                  class="text-xs text-[#58766F] dark:text-gray-400"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
                 >
                   0
                 </span>
               </label>
-
 
               <label
                 class="flex items-center justify-between gap-3 px-1 py-2.5 cursor-pointer rounded-lg hover:bg-emerald-50/50 dark:hover:bg-white/[0.03]"
@@ -424,20 +461,19 @@ requirePageLogin();
                 <span class="flex items-center gap-2.5 text-sm">
                   <input
                     type="checkbox"
-                    data-notification-filter="reminders"
+                    data-notification-filter="deadline"
                     class="accent-emerald-600 w-4 h-4"
                   >
-                  Reminders
+                  Deadlines & Urgent
                 </span>
 
                 <span
-                  data-filter-count="reminders"
-                  class="text-xs text-[#58766F] dark:text-gray-400"
+                  data-filter-count="deadline"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
                 >
                   0
                 </span>
               </label>
-
 
               <label
                 class="flex items-center justify-between gap-3 px-1 py-2.5 cursor-pointer rounded-lg hover:bg-emerald-50/50 dark:hover:bg-white/[0.03]"
@@ -445,20 +481,19 @@ requirePageLogin();
                 <span class="flex items-center gap-2.5 text-sm">
                   <input
                     type="checkbox"
-                    data-notification-filter="system"
+                    data-notification-filter="class"
                     class="accent-emerald-600 w-4 h-4"
                   >
-                  System
+                  Class Reminders
                 </span>
 
                 <span
-                  data-filter-count="system"
-                  class="text-xs text-[#58766F] dark:text-gray-400"
+                  data-filter-count="class"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
                 >
                   0
                 </span>
               </label>
-
 
               <label
                 class="flex items-center justify-between gap-3 px-1 py-2.5 cursor-pointer rounded-lg hover:bg-emerald-50/50 dark:hover:bg-white/[0.03]"
@@ -466,15 +501,35 @@ requirePageLogin();
                 <span class="flex items-center gap-2.5 text-sm">
                   <input
                     type="checkbox"
-                    data-notification-filter="updates"
+                    data-notification-filter="study"
                     class="accent-emerald-600 w-4 h-4"
                   >
-                  Updates
+                  Study & Goals
                 </span>
 
                 <span
-                  data-filter-count="updates"
-                  class="text-xs text-[#58766F] dark:text-gray-400"
+                  data-filter-count="study"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
+                >
+                  0
+                </span>
+              </label>
+
+              <label
+                class="flex items-center justify-between gap-3 px-1 py-2.5 cursor-pointer rounded-lg hover:bg-emerald-50/50 dark:hover:bg-white/[0.03]"
+              >
+                <span class="flex items-center gap-2.5 text-sm">
+                  <input
+                    type="checkbox"
+                    data-notification-filter="general"
+                    class="accent-emerald-600 w-4 h-4"
+                  >
+                  General & Other
+                </span>
+
+                <span
+                  data-filter-count="general"
+                  class="text-xs text-[#58766F] dark:text-gray-400 font-semibold"
                 >
                   0
                 </span>
