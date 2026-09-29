@@ -121,16 +121,31 @@ async function loadReport() {
     const apiBase = typeof API !== 'undefined' ? API : (window.API || '../api');
 
     /*
-     * Existing Reports API.
+     * Fetch Reports, Stats, and Courses APIs in parallel for speed.
      */
-    const reportRes =
-      await fetch(
+    const [reportRes, statsRes, coursesRes] = await Promise.all([
+      fetch(
         `${apiBase}/reports.php?range=${range}`,
         {
           credentials: 'same-origin',
           headers: { 'Accept': 'application/json' }
         }
-      );
+      ),
+      fetch(`${apiBase}/stats.php`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      }).catch(e => {
+        console.warn('Stats fetch non-critical failure:', e);
+        return null;
+      }),
+      fetch(`${apiBase}/courses.php`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      }).catch(e => {
+        console.warn('Courses fetch non-critical failure:', e);
+        return null;
+      })
+    ]);
 
     if (!reportRes.ok) {
       throw new Error(
@@ -141,37 +156,11 @@ async function loadReport() {
     const report =
       await reportRes.json();
 
+    const stats =
+      statsRes && statsRes.ok ? await statsRes.json() : null;
 
-    /*
-     * Existing Stats API.
-     */
-    let stats = null;
-    try {
-      const statsRes =
-        await fetch(`${apiBase}/stats.php`, {
-          credentials: 'same-origin',
-          headers: { 'Accept': 'application/json' }
-        });
-      stats = statsRes.ok ? await statsRes.json() : null;
-    } catch (e) {
-      console.warn('Stats fetch non-critical failure:', e);
-    }
-
-
-    /*
-     * Existing Courses API.
-     */
-    let coursesData = null;
-    try {
-      const coursesRes =
-        await fetch(`${apiBase}/courses.php`, {
-          credentials: 'same-origin',
-          headers: { 'Accept': 'application/json' }
-        });
-      coursesData = coursesRes.ok ? await coursesRes.json() : null;
-    } catch (e) {
-      console.warn('Courses fetch non-critical failure:', e);
-    }
+    const coursesData =
+      coursesRes && coursesRes.ok ? await coursesRes.json() : null;
 
 
     try { renderReportLabel(report); } catch (e) { console.warn('renderReportLabel error:', e); }
