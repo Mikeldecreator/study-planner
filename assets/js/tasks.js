@@ -4607,13 +4607,18 @@ function bindImport() {
           });
         }
 
-        const data = await res.json().catch(() => ({}));
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseErr) {
+          data = {};
+        }
         if (!res.ok || !data.ok) {
-          let errMsg = data.error || "We couldn't extract academic work from this document.";
+          let errMsg = data.error || `Server returned HTTP ${res.status}. We couldn't extract academic work from this document.`;
           if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
-            errMsg = `<strong>Scanned PDF Detected:</strong> ${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-work-fallback').click()" class="underline font-bold">Add Work Manually &rarr;</button></div>`;
+            errMsg = `<strong>Scanned PDF Detected:</strong> ${data.error || "Document is scanned."} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-work-fallback').click()" class="underline font-bold">Add Work Manually &rarr;</button></div>`;
           } else if (data.manual_entry) {
-            errMsg = `${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-work-fallback').click()" class="underline font-bold">Add Work Manually &rarr;</button></div>`;
+            errMsg = `${data.error || errMsg} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-work-fallback').click()" class="underline font-bold">Add Work Manually &rarr;</button></div>`;
           }
           if (errorBox) {
             errorBox.innerHTML = errMsg;
@@ -4656,34 +4661,50 @@ function bindImport() {
 
       const rows = reviewTbody?.querySelectorAll('tr') || [];
       const itemsToSave = [];
+      let undatedCount = 0;
       rows.forEach(tr => {
         const title = (tr.querySelector('input[data-field="title"]')?.value || '').trim();
         const courseIdVal = tr.querySelector('select[data-field="course_id"]')?.value || '';
         const code = (tr.querySelector('input[data-field="course_code"]')?.value || '').trim();
         const type = tr.querySelector('select[data-field="type"]')?.value || 'assignment';
-        const dueDate = tr.querySelector('input[data-field="due_date"]')?.value || '';
+        const dateInput = tr.querySelector('input[data-field="due_date"]');
+        const dueDate = (dateInput?.value || '').trim();
         const dueTime = tr.querySelector('input[data-field="due_time"]')?.value || '23:59';
         const priority = tr.querySelector('select[data-field="priority"]')?.value || 'medium';
 
         if (title) {
-          itemsToSave.push({
-            title,
-            course_id: courseIdVal ? Number(courseIdVal) : null,
-            course_code: code,
-            type,
-            due_date: dueDate,
-            due_time: dueTime.length === 5 ? dueTime + ':00' : dueTime,
-            priority
-          });
+          if (!dueDate) {
+            undatedCount++;
+            dateInput?.classList.add('border-amber-500', 'ring-1', 'ring-amber-500');
+          } else {
+            dateInput?.classList.remove('border-amber-500', 'ring-1', 'ring-amber-500');
+            itemsToSave.push({
+              title,
+              course_id: courseIdVal ? Number(courseIdVal) : null,
+              course_code: code,
+              type,
+              due_date: dueDate,
+              due_time: dueTime.length === 5 ? dueTime + ':00' : dueTime,
+              priority
+            });
+          }
         }
       });
 
       if (itemsToSave.length === 0) {
         if (reviewError) {
-          reviewError.textContent = 'Please provide at least one work item with a title.';
+          reviewError.textContent = undatedCount > 0
+            ? 'Due date is required for each task before saving. Please pick a deadline for the highlighted items.'
+            : 'Please provide at least one work item with a title and due date.';
           reviewError.classList.remove('hidden');
         }
         return;
+      }
+
+      if (undatedCount > 0) {
+        if (!confirm(`${undatedCount} task(s) do not have a due date set and will be skipped. Continue importing the remaining ${itemsToSave.length} task(s)?`)) {
+          return;
+        }
       }
 
       confirmBtn.disabled = true;

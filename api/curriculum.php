@@ -1,4 +1,5 @@
 <?php
+ob_start();
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -9,10 +10,17 @@ $userId = currentUserId();
 $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
-function curriculumJsonError(string $message, int $status = 400): never {
+function curriculumJson(array $data, int $status = 200): never {
+    if (ob_get_length()) {
+        ob_clean();
+    }
     http_response_code($status);
-    echo json_encode(['ok' => false, 'error' => $message]);
+    echo json_encode($data);
     exit;
+}
+
+function curriculumJsonError(string $message, int $status = 400, array $extra = []): never {
+    curriculumJson(array_merge(['ok' => false, 'error' => $message], $extra), $status);
 }
 
 try {
@@ -109,7 +117,7 @@ try {
                     $diagnostics = $procResult['diagnostics'] ?? [];
 
                     if (!empty($procResult['is_scanned'])) {
-                        echo json_encode([
+                        curriculumJson([
                             'ok'           => false,
                             'error_code'   => 'SCANNED_PDF_NO_OCR',
                             'error'        => "This document appears to be a scanned PDF. We couldn't read its text automatically. You can try another document or enter the calendar manually.",
@@ -117,7 +125,6 @@ try {
                             'manual_entry' => true,
                             'diagnostics'  => $diagnostics,
                         ]);
-                        exit;
                     }
                 } elseif (!empty($body['text'])) {
                     $procResult = DocumentProcessor::extract((string) $body['text'], 'pasted_text.txt');
@@ -126,24 +133,22 @@ try {
                 }
 
                 if (trim($extractedText) === '' || strlen(trim($extractedText)) < 15) {
-                    echo json_encode([
+                    curriculumJson([
                         'ok'           => false,
                         'error_code'   => 'EMPTY_EXTRACTION',
                         'error'        => "We couldn't read this file. Try another document or enter the information manually.",
                         'manual_entry' => true,
                         'diagnostics'  => $diagnostics,
                     ]);
-                    exit;
                 }
 
                 $parsed = DocumentProcessor::parseCurriculum($extractedText);
-                echo json_encode([
+                curriculumJson([
                     'ok'          => true,
                     'extracted'   => $parsed,
                     'preview'     => substr(trim($extractedText), 0, 200),
                     'diagnostics' => $diagnostics,
                 ]);
-                break;
             }
 
             // ----------------------------------------------------------------
@@ -207,7 +212,12 @@ try {
                     foreach ($weeks as $idx => $w) {
                         $wNum = isset($w['week_number']) ? (int) $w['week_number'] : ($idx + 1);
                         $label = trim((string) ($w['label'] ?? "Week {$wNum}"));
-                        $type = in_array($w['week_type'] ?? '', $validTypes, true) ? $w['week_type'] : 'teaching';
+                        $rawType = strtolower(trim((string) ($w['week_type'] ?? 'teaching')));
+                        if ($rawType === 'orientation') {
+                            $rawType = 'other'; // Map orientation to other to comply with MySQL schema
+                        }
+                        $dbValidTypes = ['teaching', 'student_week', 'revision', 'exam', 'break', 'other'];
+                        $type = in_array($rawType, $dbValidTypes, true) ? $rawType : 'teaching';
                         $wStart = !empty($w['start_date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $w['start_date']) ? $w['start_date'] : $startDate;
                         $wEnd = !empty($w['end_date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $w['end_date']) ? $w['end_date'] : $endDate;
                         $notes = !empty($w['notes']) ? trim((string) $w['notes']) : null;
@@ -245,13 +255,12 @@ try {
                     $db->commit();
                     logActivity($userId, "Semester calendar added: {$name}", 'success');
 
-                    echo json_encode([
+                    curriculumJson([
                         'ok'          => true,
                         'semester_id' => $semesterId,
                         'message'     => 'Semester calendar saved successfully.',
                         'context'     => getSemesterContext($db, $userId),
                     ]);
-                    break;
                 } catch (Throwable $e) {
                     $db->rollBack();
                     throw $e;

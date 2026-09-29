@@ -1,4 +1,5 @@
 <?php
+ob_start();
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -9,10 +10,17 @@ $userId = currentUserId();
 $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
-function courseImportJsonError(string $message, int $status = 400): never {
+function courseImportJson(array $data, int $status = 200): never {
+    if (ob_get_length()) {
+        ob_clean();
+    }
     http_response_code($status);
-    echo json_encode(['ok' => false, 'error' => $message]);
+    echo json_encode($data);
     exit;
+}
+
+function courseImportJsonError(string $message, int $status = 400, array $extra = []): never {
+    courseImportJson(array_merge(['ok' => false, 'error' => $message], $extra), $status);
 }
 
 if ($method !== 'POST') {
@@ -57,7 +65,7 @@ try {
             $diagnostics = $procResult['diagnostics'] ?? [];
 
             if (!empty($procResult['is_scanned'])) {
-                echo json_encode([
+                courseImportJson([
                     'ok'           => false,
                     'error_code'   => 'SCANNED_PDF_NO_OCR',
                     'error'        => "This document appears to be a scanned PDF. We couldn't read its text automatically. You can try another document or enter your courses manually.",
@@ -65,7 +73,6 @@ try {
                     'manual_entry' => true,
                     'diagnostics'  => $diagnostics,
                 ]);
-                exit;
             }
         } elseif (!empty($body['text'])) {
             $procResult = DocumentProcessor::extract((string) $body['text'], 'pasted_text.txt');
@@ -74,19 +81,18 @@ try {
         }
 
         if (trim($extractedText) === '' || strlen(trim($extractedText)) < 10) {
-            echo json_encode([
+            courseImportJson([
                 'ok'           => false,
                 'error_code'   => 'EMPTY_EXTRACTION',
                 'error'        => "We couldn't read any text from this file. Try another document or add your courses manually.",
                 'manual_entry' => true,
                 'diagnostics'  => $diagnostics,
             ]);
-            exit;
         }
 
         $courses = DocumentProcessor::parseCourses($extractedText, $db, $userId);
         if (empty($courses)) {
-            echo json_encode([
+            courseImportJson([
                 'ok'           => false,
                 'error_code'   => 'NO_ITEMS_FOUND',
                 'error'        => "We couldn't identify course codes in this document. Please check the file or add courses manually.",
@@ -94,7 +100,6 @@ try {
                 'manual_entry' => true,
                 'diagnostics'  => $diagnostics,
             ]);
-            exit;
         }
 
         // Check which courses the student already has
@@ -107,14 +112,13 @@ try {
         }
         unset($c);
 
-        echo json_encode([
+        courseImportJson([
             'ok'          => true,
             'courses'     => $courses,
             'items'       => $courses,
             'found_count' => count($courses),
             'diagnostics' => $diagnostics,
         ]);
-        exit;
     }
 
     // ----------------------------------------------------------------
@@ -145,6 +149,11 @@ try {
             $defaultSemester = (string) ($semStmt->fetchColumn() ?: '');
         }
 
+        // Fetch known user semesters for canonical association
+        $knownSemStmt = $db->prepare('SELECT name FROM semesters WHERE user_id = ?');
+        $knownSemStmt->execute([$userId]);
+        $knownSemesters = $knownSemStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
         $imported = 0;
         $skipped = 0;
         $addedNames = [];
@@ -156,6 +165,29 @@ try {
             $semester = trim((string) ($course['semester'] ?? ''));
             if ($semester === '') {
                 $semester = $defaultSemester;
+            }
+
+            // Canonical semester normalization: preserve relationship and fit VARCHAR(30)
+            if ($semester !== '') {
+                foreach ($knownSemesters as $kSem) {
+                    if (stripos($semester, $kSem) !== false || stripos($kSem, $semester) !== false) {
+                        $semester = $kSem;
+                        break;
+                    }
+                }
+                if (mb_strlen($semester, 'UTF-8') > 30) {
+                    if (stripos($semester, 'Second') !== false) {
+                        $semester = preg_match('/\b(\d{4}\/\d{4}|\d{2}\/\d{2})\b/', $semester, $sm)
+                            ? 'Second Sem ' . $sm[1]
+                            : 'Second Semester';
+                    } elseif (stripos($semester, 'First') !== false) {
+                        $semester = preg_match('/\b(\d{4}\/\d{4}|\d{2}\/\d{2})\b/', $semester, $sm)
+                            ? 'First Sem ' . $sm[1]
+                            : 'First Semester';
+                    } else {
+                        $semester = mb_substr($semester, 0, 30, 'UTF-8');
+                    }
+                }
             }
 
             if ($code === '' || $name === '') {
@@ -190,14 +222,13 @@ try {
             logActivity($userId, "Added {$imported} courses from course registration form: " . implode(', ', array_slice($addedNames, 0, 4)), 'success');
         }
 
-        echo json_encode([
+        courseImportJson([
             'ok'             => true,
             'imported_count' => $imported,
             'skipped_count'  => $skipped,
             'total'          => count($courses),
             'message'        => "{$imported} course(s) successfully added to your courses.",
         ]);
-        exit;
     }
 
     courseImportJsonError('Invalid action specified.', 422);

@@ -512,12 +512,21 @@ async function handleExtractCourses() {
       });
     }
 
-    const data = await res.json().catch(() => ({}));
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      data = {};
+    }
+
     if (!res.ok || !data.ok) {
       if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
         throw new Error(data.error || "This document appears to be a scanned image or photo. Please paste the course list into the text box below or add them manually.");
       }
-      throw new Error(data.error || "We couldn't extract courses from this file. Try another document or add courses manually.");
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      throw new Error(`Server returned HTTP ${res.status}. We couldn't extract courses from this file. Try another document or add courses manually.`);
     }
 
     reviewedCoursesList = Array.isArray(data.courses) ? data.courses : (Array.isArray(data.items) ? data.items : []);
@@ -847,9 +856,21 @@ async function handleExtractCurriculum() {
       });
     }
 
-    const data = await res.json().catch(() => ({}));
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      data = {};
+    }
+
     if (!res.ok || !data.ok) {
-      throw new Error(data.error || "We couldn't read this file. Try another document or enter the information manually.");
+      if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
+        throw new Error(data.error || "This document appears to be a scanned image or photo. Please enter the calendar manually.");
+      }
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      throw new Error(`Server returned HTTP ${res.status}. We couldn't read this calendar file.`);
     }
 
     const ext = data.extracted || {};

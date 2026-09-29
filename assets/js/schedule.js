@@ -5000,13 +5000,18 @@ function initImportTimetableModal() {
                     });
                 }
 
-                const data = await res.json().catch(() => ({}));
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    data = {};
+                }
                 if (!res.ok || !data.ok) {
-                    let errMsg = data.error || "We couldn't extract class schedules from this document.";
+                    let errMsg = data.error || `Server returned HTTP ${res.status}. We couldn't extract class schedules from this document.`;
                     if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
-                        errMsg = `<strong>Scanned PDF Detected:</strong> ${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-class-fallback').click()" class="underline font-bold">Add Classes Manually &rarr;</button></div>`;
+                        errMsg = `<strong>Scanned PDF Detected:</strong> ${data.error || "Document is scanned."} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-class-fallback').click()" class="underline font-bold">Add Classes Manually &rarr;</button></div>`;
                     } else if (data.manual_entry) {
-                        errMsg = `${data.error} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-class-fallback').click()" class="underline font-bold">Add Classes Manually &rarr;</button></div>`;
+                        errMsg = `${data.error || errMsg} <div class="mt-2"><button type="button" onclick="document.getElementById('open-manual-class-fallback').click()" class="underline font-bold">Add Classes Manually &rarr;</button></div>`;
                     }
                     if (errorBox) {
                         errorBox.innerHTML = errMsg;

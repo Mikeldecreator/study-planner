@@ -1,4 +1,5 @@
 <?php
+ob_start();
 /**
  * Universal Academic Document Import API Endpoint
  * 
@@ -25,6 +26,9 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 function docImportJson(array $payload, int $status = 200): never {
+    if (ob_get_length()) {
+        ob_clean();
+    }
     http_response_code($status);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
@@ -334,13 +338,17 @@ try {
                 );
 
                 $validTypes = ['teaching', 'student_week', 'break', 'revision', 'exam', 'orientation', 'other'];
+                $dbValidTypes = ['teaching', 'student_week', 'revision', 'exam', 'break', 'other'];
                 $savedWeeksCount = 0;
 
                 foreach ($weeks as $idx => $w) {
                     $wNum = max(1, min(52, (int) ($w['week_number'] ?? ($idx + 1))));
                     $label = trim((string) ($w['label'] ?? "Teaching Week {$wNum}"));
                     $wType = strtolower(trim((string) ($w['week_type'] ?? 'teaching')));
-                    if (!in_array($wType, $validTypes, true)) $wType = 'teaching';
+                    if ($wType === 'orientation') {
+                        $wType = 'other'; // Map orientation to other to comply with DB schema
+                    }
+                    if (!in_array($wType, $dbValidTypes, true)) $wType = 'teaching';
 
                     $wStart = trim((string) ($w['start_date'] ?? ''));
                     $wEnd = trim((string) ($w['end_date'] ?? ''));
@@ -569,14 +577,17 @@ try {
                     $priority = strtolower(trim((string) ($task['priority'] ?? 'medium')));
                     if (!in_array($priority, $validPriorities, true)) $priority = 'medium';
 
-                    // Due At (datetime)
+                    // Due At (datetime) - Database tasks.due_at is NOT NULL
                     $dueDate = trim((string) ($task['due_date'] ?? ''));
                     $dueTime = trim((string) ($task['due_time'] ?? '23:59:00'));
-                    $dueAt = null;
-                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
-                        $cleanTime = date('H:i:s', strtotime($dueTime ?: '23:59:00'));
-                        $dueAt = "{$dueDate} {$cleanTime}";
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+                        // Real-data integrity: do not fabricate deadlines.
+                        // Skip tasks lacking a reviewed due date to protect database constraints.
+                        $skipped++;
+                        continue;
                     }
+                    $cleanTime = date('H:i:s', strtotime($dueTime ?: '23:59:00'));
+                    $dueAt = "{$dueDate} {$cleanTime}";
 
                     $desc = trim((string) ($task['description'] ?? ''));
                     $duration = max(0.5, min(100.0, (float) ($task['duration_hours'] ?? (in_array($type, ['project', 'exam'], true) ? 4.0 : 2.0))));

@@ -644,28 +644,32 @@ class DocumentProcessor {
         }
 
         // Group items on the same vertical baseline (within 3.5 points)
-        $linesByY = [];
+        $lineGroups = [];
         foreach ($items as $item) {
-            $y = $item['y'];
+            $y = (float) $item['y'];
             $matched = false;
-            foreach ($linesByY as $groupY => &$groupItems) {
-                if (abs($groupY - $y) <= 3.5) {
-                    $groupItems[] = $item;
+            foreach ($lineGroups as &$group) {
+                if (abs($group['y'] - $y) <= 3.5) {
+                    $group['items'][] = $item;
                     $matched = true;
                     break;
                 }
             }
+            unset($group);
             if (!$matched) {
-                $linesByY[$y] = [$item];
+                $lineGroups[] = [
+                    'y'     => $y,
+                    'items' => [$item],
+                ];
             }
         }
-        unset($groupItems);
 
         // In PDF coordinates, Y increases from bottom to top. Descending sort gives top-to-bottom reading.
-        krsort($linesByY);
+        usort($lineGroups, fn($a, $b) => $b['y'] <=> $a['y']);
 
         $outputLines = [];
-        foreach ($linesByY as $groupY => $groupItems) {
+        foreach ($lineGroups as $group) {
+            $groupItems = $group['items'];
             usort($groupItems, fn($a, $b) => $a['x'] <=> $b['x']);
             $lineStr = '';
             $prevX = null;
