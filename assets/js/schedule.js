@@ -5059,8 +5059,8 @@ function initImportTimetableModal() {
                 if (code) {
                     itemsToSave.push({
                         day_of_week: day,
-                        start_time: start + ':00',
-                        end_time: end + ':00',
+                        start_time: start.length === 5 ? start + ':00' : start,
+                        end_time: end.length === 5 ? end + ':00' : end,
                         course_code: code,
                         location: loc,
                         event_type: 'lecture'

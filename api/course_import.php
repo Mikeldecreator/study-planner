@@ -112,6 +112,7 @@ try {
             'courses'     => $courses,
             'items'       => $courses,
             'found_count' => count($courses),
+            'diagnostics' => $diagnostics,
         ]);
         exit;
     }
@@ -120,7 +121,7 @@ try {
     // ACTION 2: Confirm and Save Reviewed Courses
     // ----------------------------------------------------------------
     if ($action === 'confirm_import') {
-        $courses = $body['courses'] ?? [];
+        $courses = $body['courses'] ?? $body['items'] ?? [];
         if (!is_array($courses) || empty($courses)) {
             courseImportJsonError('No courses provided for import.', 422);
         }

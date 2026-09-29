@@ -441,8 +441,8 @@ try {
 
                     $start = trim((string) ($item['start_time'] ?? '09:00:00'));
                     $end = trim((string) ($item['end_time'] ?? '11:00:00'));
-                    $startTime = date('H:i:s', strtotime($start));
-                    $endTime = date('H:i:s', strtotime($end));
+                    $startTime = DocumentProcessor::standardizeTime($start);
+                    $endTime = DocumentProcessor::standardizeTime($end);
                     if ($endTime <= $startTime) {
                         $endTime = date('H:i:s', strtotime('+1 hour', strtotime($startTime)));
                     }

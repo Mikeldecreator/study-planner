@@ -514,7 +514,7 @@ async function handleExtractCourses() {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
-      if (data.is_scanned) {
+      if (data.is_scanned || data.error_code === 'SCANNED_PDF_NO_OCR') {
         throw new Error(data.error || "This document appears to be a scanned image or photo. Please paste the course list into the text box below or add them manually.");
       }
       throw new Error(data.error || "We couldn't extract courses from this file. Try another document or add courses manually.");

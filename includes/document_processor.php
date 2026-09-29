@@ -26,13 +26,14 @@ class DocumentProcessor {
         $fileSize = strlen($content);
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
-        // Detect document format by magic bytes or extension
+        // Detect document format by magic bytes within the first 1024 bytes or extension
+        $preamble = substr($content, 0, 1024);
         $detectedType = 'txt';
-        if (str_starts_with($content, '%PDF') || $ext === 'pdf') {
+        if (str_contains($preamble, '%PDF-') || str_starts_with($content, '%PDF') || $ext === 'pdf') {
             $detectedType = 'pdf';
-        } elseif (str_starts_with($content, "PK\x03\x04") || in_array($ext, ['docx', 'zip'], true)) {
+        } elseif (str_starts_with($content, "PK\x03\x04") || str_contains($preamble, "PK\x03\x04") || in_array($ext, ['docx', 'zip'], true)) {
             $detectedType = 'docx';
-        } elseif (str_starts_with($content, "\xD0\xCF\x11\xE0") || $ext === 'doc') {
+        } elseif (str_starts_with($content, "\xD0\xCF\x11\xE0") || str_contains($preamble, "\xD0\xCF\x11\xE0") || $ext === 'doc') {
             $detectedType = 'doc';
         }
 
@@ -41,27 +42,32 @@ class DocumentProcessor {
         $streamsFound = 0;
         $streamsDecoded = 0;
 
-        switch ($detectedType) {
-            case 'pdf':
-                $pdfResult = self::extractFromPdf($content);
-                $rawText = $pdfResult['text'];
-                $isScanned = $pdfResult['is_scanned'];
-                $streamsFound = $pdfResult['streams_found'];
-                $streamsDecoded = $pdfResult['streams_decoded'];
-                break;
+        try {
+            switch ($detectedType) {
+                case 'pdf':
+                    $pdfResult = self::extractFromPdf($content);
+                    $rawText = $pdfResult['text'];
+                    $isScanned = $pdfResult['is_scanned'];
+                    $streamsFound = $pdfResult['streams_found'];
+                    $streamsDecoded = $pdfResult['streams_decoded'];
+                    break;
 
-            case 'docx':
-                $rawText = self::extractFromDocx($content);
-                break;
+                case 'docx':
+                    $rawText = self::extractFromDocx($content);
+                    break;
 
-            case 'doc':
-                $rawText = self::extractFromDoc($content);
-                break;
+                case 'doc':
+                    $rawText = self::extractFromDoc($content);
+                    break;
 
-            case 'txt':
-            default:
-                $rawText = self::normalizeUtf8($content);
-                break;
+                case 'txt':
+                default:
+                    $rawText = self::normalizeUtf8($content);
+                    break;
+            }
+        } catch (Throwable $e) {
+            error_log("DocumentProcessor::extract error ({$detectedType}): " . $e->getMessage());
+            $rawText = '';
         }
 
         $normalizedText = self::normalizeText($rawText);
@@ -71,11 +77,15 @@ class DocumentProcessor {
         $ocrAvailable = self::isOcrAvailable();
         if ($detectedType === 'pdf' && $charCount < 15 && $isScanned) {
             if ($ocrAvailable) {
-                $ocrText = self::runOcrFallback($content);
-                if (mb_strlen(trim($ocrText), 'UTF-8') >= 15) {
-                    $normalizedText = self::normalizeText($ocrText);
-                    $charCount = mb_strlen(trim($normalizedText), 'UTF-8');
-                    $isScanned = false; // Resolved via OCR
+                try {
+                    $ocrText = self::runOcrFallback($content);
+                    if (mb_strlen(trim($ocrText), 'UTF-8') >= 15) {
+                        $normalizedText = self::normalizeText($ocrText);
+                        $charCount = mb_strlen(trim($normalizedText), 'UTF-8');
+                        $isScanned = false; // Resolved via OCR
+                    }
+                } catch (Throwable $oe) {
+                    error_log("OCR fallback error: " . $oe->getMessage());
                 }
             }
         }
@@ -435,6 +445,24 @@ class DocumentProcessor {
             if ($decodeSuccess && $decoded !== null && $decoded !== '') {
                 $decodedObjects[$objNum] = $decoded;
                 $streamsDecoded++;
+
+                // Unpack PDF 1.5+ Object Streams (/Type /ObjStm)
+                if (preg_match('/\/Type\s*\/ObjStm\b/i', $dict)) {
+                    $first = 0; if (preg_match('/\/First\s+(\d+)/', $dict, $fm)) $first = (int)$fm[1];
+                    if ($first > 0 && strlen($decoded) > $first) {
+                        $hdr = substr($decoded, 0, $first);
+                        $body = substr($decoded, $first);
+                        if (preg_match_all('/(\d+)\s+(\d+)/', $hdr, $pairs, PREG_SET_ORDER)) {
+                            for ($k = 0; $k < count($pairs); $k++) {
+                                $subObjNum = (int)$pairs[$k][1];
+                                $subOff = (int)$pairs[$k][2];
+                                $nextOff = isset($pairs[$k + 1]) ? (int)$pairs[$k + 1][2] : strlen($body);
+                                $subContent = substr($body, $subOff, $nextOff - $subOff);
+                                $decodedObjects[$subObjNum] = $subContent;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -572,11 +600,20 @@ class DocumentProcessor {
                             } elseif (isset($om['tj_arr']) && $om['tj_arr'] !== '') {
                                 $arrContent = $om['tj_arr'];
                                 $arrText = '';
-                                if (preg_match_all('/\((.*?)(?<!\\\\)\)/s', $arrContent, $strMatches)) {
-                                    $arrText = implode('', array_map([self::class, 'unescapePdfString'], $strMatches[1]));
-                                } elseif (preg_match_all('/<([0-9A-Fa-f]+)>/', $arrContent, $hexMatches)) {
-                                    foreach ($hexMatches[1] as $hex) {
-                                        $arrText .= self::decodePdfHexString($hex);
+                                // Parse strings, hex strings, and numbers in the TJ array
+                                if (preg_match_all('/(?:\((?P<str>.*?)(?<!\\\\)\)|<(?P<hex>[0-9A-Fa-f]+)>|(?P<num>-?\d+(?:\.\d+)?))/s', $arrContent, $tokMatches, PREG_SET_ORDER)) {
+                                    foreach ($tokMatches as $tok) {
+                                        if (isset($tok['str']) && $tok['str'] !== '') {
+                                            $arrText .= self::unescapePdfString($tok['str']);
+                                        } elseif (!empty($tok['hex'])) {
+                                            $arrText .= self::decodePdfHexString($tok['hex']);
+                                        } elseif (isset($tok['num']) && $tok['num'] !== '') {
+                                            $numVal = (float)$tok['num'];
+                                            // Negative displacement in TJ shifts next glyph right; <= -120 represents a word space
+                                            if ($numVal <= -120.0 && $arrText !== '' && !str_ends_with($arrText, ' ')) {
+                                                $arrText .= ' ';
+                                            }
+                                        }
                                     }
                                 }
                                 if (trim($arrText) !== '') {
@@ -624,18 +661,39 @@ class DocumentProcessor {
         }
         unset($groupItems);
 
-
         // In PDF coordinates, Y increases from bottom to top. Descending sort gives top-to-bottom reading.
         krsort($linesByY);
 
         $outputLines = [];
         foreach ($linesByY as $groupY => $groupItems) {
             usort($groupItems, fn($a, $b) => $a['x'] <=> $b['x']);
-            $lineTexts = [];
+            $lineStr = '';
+            $prevX = null;
+            $prevLen = 0;
             foreach ($groupItems as $gi) {
-                $lineTexts[] = $gi['text'];
+                $t = $gi['text'];
+                if ($lineStr === '') {
+                    $lineStr = $t;
+                } else {
+                    // Estimated character width ~5.5pt.
+                    // If gap between end of previous item and start of this item is > 18pt, separate with tab
+                    $estimatedPrevEnd = $prevX + max(1, $prevLen) * 5.5;
+                    $gap = $gi['x'] - $estimatedPrevEnd;
+                    if ($gap > 18.0) {
+                        $lineStr .= "\t" . $t;
+                    } else {
+                        // Avoid double space
+                        if (!str_ends_with($lineStr, ' ') && !str_starts_with($t, ' ')) {
+                            $lineStr .= ' ' . $t;
+                        } else {
+                            $lineStr .= $t;
+                        }
+                    }
+                }
+                $prevX = $gi['x'];
+                $prevLen = mb_strlen($t, 'UTF-8');
             }
-            $line = trim(implode(' ', $lineTexts));
+            $line = trim($lineStr);
             if ($line !== '') {
                 $outputLines[] = $line;
             }
@@ -680,31 +738,50 @@ class DocumentProcessor {
     }
 
     /**
-     * Pure-PHP DOCX reader using in-memory PKZip extraction for word/document.xml.
+     * DOCX reader using ZipArchive (if available) with in-memory PKZip extraction fallback.
      * Preserves table structures as tab-separated columns and newline-separated rows.
      */
     public static function extractFromDocx(string $zipData): string {
-        $xml = self::readZipFilePurePhp($zipData, 'word/document.xml');
+        $xml = null;
+        if (class_exists('ZipArchive')) {
+            $tmpFile = @tempnam(sys_get_temp_dir(), 'docx_');
+            if ($tmpFile) {
+                file_put_contents($tmpFile, $zipData);
+                $zip = new ZipArchive();
+                if ($zip->open($tmpFile) === true) {
+                    $xml = $zip->getFromName('word/document.xml');
+                    $zip->close();
+                }
+                @unlink($tmpFile);
+            }
+        }
+        if (empty($xml)) {
+            $xml = self::readZipFilePurePhp($zipData, 'word/document.xml');
+        }
         if (!$xml) return '';
 
-        // Replace breaks and tabs
-        $xml = str_replace(['<w:br/>', '<w:cr/>'], "\n", $xml);
-        $xml = str_replace('<w:tab/>', "\t", $xml);
+        // Replace self-closing breaks and tabs with regex to handle whitespace and attributes
+        $xml = preg_replace('/<w:tab\b[^>]*\/?>/i', "\t", $xml);
+        $xml = preg_replace('/<w:(?:br|cr)\b[^>]*\/?>/i', "\n", $xml);
 
         // Process table rows: replace <w:tr>...</w:tr> with tab-separated cells ending with newline
         $xml = preg_replace_callback('/<w:tr\b[^>]*>(.*?)<\/w:tr>/s', function($rm) {
             preg_match_all('/<w:tc\b[^>]*>(.*?)<\/w:tc>/s', $rm[1], $cellMatches);
             $cells = [];
             foreach ($cellMatches[1] as $cXml) {
+                $cXml = preg_replace('/<\/w:p>/i', "\n", $cXml);
+                $cXml = preg_replace('/<w:tab\b[^>]*\/?>/i', "\t", $cXml);
+                $cXml = preg_replace('/<w:(?:br|cr)\b[^>]*\/?>/i', "\n", $cXml);
                 $cText = strip_tags($cXml);
                 $cText = html_entity_decode($cText, ENT_QUOTES | ENT_XML1, 'UTF-8');
-                $cells[] = trim(preg_replace('/\s+/', ' ', $cText));
+                $cText = trim(preg_replace('/[ \t]+/', ' ', $cText));
+                $cells[] = $cText;
             }
             return implode("\t", $cells) . "\n";
         }, $xml);
 
         // Remaining paragraphs outside tables
-        $xml = preg_replace('/<\/w:p>/', "\n", $xml);
+        $xml = preg_replace('/<\/w:p>/i', "\n", $xml);
         $text = strip_tags($xml);
         $text = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
         return trim($text);
@@ -739,6 +816,8 @@ class DocumentProcessor {
                         if ($compression === 0) return $compData;
                         if ($compression === 8) {
                             $decomp = @gzinflate($compData);
+                            if ($decomp === false) $decomp = @gzuncompress($compData);
+                            if ($decomp === false && strlen($compData) > 2) $decomp = @gzinflate(substr($compData, 2));
                             if ($decomp !== false) return $decomp;
                         }
                     }
@@ -766,6 +845,8 @@ class DocumentProcessor {
                 if ($compression === 0) return $compData;
                 if ($compression === 8) {
                     $decomp = @gzinflate($compData);
+                    if ($decomp === false) $decomp = @gzuncompress($compData);
+                    if ($decomp === false && strlen($compData) > 2) $decomp = @gzinflate(substr($compData, 2));
                     if ($decomp !== false) return $decomp;
                 }
             }
@@ -791,13 +872,28 @@ class DocumentProcessor {
     }
 
     /**
-     * Normalizes text string to clean UTF-8.
+     * Normalizes text string to clean UTF-8 with BOM and encoding detection.
      */
     public static function normalizeUtf8(string $text): string {
         // Strip UTF-8 BOM if present
         if (str_starts_with($text, "\xEF\xBB\xBF")) {
             $text = substr($text, 3);
+        } elseif (str_starts_with($text, "\xFF\xFE")) {
+            // UTF-16LE with BOM
+            return mb_convert_encoding(substr($text, 2), 'UTF-8', 'UTF-16LE');
+        } elseif (str_starts_with($text, "\xFE\xFF")) {
+            // UTF-16BE with BOM
+            return mb_convert_encoding(substr($text, 2), 'UTF-8', 'UTF-16BE');
         }
+
+        // Check for raw UTF-16LE without BOM (frequent null bytes on alternating positions)
+        if (strlen($text) >= 8 && substr_count(substr($text, 0, 100), "\x00") > 15) {
+            $conv = @mb_convert_encoding($text, 'UTF-8', 'UTF-16LE');
+            if ($conv !== false && mb_check_encoding($conv, 'UTF-8') && strlen(trim($conv)) > 5) {
+                return $conv;
+            }
+        }
+
         if (!mb_check_encoding($text, 'UTF-8')) {
             $text = mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
         }
@@ -811,22 +907,36 @@ class DocumentProcessor {
         $text = self::normalizeUtf8($raw);
         // Normalize line breaks to \n
         $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+        // Normalize non-breaking spaces and zero-width spaces
+        $text = str_replace(
+            ["\xC2\xA0", "\xE2\x80\xAF", "\xE2\x80\x87", "\xAD", "\xE2\x80\x8B", "\xE2\x80\x8C", "\xE2\x80\x8D"],
+            [' ', ' ', ' ', '', '', '', ''],
+            $text
+        );
+
         // Normalize unicode quotation marks, en/em dashes, and Windows-1252 / WinAnsi bytes
         $text = str_replace(
             [
                 "\xC2\x96", "\xC2\x97", "\xC2\x91", "\xC2\x92", "\xC2\x93", "\xC2\x94",
                 "\xE2\x80\x98", "\xE2\x80\x99", "\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x93", "\xE2\x80\x94",
-                "–", "—", "\x96", "\x97"
+                "–", "—", "\xE2\x80\x92", "\xE2\x88\x92", "\xE2\x80\x95",
+                "\x96", "\x97",
+                "•", "◦", "▪", "▫"
             ],
             [
                 "-", "-", "'", "'", '"', '"',
                 "'", "'", '"', '"', "-", "-",
+                "-", "-", "-", "-", "-",
+                "-", "-",
                 "-", "-", "-", "-"
             ],
             $text
         );
         // Remove non-printable characters (except \n, \t)
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+        // Collapse consecutive horizontal whitespace while preserving tabs and newlines
+        $text = preg_replace('/[^\S\r\n\t]+/', ' ', $text);
         // Collapse 3 or more consecutive newlines to 2
         $text = preg_replace('/\n{3,}/', "\n\n", $text);
         return trim($text);
@@ -847,6 +957,22 @@ class DocumentProcessor {
             $existingCodes = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
         }
 
+        // Detect document-level semester
+        $detectedSemester = 'First Semester';
+        foreach ($lines as $line) {
+            $t = trim($line);
+            if (preg_match('/(first|1st|second|2nd|harmattan|rain|summer|fall|spring|alpha|omega)\s+semester/i', $t, $m)) {
+                $semType = strtolower($m[1]);
+                if ($semType === '1st') $semType = 'first';
+                if ($semType === '2nd') $semType = 'second';
+                $detectedSemester = ucwords($semType) . ' Semester';
+                if (preg_match('/\b(20\d{2}\s*[\/\-]\s*20\d{2})\b/', $t, $sm)) {
+                    $detectedSemester .= ' ' . str_replace(' ', '', $sm[1]);
+                }
+                break;
+            }
+        }
+
         // Blocklist of words that look like course codes but aren't
         $blockedPrefixes = [
             'PAGE', 'ROOM', 'SESSION', 'YEAR', 'LEVEL', 'TOTAL', 'SEMESTER', 'DATE',
@@ -854,7 +980,7 @@ class DocumentProcessor {
             'TERM', 'GRADE', 'UNITS', 'CREDIT', 'STATUS', 'STEP', 'FORM', 'SLIP',
             'TABLE', 'REG', 'EXAM', 'TEST', 'S/N', 'SN', 'NO', 'ITEM',
             'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'SEPT', 'OCT', 'NOV', 'DEC',
-            'SPRING', 'FALL', 'SUMMER', 'WINTER'
+            'SPRING', 'FALL', 'SUMMER', 'WINTER', 'TCPDF', 'HTTP', 'HTTPS', 'WWW'
         ];
         $blockedFlip = array_flip($blockedPrefixes);
 
@@ -896,27 +1022,114 @@ class DocumentProcessor {
             $lower = strtolower($trimmed);
 
             // Check if pure header line without course codes
-            $skip = false;
             $hasCourseCode = (bool) preg_match('/\b([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)\b/i', $trimmed);
             if (!$hasCourseCode) {
+                $skip = false;
                 foreach ($ignoreKeywords as $ig) {
                     if (strpos($lower, $ig) !== false) {
                         $skip = true;
                         break;
                     }
                 }
-            }
-            if ($skip) {
-                $lastCourseIdx = null;
-                continue;
+                if ($skip) {
+                    $lastCourseIdx = null;
+                    continue;
+                }
             }
 
-            // Match Course Code: e.g. CSC 401, CSC401, CS 1101, MATH 1010, PSYCH 101, CSC-401, CS.101
+            // --- TABULAR COLUMN EXTRACTION ---
+            // If line contains tabs or pipes or multiple spaces, inspect column structure
+            $cols = preg_split('/[\t|]+|\s{2,}/', $trimmed);
+            $cols = array_values(array_filter(array_map('trim', $cols), fn($c) => $c !== ''));
+
+            if (count($cols) >= 3) {
+                $codeColIdx = null;
+                $codeColMatch = null;
+                $unitsVal = null;
+                $statusVal = null;
+                $titleCandidates = [];
+
+                foreach ($cols as $cIdx => $colVal) {
+                    // Skip header labels
+                    if (preg_match('/^(?:s\/n|sn|code|course\s*title|status|units?|date|action)$/i', $colVal)) {
+                        continue;
+                    }
+
+                    // Skip date columns
+                    if (preg_match('/^\d{1,4}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}$/', $colVal)) {
+                        continue;
+                    }
+
+                    // Check for serial number (column before course code or at start)
+                    if ($codeColIdx === null && preg_match('/^\d{1,3}[\.]?$/', $colVal)) {
+                        continue;
+                    }
+
+                    // Check for course code column
+                    if ($codeColIdx === null && preg_match('/^([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)$/i', $colVal, $cm)) {
+                        $p = strtoupper($cm[1]);
+                        if (!isset($blockedFlip[$p])) {
+                            $codeColIdx = $cIdx;
+                            $codeColMatch = strtoupper($cm[1]) . ' ' . strtoupper($cm[2]);
+                            continue;
+                        }
+                    }
+
+                    // Check for status column
+                    if ($statusVal === null && preg_match('/^(?:(compulsory|core|required|c)|(elective|optional|e))$/i', $colVal, $sm)) {
+                        $statusVal = !empty($sm[1]) ? 'C' : 'E';
+                        continue;
+                    }
+
+                    // Check for credit units column (explicitly labeled or standalone digit after course code)
+                    if ($unitsVal === null && (preg_match('/^([1-6](?:\.0|\.5)?)\s*(?:units?|credits?|credit\s*units?|cu|ch|cr|hrs?)$/i', $colVal, $um) || ($codeColIdx !== null && preg_match('/^([1-6](?:\.0|\.5)?)$/', $colVal, $um)))) {
+                        $unitsVal = (int) round((float) $um[1]);
+                        continue;
+                    }
+
+                    $titleCandidates[] = $colVal;
+                }
+
+                if ($codeColIdx !== null && $codeColMatch !== null) {
+                    $code = $codeColMatch;
+                    if (!isset($seenCodes[$code])) {
+                        $cTitle = !empty($titleCandidates) ? implode(' ', $titleCandidates) : '';
+                        if ($statusVal === null) {
+                            if (preg_match('/\b(elective|optional)\b/i', $cTitle)) {
+                                $statusVal = 'E';
+                            } elseif (preg_match('/\b(compulsory|core|required)\b/i', $cTitle)) {
+                                $statusVal = 'C';
+                            }
+                        }
+                        $cTitle = preg_replace('/\b(core|elective|required|compulsory|passed|registered)\b/i', '', $cTitle);
+                        $cTitle = trim(preg_replace('/^[\s\d\.\-\:\,\)\|\t]+/u', '', $cTitle), " \t\n\r-|:,.");
+                        $cTitle = preg_replace('/\s+/', ' ', $cTitle);
+                        $hasRealTitle = (strlen($cTitle) >= 3);
+                        if (!$hasRealTitle) {
+                            $cTitle = $code . ' Course';
+                        }
+
+                        $courses[] = [
+                            'code'           => $code,
+                            'name'           => ucwords(strtolower($cTitle)),
+                            'credits'        => $unitsVal ?: 3,
+                            'status'         => $statusVal ?: 'C',
+                            'semester'       => $detectedSemester,
+                            'already_exists' => isset($existingCodes[strtoupper($code)]),
+                            'is_placeholder' => !$hasRealTitle,
+                        ];
+                        $seenCodes[$code] = true;
+                        $lastCourseIdx = count($courses) - 1;
+                        continue;
+                    }
+                }
+            }
+
+            // --- FREE-FORM REGEX EXTRACTION ---
             if (preg_match('/\b([A-Za-z]{2,6})[\s\-_.]*(\d{2,4}[A-Za-z]?)\b/i', $trimmed, $codeMatch, PREG_OFFSET_CAPTURE)) {
                 $rawPrefix = strtoupper($codeMatch[1][0]);
                 $rawNumber = strtoupper($codeMatch[2][0]);
 
-                // Filter out false positive prefixes
                 if (isset($blockedFlip[$rawPrefix])) {
                     continue;
                 }
@@ -954,6 +1167,10 @@ class DocumentProcessor {
                 } elseif (preg_match('/\b([1-9])\s*(?:compulsory|core|elective|required)\b/i', $afterCode, $uMatch)) {
                     $units = (int) $uMatch[1];
                     $afterCode = preg_replace('/\b' . $uMatch[1] . '\s*(?:compulsory|core|elective|required)\b/i', '', $afterCode);
+                } elseif (preg_match('/^\s*([1-6])\s+[A-Za-z]/', $afterCode, $uMatch)) {
+                    // Units right after code before title: e.g. "CSC 401 3 Computer Architecture"
+                    $units = (int) $uMatch[1];
+                    $afterCode = preg_replace('/^\s*' . $uMatch[1] . '\s+/', '', $afterCode);
                 } elseif (preg_match('/\b([1-9])(?:\.0)?\s*(?:[A-Za-z]{1,2})?\s*$/', trim($afterCode), $uMatch)) {
                     $units = (int) $uMatch[1];
                     $afterCode = preg_replace('/\b' . preg_quote($uMatch[1], '/') . '(?:\.0)?\s*(?:[A-Za-z]{1,2})?\s*$/', '', $afterCode);
@@ -961,7 +1178,6 @@ class DocumentProcessor {
 
                 // Clean title
                 $cleanedTitle = preg_replace('/\b(core|elective|required|compulsory|passed|registered)\b/i', '', $afterCode);
-                // Remove leading serial numbers, pipes, tabs, or punctuation
                 $cleanedTitle = preg_replace('/^[\s\d\.\-\:\,\)\|\t]+/u', '', $cleanedTitle);
                 $cleanedTitle = trim($cleanedTitle, " \t\n\r\0\x0B-|:,.");
                 $cleanedTitle = preg_replace('/\s+/', ' ', $cleanedTitle);
@@ -978,6 +1194,7 @@ class DocumentProcessor {
                     'name'           => ucwords(strtolower($cleanedTitle)),
                     'credits'        => $units,
                     'status'         => $status,
+                    'semester'       => $detectedSemester,
                     'already_exists' => $alreadyExists,
                     'is_placeholder' => !$hasRealTitle,
                 ];
@@ -988,13 +1205,11 @@ class DocumentProcessor {
                 $trimmedWrap = trim($trimmed);
                 $lowerWrap = strtolower($trimmedWrap);
 
-                // If this line contains units (e.g. "3 Units", "4 Credits")
                 if (preg_match('/^([1-9](?:\.0|\.5)?)\s*(?:units?|credits?|credit\s*units?|cu|ch|cr|hrs?)?$/i', $trimmedWrap, $uMatch)) {
                     $courses[$lastCourseIdx]['credits'] = (int) round((float) $uMatch[1]);
                     continue;
                 }
 
-                // If this line contains status (e.g. "Compulsory", "Elective", "C", "E")
                 if (preg_match('/^(?:compulsory|core|required|c)$/i', $trimmedWrap)) {
                     $courses[$lastCourseIdx]['status'] = 'C';
                     continue;
@@ -1003,7 +1218,6 @@ class DocumentProcessor {
                     continue;
                 }
 
-                // Check if this line is a continuation or real title
                 $isIgnore = false;
                 foreach ($ignoreKeywords as $ig) {
                     if (strpos($lowerWrap, $ig) !== false) {
@@ -1013,7 +1227,6 @@ class DocumentProcessor {
                 }
 
                 if (!$isIgnore && strlen($trimmedWrap) < 120 && !preg_match('/^\d+$/', $trimmedWrap) && !preg_match('/^[\_\-\=\s\|]+$/', $trimmedWrap)) {
-                    // If previous course had a placeholder title, replace it!
                     if (!empty($courses[$lastCourseIdx]['is_placeholder'])) {
                         $cleanWrap = preg_replace('/^[\s\d\.\-\:\,\)\|\t]+/u', '', $trimmedWrap);
                         $cleanWrap = trim($cleanWrap, " \t\n\r\0\x0B-|:,.");
@@ -1022,9 +1235,8 @@ class DocumentProcessor {
                             $courses[$lastCourseIdx]['is_placeholder'] = false;
                         }
                     } else {
-                        // Otherwise append wrapped title line
                         $courses[$lastCourseIdx]['name'] .= ' ' . ucwords(strtolower($trimmedWrap));
-                        $lastCourseIdx = null; // Only wrap title continuation once
+                        $lastCourseIdx = null;
                     }
                 } else {
                     $lastCourseIdx = null;
@@ -1330,6 +1542,7 @@ class DocumentProcessor {
     // =========================================================================
     public static function parseDayName(string $str): ?string {
         $clean = strtolower(trim($str, " \t\n\r\0\x0B:.,-()[]"));
+        $clean = rtrim($clean, 's'); // handles plurals like mondays -> monday
         $map = [
             'monday' => 'monday', 'mon' => 'monday',
             'tuesday' => 'tuesday', 'tue' => 'tuesday', 'tues' => 'tuesday',
@@ -1602,6 +1815,14 @@ class DocumentProcessor {
      */
     public static function standardizeTime(string $timeStr): string {
         $clean = trim($timeStr);
+        // Strip trailing extra :00 colons if repeated (e.g. 09:00:00:00)
+        $clean = preg_replace('/(?::00){2,}$/', ':00', $clean);
+        if (preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $clean, $m)) {
+            $h = (int)$m[1];
+            $min = (int)$m[2];
+            $s = isset($m[3]) ? (int)$m[3] : 0;
+            return sprintf('%02d:%02d:%02d', $h, $min, $s);
+        }
         $clean = preg_replace('/(\d{1,2})\.(\d{2})/', '$1:$2', $clean);
         $ts = strtotime($clean);
         if ($ts) {

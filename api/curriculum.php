@@ -154,7 +154,7 @@ try {
                 $startDate = trim((string) ($body['start_date'] ?? ''));
                 $endDate = trim((string) ($body['end_date'] ?? ''));
                 $isCurrent = !empty($body['is_current']) ? 1 : 1;
-                $weeks = $body['weeks'] ?? [];
+                $weeks = $body['weeks'] ?? $body['items'] ?? [];
 
                 if ($name === '') {
                     curriculumJsonError('Semester name is required.', 422);
