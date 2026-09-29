@@ -192,7 +192,7 @@ requirePageLogin();
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <!-- Prompt 1 -->
-              <button type="button" data-prompt="What should I focus on today?"
+              <button type="button" data-prompt="What should I study today?"
                       class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
                 <div class="flex items-center justify-between mb-1.5">
                   <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
@@ -200,7 +200,7 @@ requirePageLogin();
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What should I focus on today?</div>
+                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What should I study today?</div>
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Get your top priority task &amp; actionable advice.</div>
               </button>
 
@@ -231,29 +231,29 @@ requirePageLogin();
               </button>
 
               <!-- Prompt 4 -->
-              <button type="button" data-prompt="How much workload do I have remaining?"
+              <button type="button" data-prompt="How much focused study time have I recorded?"
                       class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
                 <div class="flex items-center justify-between mb-1.5">
                   <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="activity" class="w-4 h-4"></i>
+                    <i data-lucide="clock" class="w-4 h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">How much workload is left?</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact remaining hours across all your active courses.</div>
+                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">How much focused study time?</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact focused time logged with the focus timer.</div>
               </button>
 
               <!-- Prompt 5 -->
-              <button type="button" data-prompt="What should I prioritize this week?"
+              <button type="button" data-prompt="Help me plan my study for tomorrow."
                       class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
                 <div class="flex items-center justify-between mb-1.5">
                   <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="list-ordered" class="w-4 h-4"></i>
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What should I prioritize this week?</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Multi-day strategic study plan based on urgency.</div>
+                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Plan study for tomorrow</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Align tomorrow's classes with pending tasks &amp; goals.</div>
               </button>
 
               <!-- Prompt 6 -->
@@ -300,10 +300,12 @@ requirePageLogin();
         <!-- Quick Prompt Chips (Visible when conversation has started) -->
         <div id="ai-quick-chips" class="hidden flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
           <span class="text-gray-400 text-[11px] shrink-0 font-medium mr-1">Quick prompts:</span>
-          <button type="button" data-prompt="What should I focus on today?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Focus today</button>
-          <button type="button" data-prompt="How many overdue tasks do I have?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Overdue tasks</button>
-          <button type="button" data-prompt="What deadlines are coming up?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Upcoming deadlines</button>
-          <button type="button" data-prompt="How much workload do I have remaining?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Remaining workload</button>
+          <button type="button" data-prompt="What should I study today?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Study today</button>
+          <button type="button" data-prompt="What courses do I currently have?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">My courses</button>
+          <button type="button" data-prompt="What deadlines are coming up?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Deadlines</button>
+          <button type="button" data-prompt="How much focused study time have I recorded?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Focused time</button>
+          <button type="button" data-prompt="Help me plan my study for tomorrow." class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Plan tomorrow</button>
+          <button type="button" data-prompt="Which course needs the most attention?" class="quick-chip-btn whitespace-nowrap px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-gray-200/60 dark:border-white/10 transition-colors">Course pressure</button>
         </div>
 
         <!-- Composer Input Row -->

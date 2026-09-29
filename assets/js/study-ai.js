@@ -518,6 +518,20 @@
         return;
       }
 
+      if (response.status === 503 || (data && data.code === 'MISSING_CONFIG')) {
+        const configErrorMsg = {
+          role: 'assistant',
+          content: '⚙️ **Study AI Configuration Required**:\n\n' +
+                   ((data && data.error) ? data.error : 'AI provider configuration is missing. Please ensure AI_API_KEY is configured in your server environment variables.'),
+          isError: true,
+          time: formatCurrentTime()
+        };
+        conversationHistory.push(configErrorMsg);
+        appendMessageToDOM(configErrorMsg, true);
+        saveHistoryToStorage();
+        return;
+      }
+
       if (!response.ok || !data || data.ok !== true) {
         const errDetail = (data && data.error) ? data.error : 'An unexpected error occurred while communicating with the Study AI assistant.';
         const apiErrorMsg = {

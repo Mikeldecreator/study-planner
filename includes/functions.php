@@ -85,7 +85,7 @@ function dueRelativeLabel(string $dueAt): string
  * app usable (and the real fix — running the migration in
  * database/schema.sql — visible) instead of hard-crashing.
  */
-function getUserProfileRow(int $userId): array
+function getUserProfileRow(int $userId, ?PDO $db = null): array
 {
     $defaults = [
         'full_name'             => null,
@@ -105,7 +105,8 @@ function getUserProfileRow(int $userId): array
     ];
 
     try {
-        $stmt = getDb()->prepare(
+        $conn = $db ?? getDb();
+        $stmt = $conn->prepare(
             'SELECT
                 full_name,
                 email,
@@ -1978,7 +1979,7 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
  */
 function syncContextualNotifications(PDO $db, int $userId): array
 {
-    $user = getUserProfileRow($userId);
+    $user = getUserProfileRow($userId, $db);
     if (empty($user['notifications_enabled'])) {
         return ['status' => 'disabled', 'generated' => 0];
     }
@@ -2101,7 +2102,7 @@ function getUserCompletedStudyHours(PDO $db, int $userId): float
  */
 function getPersonalPlanningContext(PDO $db, int $userId): array
 {
-    $user = getUserProfileRow($userId);
+    $user = getUserProfileRow($userId, $db);
     $weeklyGoal = (float)($user['weekly_goal_hours'] ?? 15.0);
 
     // Compute study hours completed this week (from schedule_events)
@@ -2170,21 +2171,30 @@ function getPersonalPlanningContext(PDO $db, int $userId): array
 function getAIAcademicContext(PDO $db, int $userId): array
 {
     // --- 1. USER & PERSONAL PLANNING CONTEXT ---
-    $userRow = getUserProfileRow($userId);
+    $userRow = getUserProfileRow($userId, $db);
     $planningContext = getPersonalPlanningContext($db, $userId);
 
+    // Fetch active academic semester
+    $stmtSem = $db->prepare("SELECT name, start_date, end_date FROM semesters WHERE user_id = ? AND is_current = 1 ORDER BY id DESC LIMIT 1");
+    $stmtSem->execute([$userId]);
+    $currentSem = $stmtSem->fetch(PDO::FETCH_ASSOC);
+    $activeSemesterName = $currentSem ? (string)$currentSem['name'] : 'Current Semester';
+    $semesterDates = $currentSem ? ($currentSem['start_date'] . ' to ' . $currentSem['end_date']) : null;
+
     $userContext = [
-        'id'        => $userId,
-        'full_name' => $userRow['full_name'] ?? 'Student',
-        'email'     => $userRow['email'] ?? '',
-        'program'   => $userRow['program'] ?? '',
-        'level'     => $userRow['level'] ?? '',
-        'tagline'   => $userRow['tagline'] ?? '',
+        'id'              => $userId,
+        'full_name'       => $userRow['full_name'] ?? 'Student',
+        'email'           => $userRow['email'] ?? '',
+        'program'         => $userRow['program'] ?? '',
+        'level'           => $userRow['level'] ?? '',
+        'tagline'         => $userRow['tagline'] ?? '',
+        'active_semester' => $activeSemesterName,
+        'semester_dates'  => $semesterDates,
     ];
 
     // --- 2. COURSES ---
     $stmt = $db->prepare(
-        "SELECT c.id, c.code, c.name, c.credits, c.grade_point, c.color, c.icon,
+        "SELECT c.id, c.code, c.name, c.credits, c.semester, c.grade_point, c.color, c.icon,
                 COUNT(t.id) AS task_count,
                 SUM(t.status = 'completed') AS completed_count
          FROM courses c
@@ -2241,6 +2251,8 @@ function getAIAcademicContext(PDO $db, int $userId): array
             'code'                     => $c['code'],
             'name'                     => $c['name'],
             'credits'                  => $credits,
+            'units'                    => $credits,
+            'semester'                 => !empty($c['semester']) ? (string)$c['semester'] : $activeSemesterName,
             'grade_point'              => $gradePoint,
             'task_count'               => $count,
             'completed_count'          => $completed,
@@ -2280,14 +2292,17 @@ function getAIAcademicContext(PDO $db, int $userId): array
     $totalTasksCount = count($allRawTasks);
     $totalRemainingWorkload = 0.0;
     $todayDateStr = date('Y-m-d');
+    $tasksFocusedMap = getUsersTasksFocusedSeconds($db, $userId);
 
     foreach ($allRawTasks as $rawT) {
         $decorated = decorateTask($rawT);
         $isCompleted = ($decorated['status'] === 'completed');
         $urgency = $decorated['urgency'] ?? 'upcoming';
+        $taskId = (int)$decorated['id'];
+        $focusedSec = (int)($tasksFocusedMap[$taskId] ?? 0);
 
         $taskSummaryItem = [
-            'id'                    => (int)$decorated['id'],
+            'id'                    => $taskId,
             'course_id'             => $decorated['course_id'] ? (int)$decorated['course_id'] : null,
             'course_code'           => $decorated['course_code'] ?? null,
             'course_name'           => $decorated['course_name'] ?? null,
@@ -2300,6 +2315,8 @@ function getAIAcademicContext(PDO $db, int $userId): array
             'progress_percent'      => (int)($decorated['progress_percent'] ?? 0),
             'duration_hours'        => (float)($decorated['duration_hours'] ?? 0),
             'remaining_hours'       => (float)($decorated['remaining_hours'] ?? 0),
+            'focused_seconds'       => $focusedSec,
+            'focused_hours'         => round($focusedSec / 3600, 2),
             'due_at'                => $decorated['due_at'],
             'due_at_display'        => date('g:i A · M j, Y', strtotime($decorated['due_at'])),
             'urgency'               => $urgency,
@@ -2530,6 +2547,28 @@ function getAIAcademicContext(PDO $db, int $userId): array
 
     $weeklyGoal = (float)$planningContext['weekly_goal_hours'];
 
+    // Complete weekly schedule classes and tomorrow's upcoming classes
+    $weeklyClasses = [];
+    foreach ($allEvents as $ev) {
+        $dow = (int)$ev['day_of_week'];
+        $weeklyClasses[] = [
+            'id'          => (int)$ev['id'],
+            'title'       => $ev['title'],
+            'course_code' => $ev['course_code'] ?? null,
+            'course_name' => $ev['course_name'] ?? null,
+            'event_type'  => $ev['event_type'],
+            'day_of_week' => $dow,
+            'day_name'    => $dayNamesFull[$dow] ?? '',
+            'start_time'  => $ev['start_time'],
+            'end_time'    => $ev['end_time'],
+            'start_label' => date('g:i A', strtotime($ev['start_time'])),
+            'end_label'   => date('g:i A', strtotime($ev['end_time'])),
+            'is_completed'=> !empty($ev['is_completed']),
+        ];
+    }
+    $tomorrowDow = ($todayDow + 1) % 7;
+    $tomorrowClasses = array_values(array_filter($weeklyClasses, fn($ev) => $ev['day_of_week'] === $tomorrowDow));
+
     $scheduleContext = [
         'total_weekly_sessions'    => count($allEvents),
         'scheduled_weekly_hours'   => round($scheduledWeeklyHours, 1),
@@ -2538,7 +2577,44 @@ function getAIAcademicContext(PDO $db, int $userId): array
         'weekly_utilization_pct'   => $weeklyGoal > 0 ? (int)min(100, round(($scheduledWeeklyHours / $weeklyGoal) * 100)) : 0,
         'time_distribution_hours'  => array_map(fn($h) => round($h, 1), $hoursByType),
         'today_sessions'           => $todaySessions,
+        'tomorrow_classes'         => $tomorrowClasses,
+        'tomorrow_day_name'        => $dayNamesFull[$tomorrowDow] ?? '',
+        'weekly_classes'           => $weeklyClasses,
     ];
+
+    // --- 6B. AUTHORITATIVE FOCUSED STUDY TIME (task_work_sessions) ---
+    $stmtFocus = $db->prepare(
+        "SELECT 
+            COALESCE(SUM(CASE WHEN status = 'running' THEN duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) ELSE duration_seconds END), 0) AS total_sec
+         FROM task_work_sessions
+         WHERE user_id = ?"
+    );
+    $stmtFocus->execute([$userId]);
+    $totalFocusedSeconds = (int)$stmtFocus->fetchColumn();
+    $totalFocusedHours = round($totalFocusedSeconds / 3600, 2);
+
+    $todayFocusedSeconds = getUserTodayFocusedSeconds($db, $userId);
+    $todayFocusedHours = round($todayFocusedSeconds / 3600, 2);
+
+    $nowDt = new DateTime();
+    $weekStart = (clone $nowDt)->modify('-7 days')->format('Y-m-d H:i:s');
+    $weekEnd = $nowDt->format('Y-m-d H:i:s');
+    $weekFocusedSeconds = getUserPeriodFocusedSeconds($db, $userId, $weekStart, $weekEnd);
+    $weekFocusedHours = round($weekFocusedSeconds / 3600, 2);
+
+    $focusedContext = [
+        'total_recorded_seconds'       => $totalFocusedSeconds,
+        'total_recorded_hours'         => $totalFocusedHours,
+        'this_week_seconds'            => $weekFocusedSeconds,
+        'this_week_hours'              => $weekFocusedHours,
+        'today_seconds'                => $todayFocusedSeconds,
+        'today_hours'                  => $todayFocusedHours,
+        'weekly_goal_hours'            => $weeklyGoal,
+        'weekly_goal_progress_percent' => $weeklyGoal > 0 ? (int)min(100, round(($weekFocusedHours / $weeklyGoal) * 100)) : 0,
+    ];
+
+    $planningContext['actual_focused_study_hours'] = $totalFocusedHours;
+    $planningContext['current_weekly_focused_hours'] = $weekFocusedHours;
 
     // --- 7. PROGRESS & INSIGHTS ---
     $taskSummaryForInsights = [
@@ -2557,11 +2633,11 @@ function getAIAcademicContext(PDO $db, int $userId): array
         'active_tasks'              => count($activeTasks),
         'overdue_tasks'             => $overdueCount,
         'remaining_workload_hours'  => round($totalRemainingWorkload, 1),
+        'focused_study_hours'       => $totalFocusedHours,
         'insights'                  => $progressInsights,
     ];
 
     // --- 8. REPORTS SUMMARY ---
-    $nowDt = new DateTime();
     $startWeek = (clone $nowDt)->modify('-7 days');
     $stmt = $db->prepare("SELECT COUNT(*) AS n FROM tasks WHERE user_id = ? AND created_at >= ?");
     $stmt->execute([$userId, $startWeek->format('Y-m-d H:i:s')]);
@@ -2583,21 +2659,21 @@ function getAIAcademicContext(PDO $db, int $userId): array
     );
 
     $reportsContext = [
-        'period'                  => 'week',
-        'tasks_created'           => $tasksCreatedWeek,
-        'tasks_completed'         => $tasksCompletedWeek,
-        'completion_rate_pct'     => $tasksCreatedWeek > 0 ? (int)round(($tasksCompletedWeek / $tasksCreatedWeek) * 100) : 0,
-        'overdue_tasks'           => $overdueCount,
-        'logged_study_hours'      => $planningContext['logged_study_hours'],
-        'weekly_goal_hours'       => $weeklyGoal,
-        'goal_progress_percent'   => $planningContext['goal_progress_percent'],
-        'historical_comparison'   => $reportComparisons,
-        'highest_progress_course' => $reportComparisons['highest_progress_course'],
-        'attention_course'        => $reportComparisons['attention_course'],
+        'period'                     => 'week',
+        'tasks_created'              => $tasksCreatedWeek,
+        'tasks_completed'            => $tasksCompletedWeek,
+        'completion_rate_pct'        => $tasksCreatedWeek > 0 ? (int)round(($tasksCompletedWeek / $tasksCreatedWeek) * 100) : 0,
+        'overdue_tasks'              => $overdueCount,
+        'logged_study_hours'         => $planningContext['logged_study_hours'],
+        'actual_focused_study_hours' => $totalFocusedHours,
+        'weekly_goal_hours'          => $weeklyGoal,
+        'goal_progress_percent'      => $planningContext['goal_progress_percent'],
+        'historical_comparison'      => $reportComparisons,
+        'highest_progress_course'    => $reportComparisons['highest_progress_course'],
+        'attention_course'           => $reportComparisons['attention_course'],
     ];
 
     // --- 9. NOTIFICATIONS (Read-only active contextual alerts) ---
-
     $stmt = $db->prepare(
         "SELECT n.id, n.task_id, n.channel, n.message, n.send_at, n.read_at, n.created_at,
                 t.title AS task_title
@@ -2630,10 +2706,30 @@ function getAIAcademicContext(PDO $db, int $userId): array
         ], $unreadNotifs),
     ];
 
+    // --- 10. RECENT ACADEMIC ACTIVITY (Recent study sessions & completed tasks) ---
+    $stmtRecent = $db->prepare(
+        "SELECT tws.id, tws.started_at, tws.duration_seconds, t.title AS task_title, c.code AS course_code
+         FROM task_work_sessions tws
+         INNER JOIN tasks t ON t.id = tws.task_id AND t.user_id = tws.user_id
+         LEFT JOIN courses c ON c.id = t.course_id AND c.user_id = tws.user_id
+         WHERE tws.user_id = ? AND tws.duration_seconds > 0
+         ORDER BY tws.started_at DESC LIMIT 5"
+    );
+    $stmtRecent->execute([$userId]);
+    $recentActivity = array_map(fn($row) => [
+        'session_id'       => (int)$row['id'],
+        'task_title'       => $row['task_title'],
+        'course_code'      => $row['course_code'] ?? null,
+        'duration_minutes' => round((int)$row['duration_seconds'] / 60, 1),
+        'started_at'       => $row['started_at'],
+        'time_ago'         => timeAgo($row['started_at']),
+    ], $stmtRecent->fetchAll(PDO::FETCH_ASSOC));
+
     // --- ASSEMBLE FULL GROUNDED CONTEXT ---
     return [
         'generated_at'       => date('c'),
         'user'               => $userContext,
+        'active_semester'    => $activeSemesterName,
         'personal_planning'  => $planningContext,
         'today'              => $todayContext,
         'tasks'              => [
@@ -2654,9 +2750,11 @@ function getAIAcademicContext(PDO $db, int $userId): array
         ],
         'courses'            => $courses,
         'schedule'           => $scheduleContext,
+        'focused_study_time' => $focusedContext,
         'progress'           => $progressContext,
         'reports'            => $reportsContext,
         'notifications'      => $notificationsContext,
+        'recent_activity'    => $recentActivity,
     ];
 }
 
