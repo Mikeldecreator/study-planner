@@ -331,7 +331,9 @@ try {
             ],
 
             'redirect' =>
-                './dashboard.php'
+                isOnboardingComplete((int) ($_SESSION['user_id'] ?? 0))
+                    ? './dashboard.php'
+                    : './onboarding.php'
         ],
         200
     );

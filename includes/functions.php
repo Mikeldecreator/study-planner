@@ -128,6 +128,10 @@ function getUserProfileRow(int $userId, ?PDO $db = null): array
         'tour_completed'        => 0,
         'dismissed_tips'        => '[]',
         'avatar_path'           => '',
+        'onboarding_completed'  => 0,
+        'onboarding_step'       => 1,
+        'academic_session'      => '',
+        'current_semester'      => '',
     ];
 
     try {
@@ -147,7 +151,11 @@ function getUserProfileRow(int $userId, ?PDO $db = null): array
                 preferred_study_days,
                 tour_completed,
                 dismissed_tips,
-                avatar_path
+                avatar_path,
+                onboarding_completed,
+                onboarding_step,
+                academic_session,
+                current_semester
              FROM users
              WHERE id = ?'
         );

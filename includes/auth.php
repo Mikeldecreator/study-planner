@@ -78,8 +78,17 @@ function registerUser(string $name, string $email, string $password): array
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash) VALUES (?, ?, ?)');
-    $stmt->execute([$name, $email, $hash]);
+    try {
+        $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash, onboarding_completed, onboarding_step) VALUES (?, ?, ?, 0, 1)');
+        $stmt->execute([$name, $email, $hash]);
+    } catch (PDOException $e) {
+        if ($e->getCode() === '42S22') {
+            $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash) VALUES (?, ?, ?)');
+            $stmt->execute([$name, $email, $hash]);
+        } else {
+            throw $e;
+        }
+    }
 
     $newUserId = (int) $db->lastInsertId();
     ensureUserDataSeeded($newUserId);
@@ -95,11 +104,59 @@ function logActivity(int $userId, string $message, string $icon = 'info'): void
     $stmt->execute([$userId, $message, $icon]);
 }
 
+/**
+ * Check whether the given user has completed academic onboarding.
+ * Strictly respects an explicitly stored onboarding_completed = 0 or 1.
+ */
+function isOnboardingComplete(int $userId, ?PDO $db = null): bool
+{
+    if ($userId <= 0) {
+        return false;
+    }
+
+    try {
+        $conn = $db ?? getDb();
+        $stmt = $conn->prepare('SELECT onboarding_completed FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $val = $stmt->fetchColumn();
+
+        if ($val !== false && $val !== null) {
+            return (int) $val === 1;
+        }
+
+        return false;
+    } catch (PDOException $e) {
+        if ($e->getCode() === '42S22') {
+            try {
+                $conn = $db ?? getDb();
+                $cStmt = $conn->prepare('SELECT COUNT(*) FROM courses WHERE user_id = ?');
+                $cStmt->execute([$userId]);
+                if ((int) $cStmt->fetchColumn() > 0) return true;
+
+                $tStmt = $conn->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ?');
+                $tStmt->execute([$userId]);
+                if ((int) $tStmt->fetchColumn() > 0) return true;
+            } catch (Throwable $t) {}
+        }
+        return false;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function requirePageLogin(): void
 {
     if (empty($_SESSION['user_id'])) {
         header('Location: login.php');
         exit;
+    }
+
+    $currentScript = basename($_SERVER['PHP_SELF'] ?? '');
+    if ($currentScript !== 'onboarding.php' && $currentScript !== 'logout.php') {
+        if (!isOnboardingComplete((int) $_SESSION['user_id'])) {
+            header('Location: onboarding.php');
+            exit;
+        }
     }
 }
 

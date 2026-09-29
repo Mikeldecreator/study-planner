@@ -275,7 +275,7 @@ try {
             'message' =>
                 'Account created successfully.',
             'redirect' =>
-                'dashboard.php',
+                './onboarding.php',
             'user' => [
                 'id' =>
                     (int) (

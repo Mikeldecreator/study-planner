@@ -263,7 +263,7 @@ if (loginForm) {
         ) {
 
           window.location.replace(
-            './dashboard.php'
+            data.redirect || './dashboard.php'
           );
 
           return;
@@ -386,7 +386,7 @@ if (registerForm) {
         ) {
 
           window.location.replace(
-            './dashboard.php'
+            data.redirect || './onboarding.php'
           );
 
           return;

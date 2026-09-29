@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS users (
     preferred_study_days VARCHAR(100) DEFAULT '1,2,3,4,5',
     tour_completed  TINYINT(1)   NOT NULL DEFAULT 0,
     dismissed_tips  TEXT DEFAULT NULL,
+    onboarding_completed TINYINT(1) NOT NULL DEFAULT 0,
+    onboarding_step TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    academic_session VARCHAR(50) DEFAULT NULL,
+    current_semester VARCHAR(50) DEFAULT NULL,
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

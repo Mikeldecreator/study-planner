@@ -105,6 +105,17 @@ ensureColumn($db, 'users', 'preferred_study_time', "VARCHAR(20) DEFAULT 'morning
 ensureColumn($db, 'users', 'preferred_study_days', "VARCHAR(100) DEFAULT '1,2,3,4,5'");
 ensureColumn($db, 'users', 'tour_completed', "TINYINT(1) NOT NULL DEFAULT 0");
 ensureColumn($db, 'users', 'dismissed_tips', "TEXT DEFAULT NULL");
+ensureColumn($db, 'users', 'onboarding_completed', "TINYINT(1) NOT NULL DEFAULT 0");
+ensureColumn($db, 'users', 'onboarding_step', "TINYINT UNSIGNED NOT NULL DEFAULT 1");
+ensureColumn($db, 'users', 'academic_session', "VARCHAR(50) DEFAULT NULL");
+ensureColumn($db, 'users', 'current_semester', "VARCHAR(50) DEFAULT NULL");
+
+// Initialize pre-existing accounts that clearly predate onboarding and already have usable academic data
+try {
+    $db->exec("UPDATE users SET onboarding_completed = 1, onboarding_step = 7 WHERE onboarding_completed = 0 AND (id IN (SELECT DISTINCT user_id FROM courses) OR id IN (SELECT DISTINCT user_id FROM tasks) OR tour_completed = 1)");
+} catch (Throwable $e) {
+    // Safe fallback if tables/views are busy
+}
 
 // Ensure courses columns
 ensureColumn($db, 'courses', 'status', "ENUM('pending','in_progress','completed') NOT NULL DEFAULT 'pending'");

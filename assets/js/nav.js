@@ -61,6 +61,15 @@ window.APP_READY = (async function bootstrap() {
       const unreadCount = bootData.unread_notifications || 0;
       updateBellBadges(unreadCount);
 
+      // Redirect un-onboarded students to onboarding.php
+      if (me && !me.onboarding_completed) {
+        const curPath = window.location.pathname;
+        if (!curPath.endsWith('onboarding.php') && !curPath.endsWith('login.php') && !curPath.endsWith('register.php')) {
+          window.location.replace('onboarding.php');
+          return null;
+        }
+      }
+
       // Check for incoming academic notifications from Aiven
       if (Array.isArray(bootData.latest_notifications) && bootData.latest_notifications.length > 0) {
         displayIncomingNotifications(bootData.latest_notifications);

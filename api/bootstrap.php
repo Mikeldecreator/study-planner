@@ -52,6 +52,10 @@ $user = [
     'notifications_enabled' => (bool)($row['notifications_enabled'] ?? true),
     'week_start_day' => (int)($row['week_start_day'] ?? 1),
     'tour_completed' => (bool)($row['tour_completed'] ?? false),
+    'onboarding_completed' => !empty($row['onboarding_completed']),
+    'onboarding_step' => (int)($row['onboarding_step'] ?? 1),
+    'academic_session' => (string)($row['academic_session'] ?? ''),
+    'current_semester' => (string)($row['current_semester'] ?? ''),
 ];
 
 // Contextual notification sync (non-blocking, throttled to 60s cooldown)

@@ -85,4 +85,16 @@ echo json_encode([
 
     'preferred_study_days' =>
         $row['preferred_study_days'] ?? '1,2,3,4,5',
+
+    'onboarding_completed' =>
+        !empty($row['onboarding_completed']),
+
+    'onboarding_step' =>
+        (int)($row['onboarding_step'] ?? 1),
+
+    'academic_session' =>
+        (string)($row['academic_session'] ?? ''),
+
+    'current_semester' =>
+        (string)($row['current_semester'] ?? ''),
 ]);
