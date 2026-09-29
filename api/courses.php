@@ -239,9 +239,15 @@ try {
             break;
 
         case 'DELETE':
-            parse_str(file_get_contents('php://input'), $body);
-            verifyCsrf($body['csrf_token'] ?? null);
-            $id = filter_var($body['id'] ?? null, FILTER_VALIDATE_INT);
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '', true);
+            if (!is_array($body)) {
+                parse_str($raw ?: '', $body);
+            }
+            if (!is_array($body)) $body = [];
+            $csrf = $body['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+            verifyCsrf($csrf);
+            $id = filter_var($body['id'] ?? ($_GET['id'] ?? null), FILTER_VALIDATE_INT);
             if (!$id || $id < 1) courseJsonError('A valid course ID is required.', 422);
             $stmt = $db->prepare('SELECT id FROM courses WHERE id = ? AND user_id = ? LIMIT 1');
             $stmt->execute([$id, $userId]);
