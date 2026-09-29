@@ -234,7 +234,7 @@ function sanitizeAcademicContextForAI(array $context): array
  */
 function resolveAIModel(string $provider = 'gemini', ?string $customModel = null): string {
     $provider = strtolower($provider);
-    $defaultModel = ($provider === 'openai') ? 'gpt-4o-mini' : 'gemini-2.5-flash';
+    $defaultModel = ($provider === 'openai') ? 'gpt-4o-mini' : 'gemini-3.5-flash-lite';
 
     $candidate = '';
     if ($customModel !== null && trim($customModel) !== '') {
@@ -245,7 +245,7 @@ function resolveAIModel(string $provider = 'gemini', ?string $customModel = null
             $candidate = trim($envModel);
         } elseif (defined('AI_MODEL') && constant('AI_MODEL') !== '') {
             $candidate = trim((string)constant('AI_MODEL'));
-            if ($provider === 'openai' && ($candidate === 'gemini-2.5-flash' || $candidate === 'gemini-1.5-flash')) {
+            if ($provider === 'openai' && ($candidate === 'gemini-3.5-flash-lite' || $candidate === 'gemini-2.5-flash' || $candidate === 'gemini-1.5-flash')) {
                 $candidate = $defaultModel;
             }
         }
@@ -260,8 +260,8 @@ function resolveAIModel(string $provider = 'gemini', ?string $customModel = null
         if (str_starts_with($candidate, 'models/')) {
             $candidate = substr($candidate, 7);
         }
-        if ($candidate === '' || $candidate === 'gemini-1.5-flash') {
-            $candidate = 'gemini-2.5-flash';
+        if ($candidate === '' || $candidate === 'gemini-1.5-flash' || $candidate === 'gemini-2.5-flash' || $candidate === 'gemini-2.5-flash-lite') {
+            $candidate = 'gemini-3.5-flash-lite';
         }
     }
 
@@ -351,24 +351,19 @@ function callGeminiAPI(
     if ($httpCode !== 200 || isset($decoded['error'])) {
         $msg = $decoded['error']['message'] ?? 'Provider returned an error (' . $httpCode . ')';
 
-        // Auto-upgrade if Google API specifically informs that model is unavailable to new users and directs to gemini-3.8-flash
-        if (($cleanModel === 'gemini-2.5-flash' || $cleanModel === 'gemini-1.5-flash') &&
-            (stripos($msg, 'no longer available to new users') !== false || stripos($msg, 'gemini-3.8-flash') !== false)) {
-            error_log("Gemini model {$cleanModel} not available for key; automatically upgrading to gemini-3.8-flash per Google API directive.");
-            return callGeminiAPI($apiKey, 'gemini-3.8-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount);
+        // Auto-upgrade if Google API specifically informs that model is unavailable to new users
+        if (($cleanModel === 'gemini-2.5-flash' || $cleanModel === 'gemini-1.5-flash' || $cleanModel === 'gemini-2.5-flash-lite') &&
+            stripos($msg, 'no longer available to new users') !== false) {
+            error_log("Gemini model {$cleanModel} not available for key; automatically upgrading to gemini-3.5-flash-lite per Google API directive.");
+            return callGeminiAPI($apiKey, 'gemini-3.5-flash-lite', $systemPrompt, $context, $userMessage, $timeout, $retryCount);
         }
 
-        // Cross-model redundancy on capacity spike / high demand
-        if ($retryCount < 2 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
-            $altModel = ($cleanModel === 'gemini-3.5-flash') ? 'gemini-3.8-flash' : 'gemini-3.5-flash';
-            usleep(1200000);
+        // Cross-model redundancy on capacity spike / high demand or quota exceeded
+        if ($retryCount < 2 && ($httpCode === 503 || stripos($msg, 'high demand') !== false || stripos($msg, 'quota exceeded') !== false)) {
+            $altModel = ($cleanModel === 'gemini-3.5-flash-lite') ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite';
+            error_log("Gemini model {$cleanModel} returned error ({$httpCode}); attempting fallback to {$altModel}.");
+            usleep(1000000);
             return callGeminiAPI($apiKey, $altModel, $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
-        }
-
-        // Cross-model redundancy if quota exceeded on 3.8
-        if ($retryCount < 2 && $cleanModel === 'gemini-3.8-flash' && stripos($msg, 'quota exceeded') !== false) {
-            error_log("Gemini model gemini-3.8-flash quota exceeded; attempting fallback to gemini-3.5-flash.");
-            return callGeminiAPI($apiKey, 'gemini-3.5-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
         }
 
         // Strip API key from error message if echoed by provider
