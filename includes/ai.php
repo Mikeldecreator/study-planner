@@ -155,7 +155,8 @@ function callGeminiAPI(
     string $systemPrompt,
     array $context,
     string $userMessage,
-    int $timeout
+    int $timeout,
+    int $retryCount = 0
 ): array {
     $cleanModel = resolveAIModel('gemini', $model);
     $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($cleanModel) . ':generateContent?key=' . urlencode($apiKey);
@@ -225,7 +226,13 @@ function callGeminiAPI(
         if (($cleanModel === 'gemini-2.5-flash' || $cleanModel === 'gemini-1.5-flash') &&
             (stripos($msg, 'no longer available to new users') !== false || stripos($msg, 'gemini-3.8-flash') !== false)) {
             error_log("Gemini model {$cleanModel} not available for key; automatically upgrading to gemini-3.8-flash per Google API directive.");
-            return callGeminiAPI($apiKey, 'gemini-3.8-flash', $systemPrompt, $context, $userMessage, $timeout);
+            return callGeminiAPI($apiKey, 'gemini-3.8-flash', $systemPrompt, $context, $userMessage, $timeout, $retryCount);
+        }
+
+        // Retry once on transient high demand or 503 spike
+        if ($retryCount < 1 && ($httpCode === 503 || stripos($msg, 'high demand') !== false)) {
+            usleep(1500000);
+            return callGeminiAPI($apiKey, $cleanModel, $systemPrompt, $context, $userMessage, $timeout, $retryCount + 1);
         }
 
         // Strip API key from error message if echoed by provider
