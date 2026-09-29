@@ -111,6 +111,25 @@ $focusByCourseStmt = $db->prepare(
 $focusByCourseStmt->execute([$userId]);
 $focusByCourse = $focusByCourseStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
+// Batch non-completed tasks across all courses to eliminate 2N query loop
+$batchTasksStmt = $db->prepare(
+    "SELECT course_id, duration_hours, type, title, description, progress_percent, status, due_at 
+     FROM tasks 
+     WHERE user_id = ? AND status != 'completed' AND course_id IS NOT NULL"
+);
+$batchTasksStmt->execute([$userId]);
+$tasksByCourse = [];
+$overdueByCourse = [];
+$nowTimeStr = date('Y-m-d H:i:s');
+
+foreach ($batchTasksStmt->fetchAll(PDO::FETCH_ASSOC) as $tRow) {
+    $cId = (int)$tRow['course_id'];
+    $tasksByCourse[$cId][] = $tRow;
+    if (!empty($tRow['due_at']) && $tRow['due_at'] < $nowTimeStr) {
+        $overdueByCourse[$cId] = ($overdueByCourse[$cId] ?? 0) + 1;
+    }
+}
+
 foreach ($courses as &$c) {
     $count = (int) $c['task_count'];
     $completed = (int) $c['completed_count'];
@@ -132,16 +151,17 @@ foreach ($courses as &$c) {
     $c['course_risk_score'] = $courseRisk;
     $c['course_risk_label'] = $courseRisk >= 80 ? 'Critical Risk' : ($courseRisk >= 60 ? 'High Risk' : ($courseRisk >= 35 ? 'Moderate Risk' : 'Low Risk'));
 
-    // Remaining workload and academic pressure context
-    $workloadHours = calculateCourseWorkload($db, $userId, $courseId);
+    // Remaining workload and academic pressure context (computed in-memory from batch)
+    $cTasks = $tasksByCourse[$courseId] ?? [];
+    $workload = 0.0;
+    foreach ($cTasks as $task) {
+        $intel = buildTaskIntelligence($task);
+        $workload += (float) ($intel['remaining_hours'] ?? 0);
+    }
+    $workloadHours = round($workload, 1);
     $c['remaining_workload_hours'] = $workloadHours;
 
-    $stmtOverdue = $db->prepare(
-        "SELECT COUNT(*) FROM tasks 
-         WHERE user_id = ? AND course_id = ? AND status != 'completed' AND due_at < NOW()"
-    );
-    $stmtOverdue->execute([$userId, $courseId]);
-    $overdueCount = (int) $stmtOverdue->fetchColumn();
+    $overdueCount = (int) ($overdueByCourse[$courseId] ?? 0);
     $c['overdue_tasks_count'] = $overdueCount;
 
     $pendingCount = max(0, $count - $completed);

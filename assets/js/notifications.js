@@ -685,7 +685,11 @@
     ===================================================== */
     function initNotifications() {
         attachEventListeners();
-        loadNotifications();
+        // On notifications center page, load feed immediately.
+        // On all other pages, bootstrap provides the badge count and bell dropdown loads on-demand on click.
+        if (feedEl) {
+            loadNotifications();
+        }
     }
 
     if (document.readyState === 'loading') {

@@ -485,12 +485,23 @@ class DocumentProcessor {
      * with coordinate-aware horizontal line reconstruction.
      */
     public static function parsePdfTextStream(string $stream): string {
-        $tokenRegex = '/(?:\b(q)\b|\b(Q)\b|([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+cm|BT\s*(.*?)\s*ET)/s';
+        $tokenRegex = '/(?:\b(q)\b|\b(Q)\b|([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)\s+cm|BT\s*(.*?)\s*\bET\b)/s';
 
         $stateStack = [];
         $curCmX = 0.0;
         $curCmY = 0.0;
         $items = [];
+
+        $opRegex = '/(?:' .
+            '\[(?P<tj_arr>.*?)\]\s*TJ|' .
+            '\((?P<tj_str>.*?)(?<!\\\\)\)\s*(?P<tj_op>Tj|\'|\")|' .
+            '<(?P<tj_hex>[0-9A-Fa-f]+)>\s*(?P<tj_hex_op>Tj|\'|\")|' .
+            '(?P<td_dx>[\d\.\-]+)\s+(?P<td_dy>[\d\.\-]+)\s+Td|' .
+            '(?P<td_dx2>[\d\.\-]+)\s+(?P<td_dy2>[\d\.\-]+)\s+TD|' .
+            '[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+\s+(?P<mat_e>[\d\.\-]+)\s+(?P<mat_f>[\d\.\-]+)\s+Tm|' .
+            '(?P<tl_val>[\d\.\-]+)\s+TL|' .
+            '(?P<t_star>T\*)' .
+        ')/s';
 
         if (preg_match_all($tokenRegex, $stream, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
@@ -510,59 +521,74 @@ class DocumentProcessor {
                     $curCmY += $ty;
                 } elseif (isset($m[9])) {
                     $block = $m[9];
-                    $tmX = 0.0;
-                    $tmY = 0.0;
-                    $hasCoord = false;
+                    $curX = 0.0;
+                    $curY = 0.0;
+                    $leading = 14.0;
 
-                    if (preg_match('/([\d\.\-]+)\s+([\d\.\-]+)\s+Td/s', $block, $tdm)) {
-                        $tmX = (float)$tdm[1];
-                        $tmY = (float)$tdm[2];
-                        $hasCoord = true;
-                    } elseif (preg_match('/[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+\s+([\d\.\-]+)\s+([\d\.\-]+)\s+Tm/s', $block, $tmm)) {
-                        $tmX = (float)$tmm[1];
-                        $tmY = (float)$tmm[2];
-                        $hasCoord = true;
-                    }
-
-                    $lineText = '';
-                    // 1. Array strings: [(Hello) 20 (World)] TJ
-                    if (preg_match_all('/\[(.*?)\]\s*TJ/s', $block, $tjArrays)) {
-                        foreach ($tjArrays[1] as $arrContent) {
-                            if (preg_match_all('/\((.*?)(?<!\\\\)\)/s', $arrContent, $strMatches)) {
-                                $lineText .= implode('', array_map([self::class, 'unescapePdfString'], $strMatches[1])) . ' ';
-                            } elseif (preg_match_all('/<([0-9A-Fa-f]+)>/', $arrContent, $hexMatches)) {
-                                foreach ($hexMatches[1] as $hex) {
-                                    $lineText .= self::decodePdfHexString($hex) . ' ';
+                    if (preg_match_all($opRegex, $block, $opMatches, PREG_SET_ORDER)) {
+                        foreach ($opMatches as $om) {
+                            if (!empty($om['td_dx']) || (isset($om['td_dx']) && $om['td_dx'] === '0')) {
+                                $curX += (float)$om['td_dx'];
+                                $curY += (float)$om['td_dy'];
+                            } elseif (!empty($om['td_dx2']) || (isset($om['td_dx2']) && $om['td_dx2'] === '0')) {
+                                $curX += (float)$om['td_dx2'];
+                                $curY += (float)$om['td_dy2'];
+                                $leading = -(float)$om['td_dy2'];
+                            } elseif (!empty($om['mat_e']) || (isset($om['mat_e']) && $om['mat_e'] === '0')) {
+                                $curX = (float)$om['mat_e'];
+                                $curY = (float)$om['mat_f'];
+                            } elseif (!empty($om['tl_val'])) {
+                                $leading = (float)$om['tl_val'];
+                            } elseif (!empty($om['t_star'])) {
+                                $curY -= $leading;
+                            } elseif (isset($om['tj_str']) && $om['tj_str'] !== '') {
+                                $op = $om['tj_op'];
+                                if ($op === "'" || $op === '"') {
+                                    $curY -= $leading;
+                                }
+                                $txt = self::unescapePdfString($om['tj_str']);
+                                if (trim($txt) !== '') {
+                                    $items[] = [
+                                        'x' => round($curCmX + $curX, 1),
+                                        'y' => round($curCmY + $curY, 1),
+                                        'hasCoord' => true,
+                                        'text' => $txt
+                                    ];
+                                }
+                            } elseif (!empty($om['tj_hex'])) {
+                                $op = $om['tj_hex_op'] ?? 'Tj';
+                                if ($op === "'" || $op === '"') {
+                                    $curY -= $leading;
+                                }
+                                $txt = self::decodePdfHexString($om['tj_hex']);
+                                if (trim($txt) !== '') {
+                                    $items[] = [
+                                        'x' => round($curCmX + $curX, 1),
+                                        'y' => round($curCmY + $curY, 1),
+                                        'hasCoord' => true,
+                                        'text' => $txt
+                                    ];
+                                }
+                            } elseif (isset($om['tj_arr']) && $om['tj_arr'] !== '') {
+                                $arrContent = $om['tj_arr'];
+                                $arrText = '';
+                                if (preg_match_all('/\((.*?)(?<!\\\\)\)/s', $arrContent, $strMatches)) {
+                                    $arrText = implode('', array_map([self::class, 'unescapePdfString'], $strMatches[1]));
+                                } elseif (preg_match_all('/<([0-9A-Fa-f]+)>/', $arrContent, $hexMatches)) {
+                                    foreach ($hexMatches[1] as $hex) {
+                                        $arrText .= self::decodePdfHexString($hex);
+                                    }
+                                }
+                                if (trim($arrText) !== '') {
+                                    $items[] = [
+                                        'x' => round($curCmX + $curX, 1),
+                                        'y' => round($curCmY + $curY, 1),
+                                        'hasCoord' => true,
+                                        'text' => $arrText
+                                    ];
                                 }
                             }
                         }
-                    }
-
-                    // 2. Individual strings: (Hello World) Tj or (Hello World) '
-                    if (preg_match_all('/\((.*?)(?<!\\\\)\)\s*(?:Tj|\'|\")/s', $block, $tjMatches)) {
-                        foreach ($tjMatches[1] as $str) {
-                            $lineText .= self::unescapePdfString($str) . ' ';
-                        }
-                    }
-
-                    // 3. Hex strings: <48656c6c6f> Tj
-                    if (preg_match_all('/<([0-9A-Fa-f]+)>\s*Tj/', $block, $hexMatches)) {
-                        foreach ($hexMatches[1] as $hex) {
-                            $lineText .= self::decodePdfHexString($hex) . ' ';
-                        }
-                    }
-
-                    $lineText = trim($lineText);
-                    if ($lineText !== '') {
-                        $absX = $hasCoord ? ($curCmX + $tmX) : $curCmX;
-                        $absY = $hasCoord ? ($curCmY + $tmY) : $curCmY;
-
-                        $items[] = [
-                            'x'        => round($absX, 1),
-                            'y'        => round($absY, 1),
-                            'hasCoord' => ($hasCoord || $curCmX != 0.0 || $curCmY != 0.0),
-                            'text'     => $lineText,
-                        ];
                     }
                 }
             }
@@ -1150,13 +1176,30 @@ class DocumentProcessor {
                 }
             }
 
-            // Single Week: Week X or Week X: Description
-            if (preg_match('/\bweek\s*(\d{1,2})\b(?:\s*[-–:]\s*(.*))?$/i', $t, $wm)) {
+            // Single Week: Week X or Week X (dates): Description
+            if (preg_match('/^\s*(?:week\s*)?(\d{1,2})\b(?:\s*[:\.]|\s*\(([^)]*)\)|\s*\[([^\]]*)\])*\s*[:\-–]?\s*(.*)$/i', $t, $wm)) {
                 $wNum = (int) $wm[1];
-                if ($wNum < 1 || $wNum > 30) continue;
+                if ($wNum < 1 || $wNum > 35) continue;
                 if ($wNum > $maxWeek) $maxWeek = $wNum;
 
-                $desc = isset($wm[2]) ? trim($wm[2]) : '';
+                $dateRangeStr = !empty($wm[2]) ? trim($wm[2]) : (!empty($wm[3]) ? trim($wm[3]) : '');
+                $desc = trim($wm[4]);
+
+                $wStart = null;
+                $wEnd = null;
+                if ($dateRangeStr !== '') {
+                    if (preg_match('/(\d{1,2}\s+[A-Za-z]{3,9}\.?|[A-Za-z]{3,9}\.?\s+\d{1,2})\s*(?:–|-|to)\s*(\d{1,2}\s+[A-Za-z]{3,9}\.?\s*\d{0,4}|[A-Za-z]{3,9}\.?\s+\d{1,2}\s*\d{0,4})/i', $dateRangeStr, $drm)) {
+                        preg_match('/\b(20\d{2})\b/', $dateRangeStr, $yM);
+                        $year = $yM[1] ?? date('Y', strtotime($startDate));
+                        $sTs = strtotime($drm[1] . ' ' . $year);
+                        $eTs = strtotime($drm[2] . ' ' . $year);
+                        if ($sTs && $eTs) {
+                            $wStart = date('Y-m-d', $sTs);
+                            $wEnd = date('Y-m-d', $eTs);
+                        }
+                    }
+                }
+
                 $lowerDesc = strtolower($desc);
                 $type = 'teaching';
                 if (preg_match('/exam|examination/i', $lowerDesc)) {
@@ -1177,6 +1220,8 @@ class DocumentProcessor {
                     'week_number' => $wNum,
                     'label'       => $label,
                     'week_type'   => $type,
+                    'start_date'  => $wStart,
+                    'end_date'    => $wEnd,
                 ];
             }
         }

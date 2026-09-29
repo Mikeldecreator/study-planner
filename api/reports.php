@@ -177,66 +177,145 @@ if ($db === null) {
     $trendTasksCompleted = [];
 
     if ($range === 'week') {
+        $stCompleted = $db->prepare(
+            "SELECT DATE(completed_at) AS day_date, COUNT(*) AS cnt
+             FROM tasks
+             WHERE user_id = ? AND status = 'completed' AND completed_at BETWEEN ? AND ?
+             GROUP BY DATE(completed_at)"
+        );
+        $stCompleted->execute([$userId, $startStr, $endStr]);
+        $completedByDay = $stCompleted->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $stHours = $db->prepare(
+            "SELECT DATE(started_at) AS day_date, COALESCE(SUM(duration_seconds), 0) / 3600 AS hrs
+             FROM task_work_sessions
+             WHERE user_id = ? AND started_at BETWEEN ? AND ?
+             GROUP BY DATE(started_at)"
+        );
+        $stHours->execute([$userId, $startStr, $endStr]);
+        $hoursByDay = $stHours->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $stBase = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at < ?");
+        $stBase->execute([$userId, $startStr]);
+        $cumTotal = (int) $stBase->fetchColumn();
+
+        $stCreated = $db->prepare(
+            "SELECT DATE(created_at) AS day_date, COUNT(*) AS cnt
+             FROM tasks
+             WHERE user_id = ? AND created_at BETWEEN ? AND ?
+             GROUP BY DATE(created_at)"
+        );
+        $stCreated->execute([$userId, $startStr, $endStr]);
+        $createdDays = $stCreated->fetchAll(PDO::FETCH_KEY_PAIR);
+
         for ($d = 0; $d < 7; $d++) {
             $dayDate = (clone $start)->modify("+$d days");
             $dayStr = $dayDate->format('Y-m-d');
             $trendLabels[] = $dayDate->format('D');
 
-            $st = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'completed' AND DATE(completed_at) = ?");
-            $st->execute([$userId, $dayStr]);
-            $dayCompleted = (int) $st->fetchColumn();
+            $dayCompleted = (int) ($completedByDay[$dayStr] ?? 0);
             $trendTasksCompleted[] = $dayCompleted;
 
-            $st2 = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND DATE(created_at) <= ?");
-            $st2->execute([$userId, $dayStr]);
-            $dayTotal = (int) $st2->fetchColumn();
-            $trendCompletionRates[] = $dayTotal > 0 ? round(($dayCompleted / $dayTotal) * 100, 2) : 0.0;
+            $cumTotal += (int) ($createdDays[$dayStr] ?? 0);
+            $trendCompletionRates[] = $cumTotal > 0 ? round(($dayCompleted / $cumTotal) * 100, 2) : 0.0;
 
-            $st3 = $db->prepare("SELECT COALESCE(SUM(duration_seconds), 0) / 3600 FROM task_work_sessions WHERE user_id = ? AND DATE(started_at) = ?");
-            $st3->execute([$userId, $dayStr]);
-            $trendStudyHours[] = round((float) $st3->fetchColumn(), 2);
+            $trendStudyHours[] = round((float) ($hoursByDay[$dayStr] ?? 0), 2);
         }
     } elseif ($range === 'month') {
+        $stCompleted = $db->prepare(
+            "SELECT completed_at
+             FROM tasks
+             WHERE user_id = ? AND status = 'completed' AND completed_at BETWEEN ? AND ?"
+        );
+        $stCompleted->execute([$userId, $startStr, $endStr]);
+        $completedRows = $stCompleted->fetchAll(PDO::FETCH_COLUMN);
+
+        $stCreated = $db->prepare(
+            "SELECT created_at
+             FROM tasks
+             WHERE user_id = ? AND created_at <= ?"
+        );
+        $stCreated->execute([$userId, $endStr]);
+        $createdRows = $stCreated->fetchAll(PDO::FETCH_COLUMN);
+
+        $stSessions = $db->prepare(
+            "SELECT started_at, duration_seconds
+             FROM task_work_sessions
+             WHERE user_id = ? AND started_at BETWEEN ? AND ?"
+        );
+        $stSessions->execute([$userId, $startStr, $endStr]);
+        $sessionRows = $stSessions->fetchAll(PDO::FETCH_ASSOC);
+
         for ($w = 0; $w < 4; $w++) {
             $wStart = (clone $start)->modify("+" . ($w * 7) . " days");
             $wEnd = (clone $wStart)->modify("+6 days");
             if ($w === 3) $wEnd = clone $end;
             $trendLabels[] = "W" . ($w + 1);
 
-            $st = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'completed' AND completed_at BETWEEN ? AND ?");
-            $st->execute([$userId, $wStart->format('Y-m-d 00:00:00'), $wEnd->format('Y-m-d 23:59:59')]);
-            $wCompleted = (int) $st->fetchColumn();
+            $wStartStr = $wStart->format('Y-m-d 00:00:00');
+            $wEndStr = $wEnd->format('Y-m-d 23:59:59');
+
+            $wCompleted = 0;
+            foreach ($completedRows as $cAt) {
+                if ($cAt >= $wStartStr && $cAt <= $wEndStr) $wCompleted++;
+            }
             $trendTasksCompleted[] = $wCompleted;
 
-            $st2 = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at <= ?");
-            $st2->execute([$userId, $wEnd->format('Y-m-d 23:59:59')]);
-            $wTotal = (int) $st2->fetchColumn();
+            $wTotal = 0;
+            foreach ($createdRows as $crAt) {
+                if ($crAt <= $wEndStr) $wTotal++;
+            }
             $trendCompletionRates[] = $wTotal > 0 ? round(($wCompleted / $wTotal) * 100, 2) : 0.0;
 
-            $st3 = $db->prepare("SELECT COALESCE(SUM(duration_seconds), 0) / 3600 FROM task_work_sessions WHERE user_id = ? AND started_at BETWEEN ? AND ?");
-            $st3->execute([$userId, $wStart->format('Y-m-d 00:00:00'), $wEnd->format('Y-m-d 23:59:59')]);
-            $trendStudyHours[] = round((float) $st3->fetchColumn(), 2);
+            $wSec = 0;
+            foreach ($sessionRows as $sRow) {
+                if ($sRow['started_at'] >= $wStartStr && $sRow['started_at'] <= $wEndStr) {
+                    $wSec += (int) $sRow['duration_seconds'];
+                }
+            }
+            $trendStudyHours[] = round($wSec / 3600, 2);
         }
     } else {
+        $stCompleted = $db->prepare(
+            "SELECT DATE_FORMAT(completed_at, '%Y-%m') AS ym, COUNT(*) AS cnt
+             FROM tasks
+             WHERE user_id = ? AND status = 'completed' AND completed_at BETWEEN ? AND ?
+             GROUP BY ym"
+        );
+        $stCompleted->execute([$userId, $startStr, $endStr]);
+        $compByYm = $stCompleted->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $stCreated = $db->prepare(
+            "SELECT created_at FROM tasks WHERE user_id = ? AND created_at <= ?"
+        );
+        $stCreated->execute([$userId, $endStr]);
+        $allCreated = $stCreated->fetchAll(PDO::FETCH_COLUMN);
+
+        $stHours = $db->prepare(
+            "SELECT DATE_FORMAT(started_at, '%Y-%m') AS ym, COALESCE(SUM(duration_seconds), 0) / 3600 AS hrs
+             FROM task_work_sessions
+             WHERE user_id = ? AND started_at BETWEEN ? AND ?
+             GROUP BY ym"
+        );
+        $stHours->execute([$userId, $startStr, $endStr]);
+        $hrsByYm = $stHours->fetchAll(PDO::FETCH_KEY_PAIR);
+
         for ($m = 5; $m >= 0; $m--) {
             $mDate = (clone $now)->modify("-$m months");
-            $mStart = (clone $mDate)->modify('first day of this month')->setTime(0, 0);
-            $mEnd = (clone $mDate)->modify('last day of this month')->setTime(23, 59, 59);
             $trendLabels[] = $mDate->format('M');
+            $ym = $mDate->format('Y-m');
+            $mEndStr = (clone $mDate)->modify('last day of this month')->setTime(23, 59, 59)->format('Y-m-d H:i:s');
 
-            $st = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status = 'completed' AND completed_at BETWEEN ? AND ?");
-            $st->execute([$userId, $mStart->format('Y-m-d H:i:s'), $mEnd->format('Y-m-d H:i:s')]);
-            $mCompleted = (int) $st->fetchColumn();
+            $mCompleted = (int) ($compByYm[$ym] ?? 0);
             $trendTasksCompleted[] = $mCompleted;
 
-            $st2 = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND created_at <= ?");
-            $st2->execute([$userId, $mEnd->format('Y-m-d H:i:s')]);
-            $mTotal = (int) $st2->fetchColumn();
+            $mTotal = 0;
+            foreach ($allCreated as $cAt) {
+                if ($cAt <= $mEndStr) $mTotal++;
+            }
             $trendCompletionRates[] = $mTotal > 0 ? round(($mCompleted / $mTotal) * 100, 2) : 0.0;
 
-            $st3 = $db->prepare("SELECT COALESCE(SUM(duration_seconds), 0) / 3600 FROM task_work_sessions WHERE user_id = ? AND started_at BETWEEN ? AND ?");
-            $st3->execute([$userId, $mStart->format('Y-m-d H:i:s'), $mEnd->format('Y-m-d H:i:s')]);
-            $trendStudyHours[] = round((float) $st3->fetchColumn(), 2);
+            $trendStudyHours[] = round((float) ($hrsByYm[$ym] ?? 0), 2);
         }
     }
 

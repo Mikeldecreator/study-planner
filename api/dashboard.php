@@ -101,17 +101,19 @@ $stmt = $db->prepare('SELECT COUNT(*) FROM schedule_events WHERE user_id = ?');
 $stmt->execute([$userId]);
 $totalClasses = (int) $stmt->fetchColumn();
 
-$stmt = $db->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ?');
+$stmt = $db->prepare(
+    "SELECT 
+        COUNT(*) AS total_tasks,
+        COUNT(CASE WHEN status != 'completed' THEN 1 END) AS active_tasks,
+        COUNT(CASE WHEN status != 'completed' AND due_at < NOW() THEN 1 END) AS overdue_tasks
+     FROM tasks 
+     WHERE user_id = ?"
+);
 $stmt->execute([$userId]);
-$totalTasks = (int) $stmt->fetchColumn();
-
-$stmt = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status != 'completed'");
-$stmt->execute([$userId]);
-$activeTasksCount = (int) $stmt->fetchColumn();
-
-$stmt = $db->prepare("SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status != 'completed' AND due_at < NOW()");
-$stmt->execute([$userId]);
-$overdueTasksCount = (int) $stmt->fetchColumn();
+$taskCounts = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$totalTasks = (int) ($taskCounts['total_tasks'] ?? 0);
+$activeTasksCount = (int) ($taskCounts['active_tasks'] ?? 0);
+$overdueTasksCount = (int) ($taskCounts['overdue_tasks'] ?? 0);
 
 // Recommended study plan for today
 $recommendedPlan = generateRecommendedStudyPlan($db, $userId, $todayDow);

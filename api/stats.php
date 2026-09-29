@@ -40,25 +40,39 @@ foreach ($tasks as $t) {
 }
 
 // ---- Weekly progress line chart: % of that day's tasks completed on time ----
-// Simplified for a defense build: % of tasks DUE each weekday that are completed.
 $weekly = [];
 $today = new DateTime();
 $monday = (clone $today)->modify('monday this week');
+$weekStart = $monday->format('Y-m-d 00:00:00');
+$weekEnd = (clone $monday)->modify('+6 day')->format('Y-m-d 23:59:59');
+
+$stmtWeek = $db->prepare(
+    "SELECT due_at, status, completed_at
+     FROM tasks 
+     WHERE user_id = ? AND (due_at BETWEEN ? AND ? OR completed_at BETWEEN ? AND ?)"
+);
+$stmtWeek->execute([$userId, $weekStart, $weekEnd, $weekStart, $weekEnd]);
+$weekTasks = $stmtWeek->fetchAll(PDO::FETCH_ASSOC);
+
 for ($i = 0; $i < 7; $i++) {
     $day = (clone $monday)->modify("+{$i} day");
     $dayStart = $day->format('Y-m-d 00:00:00');
     $dayEnd   = $day->format('Y-m-d 23:59:59');
 
-    $stmt = $db->prepare(
-        "SELECT
-            COUNT(CASE WHEN due_at BETWEEN ? AND ? THEN 1 END) AS due_count,
-            COUNT(CASE WHEN status = 'completed' AND (due_at BETWEEN ? AND ? OR completed_at BETWEEN ? AND ?) THEN 1 END) AS done_count
-         FROM tasks WHERE user_id = ?"
-    );
-    $stmt->execute([$dayStart, $dayEnd, $dayStart, $dayEnd, $dayStart, $dayEnd, $userId]);
-    $row = $stmt->fetch();
-    $due  = (int) ($row['due_count'] ?? 0);
-    $done = (int) ($row['done_count'] ?? 0);
+    $due = 0;
+    $done = 0;
+    foreach ($weekTasks as $tRow) {
+        $isDue = (!empty($tRow['due_at']) && $tRow['due_at'] >= $dayStart && $tRow['due_at'] <= $dayEnd);
+        if ($isDue) {
+            $due++;
+        }
+        if ($tRow['status'] === 'completed') {
+            $isCompletedToday = (!empty($tRow['completed_at']) && $tRow['completed_at'] >= $dayStart && $tRow['completed_at'] <= $dayEnd);
+            if ($isDue || $isCompletedToday) {
+                $done++;
+            }
+        }
+    }
     $weekly[] = $due > 0 ? min(100, (int) round($done / $due * 100)) : ($done > 0 ? 100 : 0);
 }
 
@@ -68,8 +82,7 @@ $stmt = $db->prepare(
      WHERE user_id = ? AND due_at BETWEEN ? AND ?
      GROUP BY type"
 );
-$weekEnd = (clone $monday)->modify('+6 day')->format('Y-m-d 23:59:59');
-$stmt->execute([$userId, $monday->format('Y-m-d 00:00:00'), $weekEnd]);
+$stmt->execute([$userId, $weekStart, $weekEnd]);
 $workload = [];
 $workloadTotal = 0;
 foreach ($stmt->fetchAll() as $row) {

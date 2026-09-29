@@ -11,6 +11,13 @@ $userId = currentUserId();
 $sessionUserName = $_SESSION['user_name'] ?? 'Student';
 $csrfToken = csrfToken();
 
+$shouldSyncNotifs = false;
+$nowTs = time();
+if (empty($_SESSION['last_notif_sync']) || ($nowTs - (int)$_SESSION['last_notif_sync']) >= 60) {
+    $_SESSION['last_notif_sync'] = $nowTs;
+    $shouldSyncNotifs = true;
+}
+
 // Release session lock immediately so parallel page requests execute without waiting
 session_write_close();
 
@@ -21,18 +28,7 @@ $avatar = '';
 try {
     $db = getDb();
     $row = getUserProfileRow($userId);
-
-    try {
-        $stmt = $db->prepare(
-            'SELECT avatar_path
-             FROM users
-             WHERE id = ?'
-        );
-        $stmt->execute([$userId]);
-        $avatar = $stmt->fetchColumn() ?: '';
-    } catch (Throwable $e) {
-        $avatar = '';
-    }
+    $avatar = (string)($row['avatar_path'] ?? '');
 } catch (Throwable $e) {
     // Database connection error fallback
     $row = [];
@@ -58,8 +54,8 @@ $user = [
     'tour_completed' => (bool)($row['tour_completed'] ?? false),
 ];
 
-// Contextual notification sync (non-blocking)
-if ($db && function_exists('syncContextualNotifications')) {
+// Contextual notification sync (non-blocking, throttled to 60s cooldown)
+if ($shouldSyncNotifs && $db && function_exists('syncContextualNotifications')) {
     try {
         syncContextualNotifications($db, $userId);
     } catch (Throwable $t) {

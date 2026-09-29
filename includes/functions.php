@@ -101,6 +101,7 @@ function getUserProfileRow(int $userId): array
         'preferred_study_days'  => '1,2,3,4,5',
         'tour_completed'        => 0,
         'dismissed_tips'        => '[]',
+        'avatar_path'           => '',
     ];
 
     try {
@@ -118,7 +119,8 @@ function getUserProfileRow(int $userId): array
                 preferred_study_time,
                 preferred_study_days,
                 tour_completed,
-                dismissed_tips
+                dismissed_tips,
+                avatar_path
              FROM users
              WHERE id = ?'
         );

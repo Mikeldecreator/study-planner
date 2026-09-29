@@ -92,7 +92,8 @@ try {
                 "SELECT c.*,
                     COUNT(t.id) AS task_count,
                     COALESCE(SUM(t.status = 'completed'), 0) AS completed_count,
-                    COALESCE(SUM(t.status != 'completed' AND t.due_at >= NOW() AND t.due_at <= DATE_ADD(NOW(), INTERVAL " . DUE_SOON_WINDOW_DAYS . " DAY)), 0) AS due_soon_count
+                    COALESCE(SUM(t.status != 'completed' AND t.due_at >= NOW() AND t.due_at <= DATE_ADD(NOW(), INTERVAL " . DUE_SOON_WINDOW_DAYS . " DAY)), 0) AS due_soon_count,
+                    COALESCE(AVG(t.progress_percent), 0) AS avg_task_progress
                  FROM courses c
                  LEFT JOIN tasks t ON t.course_id = c.id AND t.user_id = c.user_id
                  WHERE c.user_id = ?
@@ -116,9 +117,7 @@ try {
                 $course['completed_count'] = $completed;
                 $course['due_soon_count'] = (int) $course['due_soon_count'];
                 $course['credits'] = (int) $course['credits'];
-                $taskProgressStmt = $db->prepare('SELECT COALESCE(AVG(progress_percent),0) FROM tasks WHERE course_id=? AND user_id=?');
-                $taskProgressStmt->execute([$course['id'], $userId]);
-                $taskProgress = (int)round((float)$taskProgressStmt->fetchColumn());
+                $taskProgress = (int) round((float) ($course['avg_task_progress'] ?? 0));
                 $storedProgress = (int)($course['progress_percent'] ?? 0);
                 $course['progress'] = max($storedProgress, $taskProgress, ($taskCount > 0 && $completed === $taskCount) ? 100 : 0);
                 if ($course['progress'] >= 100 && ($course['status'] ?? 'pending') !== 'completed') {
