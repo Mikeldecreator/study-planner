@@ -97,6 +97,56 @@ function sanitizeAcademicContextForAI(array $context): array
 }
 
 /**
+ * Authoritatively resolve and normalize the AI model.
+ *
+ * Hierarchy:
+ * 1. Explicitly supplied model parameter (if non-empty)
+ * 2. AI_MODEL environment variable (if non-empty)
+ * 3. Configured AI_MODEL constant (if non-empty)
+ * 4. Supported default: 'gemini-2.5-flash' (or 'gpt-4o-mini' for OpenAI)
+ *
+ * Normalization rules:
+ * - If provider is gemini, strips any leading 'models/' prefix to prevent double-prefixing.
+ * - If resolved model is empty or obsolete 'gemini-1.5-flash', cleanly upgrades to 'gemini-2.5-flash'.
+ * - Preserves explicitly configured valid models (e.g. 'gemini-2.5-pro', 'gemini-2.0-flash', etc.).
+ */
+function resolveAIModel(string $provider = 'gemini', ?string $customModel = null): string {
+    $provider = strtolower($provider);
+    $defaultModel = ($provider === 'openai') ? 'gpt-4o-mini' : 'gemini-2.5-flash';
+
+    $candidate = '';
+    if ($customModel !== null && trim($customModel) !== '') {
+        $candidate = trim($customModel);
+    } else {
+        $envModel = getenv('AI_MODEL');
+        if ($envModel !== false && trim($envModel) !== '') {
+            $candidate = trim($envModel);
+        } elseif (defined('AI_MODEL') && constant('AI_MODEL') !== '') {
+            $candidate = trim((string)constant('AI_MODEL'));
+            if ($provider === 'openai' && ($candidate === 'gemini-2.5-flash' || $candidate === 'gemini-1.5-flash')) {
+                $candidate = $defaultModel;
+            }
+        }
+    }
+
+    if ($candidate === '') {
+        $candidate = $defaultModel;
+    }
+
+    // Provider-specific normalization
+    if ($provider === 'gemini') {
+        if (str_starts_with($candidate, 'models/')) {
+            $candidate = substr($candidate, 7);
+        }
+        if ($candidate === '' || $candidate === 'gemini-1.5-flash') {
+            $candidate = 'gemini-2.5-flash';
+        }
+    }
+
+    return $candidate;
+}
+
+/**
  * Query the Google Gemini REST API.
  */
 function callGeminiAPI(
@@ -107,7 +157,8 @@ function callGeminiAPI(
     string $userMessage,
     int $timeout
 ): array {
-    $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apiKey);
+    $cleanModel = resolveAIModel('gemini', $model);
+    $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($cleanModel) . ':generateContent?key=' . urlencode($apiKey);
 
     $contextJson = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     $promptText = "<academic_context>\n{$contextJson}\n</academic_context>\n\nStudent Question: {$userMessage}";
@@ -345,10 +396,7 @@ function askAcademicAI(
         }
     }
 
-    $defaultModel = ($resolvedProvider === 'openai') ? 'gpt-4o-mini' : 'gemini-1.5-flash';
-    $model = (defined('AI_MODEL') && constant('AI_MODEL') !== '')
-        ? constant('AI_MODEL')
-        : (getenv('AI_MODEL') ?: $defaultModel);
+    $model = resolveAIModel($resolvedProvider);
     $timeout = defined('AI_TIMEOUT_SECONDS') ? (int)constant('AI_TIMEOUT_SECONDS') : 15;
 
     // 2. Verify key is configured

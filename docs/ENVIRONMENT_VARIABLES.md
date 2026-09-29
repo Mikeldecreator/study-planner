@@ -62,7 +62,7 @@ This document provides a comprehensive specification of all environment variable
 | `AI_API_KEY` | string | `""` | API key for the selected AI provider. |
 | `GEMINI_API_KEY` | string | `""` | Fallback key if using Google Gemini. |
 | `OPENAI_API_KEY` | string | `""` | Fallback key if using OpenAI. |
-| `AI_MODEL` | string | `""` | Optional model override (e.g. `gemini-1.5-flash` or `gpt-4o-mini`). |
+| `AI_MODEL` | string | `""` | Optional model override (e.g. `gemini-2.5-flash` or `gpt-4o-mini`). |
 
 ---
 
