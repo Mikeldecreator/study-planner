@@ -1125,8 +1125,9 @@ select,
     z-index: 40 !important;
   }
 
-  .dashboard-main,
-  main {
+  body:has(#app-sidebar) main,
+  .dashboard-page main,
+  .app-page main {
     margin-left: 16rem !important; /* 256px */
     min-width: 0 !important;
   }
@@ -1153,6 +1154,9 @@ select,
 }
 
 @media (max-width: 767px) {
+  body:has(#app-sidebar) main,
+  .dashboard-page main,
+  .app-page main,
   .dashboard-main,
   main {
     margin-left: 0 !important;
