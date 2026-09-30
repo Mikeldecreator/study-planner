@@ -183,7 +183,8 @@ $requiredTables = [
     'activity_log',
     'password_resets',
     'browser_push_subscriptions',
-    'push_daily_reminders'
+    'push_daily_reminders',
+    'rate_limits'
 ];
 
 echo "\nVerifying required tables...\n";

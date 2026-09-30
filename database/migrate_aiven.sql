@@ -250,3 +250,11 @@ CREATE TABLE IF NOT EXISTS push_daily_reminders (
     CONSTRAINT fk_push_daily_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_push_daily_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 15. Rate Limits
+CREATE TABLE IF NOT EXISTS rate_limits (
+    rate_key    CHAR(64) PRIMARY KEY,
+    attempts    INT NOT NULL DEFAULT 1,
+    expires_at  DATETIME NOT NULL,
+    INDEX idx_rate_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

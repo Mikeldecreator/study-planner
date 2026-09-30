@@ -198,6 +198,20 @@ function getClientIp(): string
     return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '127.0.0.1';
 }
 
+function ensureRateLimitsTable(PDO $db): void {
+    static $ensured = false;
+    if ($ensured) return;
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS rate_limits (
+            rate_key CHAR(64) PRIMARY KEY,
+            attempts INT NOT NULL DEFAULT 1,
+            expires_at DATETIME NOT NULL,
+            INDEX idx_rate_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+        $ensured = true;
+    } catch (Throwable $e) {}
+}
+
 /**
  * Check if a specific action and identifier combination is rate limited.
  * Returns true if attempts >= maxAttempts within the unexpired window.
@@ -206,6 +220,7 @@ function isRateLimited(string $action, string $identifier, int $maxAttempts): bo
 {
     $rateKey = hash('sha256', strtolower($action . ':' . trim($identifier)));
     $db = getDb();
+    ensureRateLimitsTable($db);
 
     // Probabilistic cleanup of expired limits (1 in 20 requests)
     if (random_int(1, 20) === 1) {
@@ -235,6 +250,7 @@ function recordRateLimitHit(string $action, string $identifier, int $decaySecond
 {
     $rateKey = hash('sha256', strtolower($action . ':' . trim($identifier)));
     $db = getDb();
+    ensureRateLimitsTable($db);
     $expiresAt = date('Y-m-d H:i:s', time() + $decaySeconds);
 
     try {
