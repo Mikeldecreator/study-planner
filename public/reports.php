@@ -197,8 +197,8 @@ requirePageLogin();
 
       <!-- SEARCH -->
       <div
-        class="relative hidden md:block
-               flex-1 max-w-md mx-8"
+        class="relative hidden lg:block
+               flex-1 max-w-md mx-6 xl:mx-8"
       >
 
         <i
@@ -1119,11 +1119,11 @@ requirePageLogin();
 
         </div>
 
-        <!-- Mobile Card List for < md -->
-        <div id="recent-reports-mobile-cards" class="divide-y divide-gray-100 dark:divide-white/5 block md:hidden"></div>
+        <!-- Card List for < lg (Mobile & Tablet) -->
+        <div id="recent-reports-mobile-cards" class="divide-y divide-gray-100 dark:divide-white/5 block lg:hidden"></div>
 
-        <!-- Desktop Table for >= md -->
-        <div class="overflow-x-auto hidden md:block">
+        <!-- Table for >= lg (Desktop) -->
+        <div class="overflow-x-auto hidden lg:block">
 
           <table class="w-full min-w-[760px]">
 
