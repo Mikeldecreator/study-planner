@@ -19,17 +19,17 @@ requirePageLogin();
 
   <main class="flex-1 min-w-0">
     <header class="app-topbar bg-white/95 dark:bg-[#101615]/95 border-b border-gray-100 dark:border-white/10 px-4 sm:px-7 py-4 flex items-center gap-4 sticky top-0 z-20">
-      <button id="hamburger-btn" class="lg:hidden text-[#0B4B42] dark:text-gray-200" aria-label="Open menu"><i data-lucide="menu" class="w-6 h-6"></i></button>
-      <div class="min-w-0 flex-1 sm:flex-initial sm:min-w-[170px]">
+      <button id="hamburger-btn" class="lg:hidden text-[#0B4B42] dark:text-gray-200 shrink-0" aria-label="Open menu"><i data-lucide="menu" class="w-6 h-6"></i></button>
+      <div class="min-w-0 flex-1 sm:flex-initial shrink-0">
         <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Courses</h1>
-        <p class="hidden sm:block text-xs sm:text-sm text-[#53736D] dark:text-gray-400 mt-0.5">Manage your courses and track your academic progress.</p>
+        <p class="hidden xl:block text-xs sm:text-sm text-[#53736D] dark:text-gray-400 mt-0.5 truncate">Manage your courses and track your academic progress.</p>
       </div>
-      <div class="relative hidden md:block flex-1 max-w-lg mx-auto">
+      <div class="relative hidden lg:block flex-1 max-w-lg mx-auto">
         <i data-lucide="search" class="w-5 h-5 text-[#56736E] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
         <input id="course-search" type="search" placeholder="Search courses, course codes, lecturers..." aria-label="Search courses"
           class="w-full h-11 bg-[#F8FAFA] dark:bg-white/5 border border-[#D8E5E2] dark:border-white/10 rounded-xl pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600">
       </div>
-      <div class="flex items-center gap-4 ml-auto">
+      <div class="flex items-center gap-3 sm:gap-4 ml-auto shrink-0">
         <a href="schedule.php" class="hidden sm:block text-[#0A4D44] dark:text-gray-200" aria-label="View schedule"><i data-lucide="calendar-days" class="w-6 h-6"></i></a>
         <button id="bell-btn" class="relative text-[#0A4D44] dark:text-gray-200" aria-label="Notifications">
           <i data-lucide="bell" class="w-6 h-6"></i>

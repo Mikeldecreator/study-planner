@@ -146,25 +146,25 @@ requirePageLogin();
              gap-3 relative"
     >
 
-      <div class="flex items-center gap-3 shrink-0">
+      <div class="flex items-center gap-3 min-w-0 flex-1 sm:flex-initial shrink-0">
 
         <button
           id="hamburger-btn"
           class="lg:hidden
                  text-gray-500 dark:text-gray-300
                  hover:text-gray-900 dark:hover:text-white
-                 transition-colors"
+                 transition-colors shrink-0"
           aria-label="Open menu"
         >
           <i data-lucide="menu" class="w-5 h-5"></i>
         </button>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 min-w-0">
 
           <div
             class="w-9 h-9 rounded-lg
                    bg-emerald-50 dark:bg-emerald-500/10
-                   flex items-center justify-center"
+                   flex items-center justify-center shrink-0"
           >
             <i
               data-lucide="bar-chart-3"
@@ -174,19 +174,18 @@ requirePageLogin();
             ></i>
           </div>
 
-          <div class="hidden sm:block">
+          <div class="hidden sm:block min-w-0">
 
             <h1 class="text-lg sm:text-xl font-semibold">
               Reports
             </h1>
 
             <p
-              class="text-[11px]
+              class="hidden xl:block text-[11px]
                      text-[#6a8580]
-                     dark:text-gray-400"
+                     dark:text-gray-400 truncate"
             >
-              View detailed analytics and insights about your
-              academic performance.
+              View detailed analytics and insights about your academic performance.
             </p>
 
           </div>
@@ -230,7 +229,7 @@ requirePageLogin();
 
 
       <!-- ACTIONS -->
-      <div class="flex items-center gap-4 sm:gap-5">
+      <div class="flex items-center gap-3 sm:gap-4 shrink-0 ml-auto">
 
         <a
           href="schedule.php"
@@ -271,21 +270,20 @@ requirePageLogin();
         <a
           href="settings.php"
           class="hidden sm:flex
-                 items-center gap-2 group"
+                 items-center gap-2 group pl-3 border-l border-gray-100 dark:border-white/10"
           aria-label="Account settings"
         >
 
           <div
             class="w-8 h-8 rounded-full
-                   bg-green-800
+                   bg-emerald-800 dark:bg-emerald-700
                    text-white
                    text-xs
-                   font-semibold
-                   flex items-center justify-center"
+                   font-bold
+                   flex items-center justify-center shrink-0 overflow-hidden"
             data-top-avatar
-            data-user-initial
           >
-            U
+            <span data-user-initial>U</span>
           </div>
 
           <span
