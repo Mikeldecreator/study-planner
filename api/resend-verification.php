@@ -42,6 +42,7 @@ if (isRateLimited('resend_verification', $rateId, 3)) {
         'error' => 'Too many requests. Please wait 10 minutes before requesting another verification email.'
     ], 429);
 }
+recordRateLimitHit('resend_verification', $rateId, 600);
 
 try {
     $db = getDb();
@@ -64,8 +65,6 @@ try {
             'message' => 'Your email address is already verified. You can sign in now.'
         ], 200);
     }
-
-    recordRateLimitHit('resend_verification', $rateId, 600);
 
     $rawToken = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $rawToken);
