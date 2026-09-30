@@ -34,6 +34,7 @@ function onboardingError(string $message, int $status = 400, array $extra = []):
 // GET: Fetch Onboarding State, Current User, and Committed Records
 // =========================================================================
 if ($method === 'GET') {
+    $csrf = csrfToken();
     session_write_close();
 
     $profile = getUserProfileRow($userId, $db);
@@ -78,7 +79,7 @@ if ($method === 'GET') {
 
     onboardingJson([
         'ok'         => true,
-        'csrf_token' => csrfToken(),
+        'csrf_token' => $csrf,
         'user'       => [
             'id'                   => $userId,
             'full_name'            => (string) ($profile['full_name'] ?? ''),
