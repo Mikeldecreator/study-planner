@@ -347,12 +347,18 @@ function syncSearch(value, source) {
   const other = source === 'top' ? document.getElementById('course-search-inline') : document.getElementById('course-search');
   if (other && other.value !== value) other.value = value;
   clearTimeout(courseSearchDebounce);
-  courseSearchDebounce = setTimeout(() => {
+  if (!value) {
     applyFilters(1);
-  }, 150);
+  } else {
+    courseSearchDebounce = setTimeout(() => {
+      applyFilters(1);
+    }, 150);
+  }
 }
 document.getElementById('course-search')?.addEventListener('input', e => syncSearch(e.target.value, 'top'));
+document.getElementById('course-search')?.addEventListener('search', e => syncSearch(e.target.value, 'top'));
 document.getElementById('course-search-inline')?.addEventListener('input', e => syncSearch(e.target.value, 'inline'));
+document.getElementById('course-search-inline')?.addEventListener('search', e => syncSearch(e.target.value, 'inline'));
 
 function handleCourseSearchKeydown(e) {
   if (e.key === 'Escape') {

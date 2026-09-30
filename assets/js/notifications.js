@@ -688,10 +688,12 @@
 
         if (searchInput) {
             searchInput.addEventListener('input', handleSearchInput);
+            searchInput.addEventListener('search', handleSearchInput);
             searchInput.addEventListener('keydown', handleSearchKeydown);
         }
         if (searchInputMobile) {
             searchInputMobile.addEventListener('input', handleSearchInput);
+            searchInputMobile.addEventListener('search', handleSearchInput);
             searchInputMobile.addEventListener('keydown', handleSearchKeydown);
         }
 

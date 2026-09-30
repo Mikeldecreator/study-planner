@@ -127,6 +127,57 @@ requirePageLogin();
     transform:translateX(20px)
   }
 
+  .dark .sp-toggle{
+    background:#2e3e38
+  }
+
+  .dark .sp-toggle.is-on{
+    background:#059669
+  }
+
+  .settings-row-interactive{
+    min-height:48px;
+    padding:10px 8px;
+    border-top:1px solid #edf2f1;
+    transition:.16s ease
+  }
+
+  .settings-row-interactive:hover{
+    background:#fbfdfc
+  }
+
+  .dark .settings-row-interactive{
+    border-color:rgba(255,255,255,.07)
+  }
+
+  .dark .settings-row-interactive:hover{
+    background:rgba(255,255,255,.025)
+  }
+
+  /* Prevent iOS mobile auto-zoom */
+  .settings-control,
+  .settings-select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  select {
+    font-size: 16px !important;
+  }
+  @media (min-width: 640px) {
+    .settings-control,
+    .settings-select,
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="search"],
+    select {
+      font-size: 14px !important;
+    }
+  }
+
   .settings-select{
     appearance:none;
     background:transparent;
@@ -828,920 +879,641 @@ requirePageLogin();
                items-start"
       >
 
-        <!-- LEFT -->
-        <div
-          class="space-y-4 lg:space-y-5"
-        >
+        <!-- LEFT COLUMN -->
+        <div class="space-y-4 lg:space-y-5">
 
-          <!-- ACCOUNT SETTINGS -->
+          <!-- 1. ACCOUNT & PROFILE -->
           <section
+            id="account-card"
             class="settings-card
                    rounded-2xl
                    p-5 sm:p-6"
           >
-
-            <div
-              class="flex items-center
-                     gap-3 mb-4"
-            >
-
+            <div class="flex items-center gap-3 mb-4">
               <span class="settings-icon">
-                <i
-                  data-lucide="user-round"
-                  class="w-6 h-6"
-                ></i>
+                <i data-lucide="user-round" class="w-6 h-6"></i>
               </span>
-
               <div>
-
-                <h3 class="font-bold text-lg">
-                  Account Settings
-                </h3>
-
-                <p
-                  class="text-sm
-                         settings-muted
-                         text-[#607a90]
-                         dark:text-gray-400"
-                >
-                  Manage your personal information and account details
+                <h3 class="font-bold text-lg">Account & Profile</h3>
+                <p class="text-xs sm:text-sm text-[#607a90] dark:text-gray-400">
+                  Your credentials and academic identity
                 </p>
-
               </div>
-
             </div>
 
-
             <div>
-
               <button
                 id="account-email-row"
                 type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
+                class="settings-row w-full flex items-center gap-3 px-1 text-left min-h-[48px]"
               >
-
                 <span class="settings-row-icon">
-                  <i
-                    data-lucide="mail"
-                    class="w-5 h-5"
-                  ></i>
+                  <i data-lucide="mail" class="w-5 h-5"></i>
                 </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Email Address
-                  </strong>
-
-                  <small
-                    id="account-email-value"
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Email Address</strong>
+                  <small id="account-email-value" class="text-xs text-[#607a90] dark:text-gray-400 truncate block">
                     Loading…
                   </small>
-
                 </span>
-
-                <i
-                  data-lucide="chevron-right"
-                  class="w-5 h-5
-                         text-[#456d83]
-                         dark:text-gray-500"
-                ></i>
-
+                <i data-lucide="chevron-right" class="w-5 h-5 text-[#456d83] dark:text-gray-500 shrink-0"></i>
               </button>
-
-
-              <button
-                id="account-password-row"
-                type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
-              >
-
-                <span class="settings-row-icon">
-                  <i
-                    data-lucide="lock-keyhole"
-                    class="w-5 h-5"
-                  ></i>
-                </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Password
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Change your account password
-                  </small>
-
-                </span>
-
-                <i
-                  data-lucide="chevron-right"
-                  class="w-5 h-5
-                         text-[#456d83]
-                         dark:text-gray-500"
-                ></i>
-
-              </button>
-
 
               <button
                 id="account-profile-row"
                 type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
+                class="settings-row w-full flex items-center gap-3 px-1 text-left min-h-[48px]"
               >
-
                 <span class="settings-row-icon">
-                  <i
-                    data-lucide="circle-user-round"
-                    class="w-5 h-5"
-                  ></i>
+                  <i data-lucide="circle-user-round" class="w-5 h-5"></i>
                 </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Profile Information
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Update your name, level and course
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Profile Details</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Update your full name, level and program
                   </small>
-
                 </span>
-
-                <i
-                  data-lucide="chevron-right"
-                  class="w-5 h-5
-                         text-[#456d83]
-                         dark:text-gray-500"
-                ></i>
-
+                <i data-lucide="chevron-right" class="w-5 h-5 text-[#456d83] dark:text-gray-500 shrink-0"></i>
               </button>
 
+              <button
+                id="account-password-row"
+                type="button"
+                class="settings-row w-full flex items-center gap-3 px-1 text-left min-h-[48px]"
+              >
+                <span class="settings-row-icon">
+                  <i data-lucide="lock-keyhole" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Account Password</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Change your account password securely
+                  </small>
+                </span>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-[#456d83] dark:text-gray-500 shrink-0"></i>
+              </button>
             </div>
 
+            <div class="mt-4 pt-3 border-t border-[#edf2f1] dark:border-white/10 flex items-center justify-end gap-2">
+              <button
+                id="open-edit-profile-card-btn"
+                type="button"
+                class="btn-press px-4 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs sm:text-sm font-semibold flex items-center gap-2"
+              >
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Profile
+              </button>
+            </div>
           </section>
 
-
-          <!-- ACADEMIC GOALS -->
+          <!-- 2. ACADEMIC PREFERENCES -->
           <section
+            id="academic-prefs-card"
             class="settings-card
                    rounded-2xl
                    p-5 sm:p-6"
           >
-
-            <div
-              class="flex items-center
-                     gap-3 mb-4"
-            >
-
+            <div class="flex items-center gap-3 mb-4">
               <span class="settings-icon">
-                <i
-                  data-lucide="target"
-                  class="w-6 h-6"
-                ></i>
+                <i data-lucide="target" class="w-6 h-6"></i>
               </span>
-
               <div>
-
-                <h3 class="font-bold text-lg">
-                  Academic Goals
-                </h3>
-
-                <p
-                  class="text-sm
-                         text-[#607a90]
-                         dark:text-gray-400"
-                >
-                  Set and manage your academic goals
+                <h3 class="font-bold text-lg">Academic Preferences</h3>
+                <p class="text-xs sm:text-sm text-[#607a90] dark:text-gray-400">
+                  Study routines, targets, and scheduling habits
                 </p>
-
               </div>
-
             </div>
-
 
             <button
               id="current-goal-row"
               type="button"
-              class="w-full
-                     rounded-xl
-                     border border-emerald-100
-                     dark:border-emerald-900/40
-                     bg-[#ecfbf4]
-                     dark:bg-emerald-900/10
-                     p-4
-                     text-left
-                     hover:bg-emerald-50
-                     dark:hover:bg-emerald-900/20"
+              class="w-full rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-[#ecfbf4] dark:bg-emerald-900/10 p-4 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition mb-3"
             >
-
-              <div
-                class="flex items-start gap-3"
-              >
-
+              <div class="flex items-start gap-3">
                 <span class="settings-icon">
-                  <i
-                    data-lucide="target"
-                    class="w-6 h-6"
-                  ></i>
+                  <i data-lucide="target" class="w-6 h-6"></i>
                 </span>
-
-                <div
-                  class="flex-1 min-w-0"
-                >
-
-                  <div
-                    class="flex items-center
-                           justify-between gap-3"
-                  >
-
-                    <strong
-                      id="goal-title"
-                      class="text-sm"
-                    >
-                      Current Goal
-                    </strong>
-
-                    <i
-                      data-lucide="chevron-right"
-                      class="w-5 h-5"
-                    ></i>
-
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-3">
+                    <strong id="goal-title" class="text-sm font-bold">Current Goal</strong>
+                    <i data-lucide="chevron-right" class="w-5 h-5 text-emerald-700 dark:text-emerald-400"></i>
                   </div>
-
-                  <p
-                    id="goal-description"
-                    class="text-xs
-                           text-[#4e7385]
-                           dark:text-gray-400
-                           mt-1"
-                  >
+                  <p id="goal-description" class="text-xs text-[#4e7385] dark:text-gray-400 mt-1">
                     Complete 5 courses this semester
                   </p>
-
-                  <div
-                    class="flex items-center
-                           gap-3 mt-4"
-                  >
-
-                    <div
-                      class="settings-progress
-                             flex-1"
-                    >
-                      <span
-                        id="goal-progress"
-                        style="width:0%"
-                      ></span>
+                  <div class="flex items-center gap-3 mt-4">
+                    <div class="settings-progress flex-1">
+                      <span id="goal-progress" style="width:0%"></span>
                     </div>
-
-                    <span
-                      id="goal-count"
-                      class="text-xs font-semibold"
-                    >
-                      0/0
-                    </span>
-
+                    <span id="goal-count" class="text-xs font-semibold">0/0</span>
                   </div>
-
                 </div>
+              </div>
+            </button>
 
+            <div>
+              <!-- PREFERRED STUDY TIME -->
+              <div class="settings-row flex items-center justify-between gap-3 px-1 min-h-[48px]">
+                <span class="settings-row-icon">
+                  <i data-lucide="clock-3" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Preferred Study Time</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    When you focus best during the day
+                  </small>
+                </span>
+                <span class="relative shrink-0">
+                  <select
+                    id="preferred-study-time"
+                    class="settings-control rounded-xl px-4 py-2 pr-9 text-base sm:text-sm settings-select"
+                  >
+                    <option value="flexible">Flexible</option>
+                    <option value="morning">Morning (6am–12pm)</option>
+                    <option value="afternoon">Afternoon (12pm–6pm)</option>
+                    <option value="evening">Evening (6pm–12am)</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                </span>
               </div>
 
-            </button>
+              <!-- WEEK STARTS ON -->
+              <div class="settings-row flex items-center justify-between gap-3 px-1 min-h-[48px]">
+                <span class="settings-row-icon">
+                  <i data-lucide="calendar-days" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Week Starts On</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    First day shown on weekly schedules
+                  </small>
+                </span>
+                <span class="relative shrink-0">
+                  <select
+                    id="week-start-select"
+                    class="settings-control rounded-xl px-4 py-2 pr-9 text-base sm:text-sm settings-select"
+                  >
+                    <option value="1">Monday</option>
+                    <option value="0">Sunday</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                </span>
+              </div>
 
+              <!-- UPDATE GOALS -->
+              <button
+                id="update-goals-row"
+                type="button"
+                class="settings-row w-full flex items-center gap-3 px-1 text-left min-h-[48px]"
+              >
+                <span class="settings-row-icon">
+                  <i data-lucide="pencil" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Adjust Academic Targets</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Modify target courses and weekly study hour goal
+                  </small>
+                </span>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-[#456d83] dark:text-gray-500 shrink-0"></i>
+              </button>
+            </div>
+          </section>
 
-            <button
-              id="update-goals-row"
-              type="button"
-              class="settings-row
-                     w-full
-                     flex items-center
-                     gap-3 px-1 mt-2
-                     text-left"
-            >
-
-              <span class="settings-row-icon">
-                <i
-                  data-lucide="plus"
-                  class="w-5 h-5"
-                ></i>
+          <!-- 3. SECURITY & PASSWORD -->
+          <section
+            id="security-card"
+            class="settings-card
+                   rounded-2xl
+                   p-5 sm:p-6"
+          >
+            <div class="flex items-center gap-3 mb-4">
+              <span class="settings-icon">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
               </span>
+              <div>
+                <h3 class="font-bold text-lg">Security & Password</h3>
+                <p class="text-xs sm:text-sm text-[#607a90] dark:text-gray-400">
+                  Protect your account with a secure password
+                </p>
+              </div>
+            </div>
 
-              <span class="flex-1">
-
-                <strong class="block text-sm">
-                  Update Goals
-                </strong>
-
-                <small
-                  class="text-xs
-                         text-[#607a90]
-                         dark:text-gray-400"
+            <div>
+              <div class="settings-row flex items-center justify-between gap-3 px-1 min-h-[48px]">
+                <span class="settings-row-icon">
+                  <i data-lucide="key-round" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Password Status</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Password must be at least 8 characters
+                  </small>
+                </span>
+                <button
+                  id="trigger-change-password-btn"
+                  type="button"
+                  class="btn-press px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shrink-0"
                 >
-                  Set new goals or modify existing ones
-                </small>
+                  Change Password
+                </button>
+              </div>
 
-              </span>
-
-              <i
-                data-lucide="chevron-right"
-                class="w-5 h-5"
-              ></i>
-
-            </button>
-
+              <div class="settings-row flex items-center justify-between gap-3 px-1 min-h-[48px]">
+                <span class="settings-row-icon">
+                  <i data-lucide="laptop" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Active Session</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Signed in from current browser
+                  </small>
+                </span>
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  Active
+                </span>
+              </div>
+            </div>
           </section>
 
         </div>
 
+        <!-- RIGHT COLUMN -->
+        <div class="space-y-4 lg:space-y-5">
 
-        <!-- RIGHT -->
-        <div
-          class="space-y-4 lg:space-y-5"
-        >
-
-          <!-- PREFERENCES -->
+          <!-- 4. NOTIFICATION SETTINGS -->
           <section
+            id="notifications-card"
             class="settings-card
                    rounded-2xl
                    p-5 sm:p-6"
           >
-
-            <div
-              class="flex items-center
-                     gap-3 mb-4"
-            >
-
+            <div class="flex items-center gap-3 mb-4">
               <span class="settings-icon">
-                <i
-                  data-lucide="sliders-horizontal"
-                  class="w-6 h-6"
-                ></i>
+                <i data-lucide="bell-ring" class="w-6 h-6"></i>
               </span>
-
               <div>
-
-                <h3 class="font-bold text-lg">
-                  Preferences
-                </h3>
-
-                <p
-                  class="text-sm
-                         text-[#607a90]
-                         dark:text-gray-400"
-                >
-                  Customize your app experience
+                <h3 class="font-bold text-lg">Notification Settings</h3>
+                <p class="text-xs sm:text-sm text-[#607a90] dark:text-gray-400">
+                  Control study reminders, class notices, and deadline alerts
                 </p>
-
               </div>
-
             </div>
 
-
             <div>
-
-              <!-- NOTIFICATIONS -->
+              <!-- MASTER TOGGLE -->
               <button
                 id="pref-notifications"
                 type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
+                class="settings-row w-full flex items-center justify-between gap-3 px-1 text-left min-h-[52px]"
+                aria-label="Toggle all notifications"
               >
-
                 <span class="settings-row-icon">
-                  <i
-                    data-lucide="bell"
-                    class="w-5 h-5"
-                  ></i>
+                  <i data-lucide="bell" class="w-5 h-5"></i>
                 </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Notifications
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Receive updates and reminders
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Enable All Notifications</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Master switch for all study reminders and deadline alerts
                   </small>
-
                 </span>
-
                 <span
                   id="notifications-toggle"
-                  class="sp-toggle"
+                  class="sp-toggle shrink-0"
                   aria-hidden="true"
                 ></span>
-
               </button>
 
-
-              <!-- BROWSER NOTIFICATIONS -->
+              <!-- BROWSER PUSH -->
               <div
-                class="settings-row
-                       flex flex-col
-                       sm:flex-row
-                       sm:items-center
-                       gap-3 px-1"
+                class="settings-row flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 min-h-[48px]"
               >
-
-                <span class="settings-row-icon">
-                  <i
-                    data-lucide="monitor-cog"
-                    class="w-5 h-5"
-                  ></i>
-                </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Browser Notifications
-                  </strong>
-
-                  <small
-                    id="browser-push-status"
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Checking browser permission…
-                  </small>
-
-                </span>
-
-                <span
-                  class="flex items-center
-                         gap-2 shrink-0"
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <span class="settings-row-icon">
+                    <i data-lucide="monitor-cog" class="w-5 h-5"></i>
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <strong class="block text-sm">Browser Notifications</strong>
+                    <small id="browser-push-status" class="text-xs text-[#607a90] dark:text-gray-400 block truncate">
+                      Checking browser permission…
+                    </small>
+                  </div>
+                </div>
+                <button
+                  id="browser-push-enable"
+                  type="button"
+                  class="btn-press px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shrink-0 self-start sm:self-center"
                 >
-
-                  <button
-                    id="browser-push-enable"
-                    type="button"
-                    class="px-3 py-2
-                           rounded-lg
-                           bg-emerald-700
-                           hover:bg-emerald-800
-                           text-white
-                           text-xs
-                           font-semibold"
-                  >
-                    Enable
-                  </button>
-
-                </span>
-
+                  Enable
+                </button>
               </div>
 
+              <!-- GRANULAR CHANNELS CONTAINER -->
+              <div
+                id="granular-notifications-container"
+                class="mt-4 pt-3 border-t border-[#edf2f1] dark:border-white/10 space-y-3 transition-opacity"
+              >
+                <div class="px-1 mb-2">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-[#607a90] dark:text-gray-400">
+                    Notification Channels
+                  </h4>
+                  <p class="text-[11px] text-[#8aa39b] dark:text-gray-500 mt-0.5">
+                    Fine-tune specific alerts saved to your academic profile
+                  </p>
+                </div>
 
+                <!-- CLASS REMINDERS GROUP -->
+                <div class="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 p-3 space-y-1">
+                  <div class="text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Class Reminders
+                  </div>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="class_1h"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">1 Hour Before Class</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Early notice for upcoming lectures</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="class_1h"></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="class_30m"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">30 Minutes Before Class</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Gentle reminder to gather notes</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="class_30m"></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="class_10m"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">10 Minutes Before Class</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Final alert to attend lecture</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="class_10m"></span>
+                  </button>
+                </div>
+
+                <!-- DEADLINE ALERTS GROUP -->
+                <div class="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 p-3 space-y-1">
+                  <div class="text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5">
+                    <i data-lucide="clock" class="w-3.5 h-3.5"></i> Deadline Alerts
+                  </div>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="deadline_24h"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">24 Hours Before Deadline</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">1-day early reminder for assignments</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="deadline_24h"></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="deadline_2h"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">2 Hours Before Deadline</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Urgent reminder as deadline nears</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="deadline_2h"></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="deadline_overdue"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">Overdue Task Notices</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Notice when a deadline has passed</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="deadline_overdue"></span>
+                  </button>
+                </div>
+
+                <!-- ACADEMIC INTELLIGENCE GROUP -->
+                <div class="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 p-3 space-y-1">
+                  <div class="text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Academic Intelligence
+                  </div>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="curriculum_alerts"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">Curriculum Calendar Alerts</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Notices for semester timeline changes</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="curriculum_alerts"></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="notif-channel-row w-full flex items-center justify-between gap-3 py-2 px-1 text-left min-h-[44px] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition"
+                    data-notif-key="study_gap_suggestions"
+                  >
+                    <span class="flex-1 min-w-0">
+                      <strong class="block text-xs font-semibold">Study Gap Suggestions</strong>
+                      <small class="text-[11px] text-[#607a90] dark:text-gray-400 block">Smart tips for free time between classes</small>
+                    </span>
+                    <span class="sp-toggle scale-90 shrink-0" data-toggle-for="study_gap_suggestions"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 5. APP PREFERENCES & GUIDED TOUR -->
+          <section
+            id="app-preferences-card"
+            class="settings-card
+                   rounded-2xl
+                   p-5 sm:p-6"
+          >
+            <div class="flex items-center gap-3 mb-4">
+              <span class="settings-icon">
+                <i data-lucide="sliders-horizontal" class="w-6 h-6"></i>
+              </span>
+              <div>
+                <h3 class="font-bold text-lg">App Preferences</h3>
+                <p class="text-xs sm:text-sm text-[#607a90] dark:text-gray-400">
+                  Display theme, language, and guides
+                </p>
+              </div>
+            </div>
+
+            <div>
               <!-- DARK MODE -->
               <button
                 id="pref-dark-mode"
                 type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
+                class="settings-row w-full flex items-center justify-between gap-3 px-1 text-left min-h-[48px]"
+                aria-label="Toggle dark mode theme"
               >
-
                 <span class="settings-row-icon">
-                  <i
-                    data-lucide="moon"
-                    class="w-5 h-5"
-                  ></i>
+                  <i data-lucide="moon" class="w-5 h-5"></i>
                 </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Dark Mode
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Dark Mode</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
                     Switch between light and dark theme
                   </small>
-
                 </span>
-
                 <span
                   id="dark-mode-toggle"
-                  class="sp-toggle"
+                  class="sp-toggle shrink-0"
                   aria-hidden="true"
                 ></span>
-
               </button>
 
-
-              <!-- WEEK START -->
-              <div
-                class="settings-row
-                       flex items-center
-                       gap-3 px-1"
-              >
-
-                <span class="settings-row-icon">
-                  <i
-                    data-lucide="calendar-days"
-                    class="w-5 h-5"
-                  ></i>
-                </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Week Starts On
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Choose the first day of your week
-                  </small>
-
-                </span>
-
-                <span class="relative">
-
-                  <select
-                    id="week-start-select"
-                    class="settings-control
-                           rounded-xl
-                           px-4 py-2 pr-9
-                           text-sm
-                           settings-select"
-                  >
-
-                    <option value="1">
-                      Monday
-                    </option>
-
-                    <option value="0">
-                      Sunday
-                    </option>
-
-                  </select>
-
-                  <i
-                    data-lucide="chevron-down"
-                    class="pointer-events-none
-                           absolute right-2
-                           top-1/2
-                           -translate-y-1/2
-                           w-4 h-4"
-                  ></i>
-
-                </span>
-
-              </div>
-
-
               <!-- LANGUAGE -->
-              <div
-                class="settings-row
-                       flex items-center
-                       gap-3 px-1"
-              >
-
+              <div class="settings-row flex items-center justify-between gap-3 px-1 min-h-[48px]">
                 <span class="settings-row-icon">
-                  <i
-                    data-lucide="globe-2"
-                    class="w-5 h-5"
-                  ></i>
+                  <i data-lucide="globe-2" class="w-5 h-5"></i>
                 </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Language
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    App language
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Language</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Application interface language
                   </small>
-
                 </span>
-
-                <span class="relative">
-
+                <span class="relative shrink-0">
                   <select
                     id="language-select"
-                    class="settings-control
-                           rounded-xl
-                           px-4 py-2 pr-9
-                           text-sm
-                           settings-select"
+                    class="settings-control rounded-xl px-4 py-2 pr-9 text-base sm:text-sm settings-select"
                   >
-
-                    <option value="en">
-                      English
-                    </option>
-
+                    <option value="en">English</option>
                   </select>
-
-                  <i
-                    data-lucide="chevron-down"
-                    class="pointer-events-none
-                           absolute right-2
-                           top-1/2
-                           -translate-y-1/2
-                           w-4 h-4"
-                  ></i>
-
+                  <i data-lucide="chevron-down" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
                 </span>
-
               </div>
 
-            </div>
-
-          </section>
-
-
-          <!-- APP SETTINGS -->
-          <section
-            class="settings-card
-                   rounded-2xl
-                   p-5 sm:p-6"
-          >
-
-            <div
-              class="flex items-center
-                     gap-3 mb-4"
-            >
-
-              <span class="settings-icon">
-                <i
-                  data-lucide="settings-2"
-                  class="w-6 h-6"
-                ></i>
-              </span>
-
-              <div>
-
-                <h3 class="font-bold text-lg">
-                  App Settings
-                </h3>
-
-                <p
-                  class="text-sm
-                         text-[#607a90]
-                         dark:text-gray-400"
-                >
-                  Application preferences and data management
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <div>
-
+              <!-- DATA BACKUP EXPORT -->
               <button
                 id="export-data-row"
                 type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
+                class="settings-row w-full flex items-center justify-between gap-3 px-1 text-left min-h-[48px]"
               >
-
                 <span class="settings-row-icon">
-                  <i
-                    data-lucide="cloud-download"
-                    class="w-5 h-5"
-                  ></i>
+                  <i data-lucide="cloud-download" class="w-5 h-5"></i>
                 </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Data Backup
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Keep your data safe
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Data Backup</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Export courses, tasks, and settings to JSON
                   </small>
-
                 </span>
-
-                <span
-                  class="flex items-center gap-3"
-                >
-
-                  <span
-                    class="hidden sm:inline-flex
-                           rounded-full
-                           bg-[#e9f8f1]
-                           dark:bg-emerald-900/20
-                           px-4 py-2
-                           text-xs font-semibold
-                           text-emerald-800
-                           dark:text-emerald-300"
-                  >
-                    Export Data
-                  </span>
-
-                  <i
-                    data-lucide="chevron-right"
-                    class="w-5 h-5"
-                  ></i>
-
+                <span class="inline-flex rounded-full bg-[#e9f8f1] dark:bg-emerald-900/30 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 shrink-0">
+                  Export Data
                 </span>
-
               </button>
 
-
-              <button
-                id="clear-cache-row"
-                type="button"
-                class="settings-row
-                       w-full
-                       flex items-center
-                       gap-3 px-1
-                       text-left"
+              <!-- SMART GUIDE TOUR -->
+              <div
+                id="smart-guide-tour-section"
+                class="settings-row flex items-center justify-between gap-3 px-1 py-3 min-h-[48px]"
               >
-
-                <span class="settings-row-icon">
-                  <i
-                    data-lucide="trash-2"
-                    class="w-5 h-5"
-                  ></i>
-                </span>
-
-                <span class="flex-1">
-
-                  <strong class="block text-sm">
-                    Clear Cache
-                  </strong>
-
-                  <small
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400"
-                  >
-                    Free up storage space
-                  </small>
-
-                </span>
-
-                <span
-                  class="flex items-center gap-3"
-                >
-
-                  <span
-                    class="hidden sm:inline-flex
-                           rounded-full
-                           bg-[#e9f8f1]
-                           dark:bg-emerald-900/20
-                           px-4 py-2
-                           text-xs font-semibold
-                           text-emerald-800
-                           dark:text-emerald-300"
-                  >
-                    Clear Cache
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <span class="settings-row-icon">
+                    <i data-lucide="compass" class="w-5 h-5"></i>
                   </span>
-
-                  <i
-                    data-lucide="chevron-right"
-                    class="w-5 h-5"
-                  ></i>
-
-                </span>
-
-              </button>
-
+                  <div class="flex-1 min-w-0">
+                    <strong class="block text-sm">Interactive Walkthrough</strong>
+                    <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                      Restart the guided tour anytime
+                    </small>
+                  </div>
+                </div>
+                <button
+                  id="restart-tour-btn"
+                  type="button"
+                  class="btn-press inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition shrink-0"
+                >
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i> Restart Tour
+                </button>
+              </div>
             </div>
-
           </section>
 
-          <!-- SMART GUIDE TOUR -->
+          <!-- 6. DANGER ZONE & ACCOUNT ACTIONS -->
           <section
-            id="smart-guide-tour-section"
+            id="danger-zone-card"
             class="settings-card
                    rounded-2xl
-                   p-5 sm:p-6"
+                   p-5 sm:p-6
+                   border-red-200 dark:border-red-900/40
+                   bg-red-50/10 dark:bg-red-950/10"
           >
-
-            <div
-              class="flex items-center
-                     gap-3 mb-4"
-            >
-
-              <span class="settings-icon">
-                <i
-                  data-lucide="compass"
-                  class="w-6 h-6"
-                ></i>
+            <div class="flex items-center gap-3 mb-4">
+              <span class="w-[46px] h-[46px] rounded-full grid place-items-center bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 shrink-0">
+                <i data-lucide="triangle-alert" class="w-6 h-6"></i>
               </span>
-
               <div>
-
-                <h3 class="font-bold text-lg">
-                  Smart Guide Tour
-                </h3>
-
-                <p
-                  class="text-sm
-                         text-[#607a90]
-                         dark:text-gray-400"
-                >
-                  Interactive walkthrough of your Study Planner
+                <h3 class="font-bold text-lg text-red-700 dark:text-red-400">Account Actions & Danger Zone</h3>
+                <p class="text-xs sm:text-sm text-[#607a90] dark:text-gray-400">
+                  Manage local storage and session credentials
                 </p>
-
               </div>
-
             </div>
 
             <div>
-
-              <div
-                class="settings-row
-                       flex items-center
-                       justify-between
-                       gap-3 px-1 py-3"
+              <button
+                id="clear-cache-row"
+                type="button"
+                class="settings-row w-full flex items-center justify-between gap-3 px-1 text-left min-h-[48px]"
               >
+                <span class="w-[38px] h-[38px] rounded-full grid place-items-center bg-red-50 dark:bg-red-950/40 text-red-600 shrink-0">
+                  <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Clear Local Cache</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    Free up browser storage without deleting account data
+                  </small>
+                </span>
+                <span class="inline-flex rounded-full bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-300 shrink-0">
+                  Clear Cache
+                </span>
+              </button>
 
-                <div class="flex-1">
-
-                  <strong class="block text-sm">
-                    Interactive Walkthrough
-                  </strong>
-
-                  <p
-                    class="text-xs
-                           text-[#607a90]
-                           dark:text-gray-400 mt-0.5 leading-relaxed"
-                  >
-                    Need a refresher on courses, classes, tracking work, study sessions, and reports? Restart the guided tour anytime.
-                  </p>
-
-                </div>
-
-                <div class="flex items-center gap-2 shrink-0">
-
-                  <button
-                    id="restart-tour-btn"
-                    type="button"
-                    class="btn-press inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors shadow-sm"
-                  >
-                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
-                    Restart Tour
-                  </button>
-
-                </div>
-
+              <div class="settings-row flex items-center justify-between gap-3 px-1 py-2 min-h-[48px]">
+                <span class="w-[38px] h-[38px] rounded-full grid place-items-center bg-red-50 dark:bg-red-950/40 text-red-600 shrink-0">
+                  <i data-lucide="log-out" class="w-5 h-5"></i>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <strong class="block text-sm">Sign Out</strong>
+                  <small class="text-xs text-[#607a90] dark:text-gray-400 block">
+                    End your active session on this device
+                  </small>
+                </span>
+                <button
+                  id="danger-logout-btn"
+                  type="button"
+                  class="btn-press inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shrink-0 transition"
+                >
+                  <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Sign Out
+                </button>
               </div>
-
             </div>
-
           </section>
 
         </div>

@@ -3542,15 +3542,23 @@ function bindFilters() {
     if (sideSearch && sideSearch.value !== val) sideSearch.value = val;
 
     clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => {
+    if (!val) {
       CURRENT_PAGE = 1;
       loadTasks();
-    }, 200);
+    } else {
+      searchDebounce = setTimeout(() => {
+        CURRENT_PAGE = 1;
+        loadTasks();
+      }, 200);
+    }
   }
 
   getEl('global-search')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
+  getEl('global-search')?.addEventListener('search', e => handleTaskSearchInput(e.target.value));
   getEl('task-search')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
+  getEl('task-search')?.addEventListener('search', e => handleTaskSearchInput(e.target.value));
   getEl('filter-search-side')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
+  getEl('filter-search-side')?.addEventListener('search', e => handleTaskSearchInput(e.target.value));
 
   const handleTaskSearchKeydown = e => {
     if (e.key === 'Escape') {
@@ -6022,6 +6030,16 @@ window.APP_READY.then(
       if (sideCourseFilter) {
         sideCourseFilter.value = courseIdParam;
       }
+    }
+
+    const searchParam = (urlParams.get('search') || urlParams.get('q') || '').trim();
+    if (searchParam) {
+      const gSearch = getEl('global-search');
+      const mSearch = getEl('task-search');
+      const sSearch = getEl('filter-search-side');
+      if (gSearch) gSearch.value = searchParam;
+      if (mSearch) mSearch.value = searchParam;
+      if (sSearch) sSearch.value = searchParam;
     }
 
     await loadTasks();

@@ -5620,9 +5620,13 @@ window.APP_READY.then(
                 if (sDesktop && sDesktop !== e.target) sDesktop.value = val;
                 if (sMobile && sMobile !== e.target) sMobile.value = val;
                 clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    onScheduleSearch(val);
-                }, 150);
+                if (!val) {
+                    onScheduleSearch('');
+                } else {
+                    debounceTimer = setTimeout(() => {
+                        onScheduleSearch(val);
+                    }, 150);
+                }
             }
 
             function handleKeydown(e) {
@@ -5635,10 +5639,12 @@ window.APP_READY.then(
 
             if (sDesktop) {
                 sDesktop.addEventListener('input', handleInput);
+                sDesktop.addEventListener('search', handleInput);
                 sDesktop.addEventListener('keydown', handleKeydown);
             }
             if (sMobile) {
                 sMobile.addEventListener('input', handleInput);
+                sMobile.addEventListener('search', handleInput);
                 sMobile.addEventListener('keydown', handleKeydown);
             }
         }

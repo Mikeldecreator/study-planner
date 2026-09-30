@@ -1452,36 +1452,81 @@
     }
 
 
+    const DEFAULT_NOTIF_PREFS = {
+        class_1h: true,
+        class_30m: true,
+        class_10m: true,
+        deadline_24h: true,
+        deadline_2h: true,
+        deadline_overdue: true,
+        curriculum_alerts: true,
+        study_gap_suggestions: true
+    };
+
+    function parseNotifPrefs(raw) {
+        if (!raw) return { ...DEFAULT_NOTIF_PREFS };
+        if (typeof raw === 'object' && raw !== null) {
+            return { ...DEFAULT_NOTIF_PREFS, ...raw };
+        }
+        try {
+            const parsed = JSON.parse(raw);
+            return { ...DEFAULT_NOTIF_PREFS, ...(parsed || {}) };
+        } catch (e) {
+            return { ...DEFAULT_NOTIF_PREFS };
+        }
+    }
+
+    function renderGranularNotifs(prefs, masterEnabled) {
+        document.querySelectorAll('[data-toggle-for]').forEach(el => {
+            const key = el.dataset.toggleFor;
+            if (key) {
+                updateToggle(el, !!prefs[key]);
+            }
+        });
+        const container = $('granular-notifications-container');
+        if (container) {
+            if (!masterEnabled) {
+                container.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                container.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+    }
+
     async function loadPreferences(user) {
 
         if (!user) {
             return;
         }
 
-
         updateToggle(
             $('dark-mode-toggle'),
             !!user.dark_mode
         );
 
-
+        const notifEnabled = user.notifications_enabled !== false;
         updateToggle(
             $('notifications-toggle'),
-            user.notifications_enabled !== false
+            notifEnabled
         );
 
+        const notifPrefs = parseNotifPrefs(user.notification_preferences);
+        user.notification_preferences = notifPrefs;
+        renderGranularNotifs(notifPrefs, notifEnabled);
+
+        const preferredStudyTime = $('preferred-study-time');
+        if (preferredStudyTime && user.preferred_study_time) {
+            preferredStudyTime.value = user.preferred_study_time;
+        }
 
         const weekStart =
             $('week-start-select');
 
-
         if (weekStart) {
-
             weekStart.value =
                 String(
                     user.week_start_day ?? 1
                 );
-
         }
 
     }
@@ -1625,6 +1670,11 @@
 
                 updateToggle(
                     toggle,
+                    next
+                );
+
+                renderGranularNotifs(
+                    parseNotifPrefs(window.CURRENT_USER?.notification_preferences),
                     next
                 );
 
@@ -2292,6 +2342,97 @@ if (editTaglineButton) {
 
             }
         );
+
+
+    /* =====================================================
+       NEW SETTINGS CONTROLS (LAYER 3C)
+    ===================================================== */
+
+    $('open-edit-profile-card-btn')?.addEventListener('click', function () {
+        clearProfileError();
+        populateProfileForm(window.CURRENT_USER || {});
+        openModal(profileModal);
+    });
+
+    $('open-password-card-btn')?.addEventListener('click', function () {
+        clearPasswordError();
+        passwordForm?.reset();
+        openModal(passwordModal);
+    });
+
+    $('trigger-change-password-btn')?.addEventListener('click', function () {
+        clearPasswordError();
+        passwordForm?.reset();
+        openModal(passwordModal);
+    });
+
+    $('preferred-study-time')?.addEventListener('change', async function () {
+        const val = $('preferred-study-time').value;
+        try {
+            await savePreference({ preferred_study_time: val });
+            if (window.CURRENT_USER) {
+                window.CURRENT_USER.preferred_study_time = val;
+            }
+            showToast('Study time preference updated.', 'success');
+        } catch (err) {
+            console.error('Failed to save preferred study time:', err);
+            showToast(err.message || 'Could not update study time preference.', 'error');
+        }
+    });
+
+    document.querySelectorAll('.notif-channel-row').forEach(function (row) {
+        row.addEventListener('click', async function (event) {
+            event.preventDefault();
+            const key = row.dataset.notifKey;
+            if (!key) return;
+
+            const toggle = row.querySelector('[data-toggle-for]');
+            const user = window.CURRENT_USER || {};
+            const prefs = parseNotifPrefs(user.notification_preferences);
+            const next = !prefs[key];
+            prefs[key] = next;
+
+            if (toggle) {
+                updateToggle(toggle, next);
+            }
+
+            try {
+                await savePreference({ notification_preferences: prefs });
+                user.notification_preferences = prefs;
+                showToast('Notification channel updated.', 'success');
+            } catch (err) {
+                console.error('Failed to update notification channel:', err);
+                if (toggle) {
+                    updateToggle(toggle, !next);
+                }
+                showToast(err.message || 'Could not update notification channel.', 'error');
+            }
+        });
+    });
+
+    $('settings-search')?.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const q = String($('settings-search').value || '').trim();
+            if (q) {
+                window.location.href = `tasks.php?search=${encodeURIComponent(q)}`;
+            }
+        }
+    });
+
+    $('danger-logout-btn')?.addEventListener('click', async function () {
+        const confirmed = window.confirm('Are you sure you want to sign out of your account?');
+        if (!confirmed) return;
+        try {
+            await fetch(`${API}/logout.php`, {
+                method: 'POST',
+                credentials: 'same-origin'
+            });
+        } catch (err) {
+            console.warn('Logout API error:', err);
+        }
+        window.location.href = 'login.php';
+    });
 
 
     /* =====================================================

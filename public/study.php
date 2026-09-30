@@ -84,7 +84,7 @@ requirePageLogin();
         <div id="bell-dropdown" class="hidden absolute right-4 top-16 w-80 max-w-[90vw] bg-white dark:bg-[#171D1B] border border-gray-100 dark:border-white/10 rounded-xl shadow-xl z-30 max-h-96 overflow-y-auto"></div>
         <a href="settings.php" class="hidden sm:flex items-center gap-2 pl-3 border-l border-gray-100 dark:border-white/10" aria-label="Account settings">
           <span class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200" data-user-name>Loading…</span>
-          <div class="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center text-xs font-bold" data-top-avatar data-user-initial>U</div>
+          <div class="w-9 h-9 rounded-full bg-emerald-800 dark:bg-emerald-700 text-white flex items-center justify-center text-xs font-bold overflow-hidden shrink-0" data-top-avatar><span data-user-initial>U</span></div>
         </a>
       </div>
     </header>

@@ -168,9 +168,9 @@ function updateUserAvatars(user) {
   const initial = name ? name.charAt(0).toUpperCase() : '?';
   const avatarPath = user.avatar_path ? resolveAvatarUrl(user.avatar_path) : '';
 
-  const containers = document.querySelectorAll('[data-top-avatar], [data-user-avatar], #app-sidebar [data-user-initial]');
+  const containers = document.querySelectorAll('[data-top-avatar], [data-user-avatar], #app-sidebar [data-user-initial], #mobile-more-sheet [data-user-initial]');
   containers.forEach(container => {
-    container.classList.add('overflow-hidden');
+    container.classList.add('overflow-hidden', 'rounded-full');
     if (avatarPath) {
       const img = document.createElement('img');
       img.src = avatarPath;
@@ -187,7 +187,7 @@ function updateUserAvatars(user) {
   });
 
   document.querySelectorAll('[data-user-initial]').forEach(el => {
-    if (!el.closest('[data-top-avatar], [data-user-avatar], #app-sidebar')) {
+    if (!el.closest('[data-top-avatar], [data-user-avatar], #app-sidebar, #mobile-more-sheet')) {
       el.textContent = initial;
     }
   });
