@@ -109,10 +109,20 @@ ensureColumn($db, 'users', 'onboarding_completed', "TINYINT(1) NOT NULL DEFAULT 
 ensureColumn($db, 'users', 'onboarding_step', "TINYINT UNSIGNED NOT NULL DEFAULT 1");
 ensureColumn($db, 'users', 'academic_session', "VARCHAR(50) DEFAULT NULL");
 ensureColumn($db, 'users', 'current_semester', "VARCHAR(50) DEFAULT NULL");
+ensureColumn($db, 'users', 'email_verified', "TINYINT(1) NOT NULL DEFAULT 0");
+ensureColumn($db, 'users', 'email_verification_token', "VARCHAR(100) DEFAULT NULL");
+ensureColumn($db, 'users', 'email_verification_expires_at', "DATETIME DEFAULT NULL");
 
 // Initialize pre-existing accounts that clearly predate onboarding and already have usable academic data
 try {
     $db->exec("UPDATE users SET onboarding_completed = 1, onboarding_step = 7 WHERE onboarding_completed = 0 AND (id IN (SELECT DISTINCT user_id FROM courses) OR id IN (SELECT DISTINCT user_id FROM tasks) OR tour_completed = 1)");
+} catch (Throwable $e) {
+    // Safe fallback if tables/views are busy
+}
+
+// Backward compatibility: Auto-verify pre-existing accounts so they are NEVER locked out!
+try {
+    $db->exec("UPDATE users SET email_verified = 1 WHERE email_verified = 0 AND (id IN (SELECT DISTINCT user_id FROM courses) OR id IN (SELECT DISTINCT user_id FROM tasks) OR onboarding_completed = 1 OR tour_completed = 1)");
 } catch (Throwable $e) {
     // Safe fallback if tables/views are busy
 }
@@ -153,6 +163,7 @@ function ensureIndex(PDO $db, string $table, string $indexName, string $columns)
 }
 
 ensureIndex($db, 'tasks', 'idx_tasks_user_status_due', '`user_id`, `status`, `due_at`');
+ensureIndex($db, 'users', 'idx_users_email_token', '`email_verification_token`');
 ensureIndex($db, 'notifications', 'idx_notif_user_channel_send', '`user_id`, `channel`, `read_at`, `send_at`');
 ensureIndex($db, 'schedule_events', 'idx_sched_user_source', '`user_id`, `source`');
 ensureIndex($db, 'schedule_events', 'idx_sched_user_date', '`user_id`, `event_date`');

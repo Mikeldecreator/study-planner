@@ -270,23 +270,17 @@ try {
 
 
     /* --------------------------------------------------------
-     * Attempt login
+     * Verify credentials & account verification state
      * -------------------------------------------------------- */
 
-    $loggedIn = attemptLogin(
+    $user = verifyCredentials(
         $email,
         $password
     );
 
-
-    /* ========================================================
-     * LOGIN FAILED
-     * ======================================================== */
-
     if (
-        !$loggedIn
+        !$user
     ) {
-
         recordRateLimitHit('login', $rateId, 900);
 
         loginResponse(
@@ -298,6 +292,28 @@ try {
             401
         );
     }
+
+    // Gate unverified accounts
+    if (
+        isset($user['email_verified']) &&
+        (int) $user['email_verified'] === 0
+    ) {
+        loginResponse(
+            [
+                'ok' => false,
+                'unverified' => true,
+                'email' => $email,
+                'error' =>
+                    'Please verify your email address before signing in. Check your inbox for the verification link.'
+            ],
+            403
+        );
+    }
+
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['user_name'] = $user['full_name'];
+    ensureUserDataSeeded((int) $user['id']);
 
 
     /* ========================================================

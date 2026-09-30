@@ -21,6 +21,7 @@
     const feedEl = document.getElementById('notification-feed');
     const loadingEl = document.getElementById('notification-loading');
     const searchInput = document.getElementById('notification-search');
+    const searchInputMobile = document.getElementById('notification-search-mobile');
     const markAllBtn = document.getElementById('mark-all-read');
     const summaryEl = document.getElementById('notification-summary');
 
@@ -406,13 +407,13 @@
                     <div class="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center mb-4 border border-emerald-100 dark:border-emerald-800/40">
                         <i data-lucide="bell-off" class="w-7 h-7"></i>
                     </div>
-                    <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">No notifications found</h3>
+                    <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">${searchQuery ? 'No matching notifications' : 'No notifications found'}</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                        ${searchQuery ? 'No notifications matched your search term.' : 'There are no notifications in this category.'}
+                        ${searchQuery ? `No notifications found matching &ldquo;${escapeHtml(searchQuery)}&rdquo;.` : 'There are no notifications in this category.'}
                     </p>
                     ${searchQuery || activeFilter !== 'all' ? `
                         <button id="clear-filter-btn" type="button" class="mt-4 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-xl transition">
-                            Reset Filters
+                            ${searchQuery ? 'Clear Search' : 'Reset Filters'}
                         </button>
                     ` : ''}
                 </div>
@@ -423,6 +424,7 @@
                     activeFilter = 'all';
                     searchQuery = '';
                     if (searchInput) searchInput.value = '';
+                    if (searchInputMobile) searchInputMobile.value = '';
                     updateActiveTabs();
                     renderFeed();
                 });
@@ -662,16 +664,35 @@
             });
         });
 
-        // Search input
+        // Search inputs (desktop + mobile)
+        let debounceTimer;
+        const handleSearchInput = (e) => {
+            const val = e.target.value;
+            if (searchInput && searchInput !== e.target) searchInput.value = val;
+            if (searchInputMobile && searchInputMobile !== e.target) searchInputMobile.value = val;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                searchQuery = val;
+                renderFeed();
+            }, 150);
+        };
+
+        const handleSearchKeydown = (e) => {
+            if (e.key === 'Escape') {
+                if (searchInput) searchInput.value = '';
+                if (searchInputMobile) searchInputMobile.value = '';
+                searchQuery = '';
+                renderFeed();
+            }
+        };
+
         if (searchInput) {
-            let debounceTimer;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    searchQuery = e.target.value;
-                    renderFeed();
-                }, 150);
-            });
+            searchInput.addEventListener('input', handleSearchInput);
+            searchInput.addEventListener('keydown', handleSearchKeydown);
+        }
+        if (searchInputMobile) {
+            searchInputMobile.addEventListener('input', handleSearchInput);
+            searchInputMobile.addEventListener('keydown', handleSearchKeydown);
         }
 
         // Hero mark all read

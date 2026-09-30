@@ -47,23 +47,38 @@ function verifyCsrf(?string $token): void
     }
 }
 
-function attemptLogin(string $email, string $password): bool
+function verifyCredentials(string $email, string $password): ?array
 {
     $stmt = getDb()->prepare('SELECT * FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
-        session_regenerate_id(true); // prevent session fixation
-        $_SESSION['user_id']   = (int) $user['id'];
-        $_SESSION['user_name'] = $user['full_name'];
-        ensureUserDataSeeded((int) $user['id']);
-        return true;
+        return $user;
     }
-    return false;
+    return null;
 }
 
-function registerUser(string $name, string $email, string $password): array
+function attemptLogin(string $email, string $password): bool
+{
+    $user = verifyCredentials($email, $password);
+    if (!$user) {
+        return false;
+    }
+
+    // Do not log in if email_verified is explicitly 0
+    if (isset($user['email_verified']) && (int) $user['email_verified'] === 0) {
+        return false;
+    }
+
+    session_regenerate_id(true); // prevent session fixation
+    $_SESSION['user_id']   = (int) $user['id'];
+    $_SESSION['user_name'] = $user['full_name'];
+    ensureUserDataSeeded((int) $user['id']);
+    return true;
+}
+
+function registerUser(string $name, string $email, string $password, int $emailVerified = 0, ?string $token = null, ?string $expiresAt = null): array
 {
     $db = getDb();
 
@@ -79,12 +94,21 @@ function registerUser(string $name, string $email, string $password): array
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
     try {
-        $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash, onboarding_completed, onboarding_step) VALUES (?, ?, ?, 0, 1)');
-        $stmt->execute([$name, $email, $hash]);
+        $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash, email_verified, email_verification_token, email_verification_expires_at, onboarding_completed, onboarding_step) VALUES (?, ?, ?, ?, ?, ?, 0, 1)');
+        $stmt->execute([$name, $email, $hash, $emailVerified, $token, $expiresAt]);
     } catch (PDOException $e) {
         if ($e->getCode() === '42S22') {
-            $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash) VALUES (?, ?, ?)');
-            $stmt->execute([$name, $email, $hash]);
+            try {
+                $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash, onboarding_completed, onboarding_step) VALUES (?, ?, ?, 0, 1)');
+                $stmt->execute([$name, $email, $hash]);
+            } catch (PDOException $e2) {
+                if ($e2->getCode() === '42S22') {
+                    $stmt = $db->prepare('INSERT INTO users (full_name, email, password_hash) VALUES (?, ?, ?)');
+                    $stmt->execute([$name, $email, $hash]);
+                } else {
+                    throw $e2;
+                }
+            }
         } else {
             throw $e;
         }

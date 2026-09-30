@@ -136,13 +136,13 @@ function populateFilters() {
 }
 
 function getFilteredCourses() {
-  const q = (document.getElementById('course-search')?.value || '').trim().toLowerCase();
   const inline = (document.getElementById('course-search-inline')?.value || '').trim().toLowerCase();
+  const q = (document.getElementById('course-search')?.value || '').trim().toLowerCase();
   const query = inline || q;
   const semester = document.getElementById('course-semester')?.value || '';
   const department = document.getElementById('course-department')?.value || '';
   let list = ALL_COURSES.filter(c => {
-    const haystack = `${c.code || ''} ${c.name || ''} ${c.lecturer || ''}`.toLowerCase();
+    const haystack = `${c.code || ''} ${c.name || ''} ${c.lecturer || ''} ${c.description || ''}`.toLowerCase();
     const dept = getCourseDept(c);
     return (!query || haystack.includes(query)) && (!semester || c.semester === semester) && (!department || dept === department);
   });
@@ -154,6 +154,14 @@ function getFilteredCourses() {
     return String(a.name || '').localeCompare(String(b.name || ''));
   });
   return list;
+}
+
+function clearCourseSearch() {
+  const topInput = document.getElementById('course-search');
+  const inlineInput = document.getElementById('course-search-inline');
+  if (topInput) topInput.value = '';
+  if (inlineInput) inlineInput.value = '';
+  applyFilters(1);
 }
 
 function applyFilters(page = 1) {
@@ -169,8 +177,14 @@ function applyFilters(page = 1) {
 function renderCourseCards(courses) {
   const grid = document.getElementById('course-cards');
   if (!courses.length) {
-    grid.innerHTML = `<div class="empty-state col-span-full py-12"><i data-lucide="book-open-check"></i><strong>No courses found</strong><span>Try another search or add a new course.</span><button type="button" id="empty-add-course" class="mt-1 text-emerald-700 dark:text-emerald-400 font-semibold">Add a course</button></div>`;
-    document.getElementById('empty-add-course')?.addEventListener('click', openAddCourse);
+    const q = (document.getElementById('course-search-inline')?.value || document.getElementById('course-search')?.value || '').trim();
+    if (q) {
+      grid.innerHTML = `<div class="empty-state col-span-full py-12"><i data-lucide="search-x"></i><strong>No courses found matching "${esc(q)}"</strong><span>Check your spelling or search by course code instead.</span><button type="button" id="clear-course-search-btn" class="mt-2 px-3.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition">Clear search</button></div>`;
+      document.getElementById('clear-course-search-btn')?.addEventListener('click', clearCourseSearch);
+    } else {
+      grid.innerHTML = `<div class="empty-state col-span-full py-12"><i data-lucide="book-open-check"></i><strong>No courses found</strong><span>Try another search or add a new course.</span><button type="button" id="empty-add-course" class="mt-1 text-emerald-700 dark:text-emerald-400 font-semibold">Add a course</button></div>`;
+      document.getElementById('empty-add-course')?.addEventListener('click', openAddCourse);
+    }
     if (window.lucide) window.lucide.createIcons();
     return;
   }
@@ -314,16 +328,21 @@ form.addEventListener('submit', async e => {
   finally { saveBtn.disabled = false; saveBtn.textContent = 'Save Course'; }
 });
 
+let courseSearchDebounce = null;
+
 function syncSearch(value, source) {
   const other = source === 'top' ? document.getElementById('course-search-inline') : document.getElementById('course-search');
-  if (other.value !== value) other.value = value;
-  applyFilters(1);
+  if (other && other.value !== value) other.value = value;
+  clearTimeout(courseSearchDebounce);
+  courseSearchDebounce = setTimeout(() => {
+    applyFilters(1);
+  }, 150);
 }
-document.getElementById('course-search').addEventListener('input', e => syncSearch(e.target.value, 'top'));
-document.getElementById('course-search-inline').addEventListener('input', e => syncSearch(e.target.value, 'inline'));
-document.getElementById('course-semester').addEventListener('change', () => applyFilters(1));
-document.getElementById('course-department').addEventListener('change', () => applyFilters(1));
-document.getElementById('course-sort').addEventListener('change', () => applyFilters(1));
+document.getElementById('course-search')?.addEventListener('input', e => syncSearch(e.target.value, 'top'));
+document.getElementById('course-search-inline')?.addEventListener('input', e => syncSearch(e.target.value, 'inline'));
+document.getElementById('course-semester')?.addEventListener('change', () => applyFilters(1));
+document.getElementById('course-department')?.addEventListener('change', () => applyFilters(1));
+document.getElementById('course-sort')?.addEventListener('change', () => applyFilters(1));
 
 document.getElementById('course-cards').addEventListener('click', e => {
   if (e.target.closest('#retry-courses')) loadCourses();

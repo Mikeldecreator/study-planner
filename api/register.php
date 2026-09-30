@@ -162,6 +162,18 @@ try {
         );
     }
 
+    // Strict domain syntax and DNS check
+    $domain = substr(strrchr($email, '@') ?: '', 1);
+    if ($domain === '' || (!checkdnsrr($domain, 'MX') && !checkdnsrr($domain, 'A'))) {
+        registerResponse(
+            [
+                'ok' => false,
+                'error' => 'Email domain is invalid or does not have mail records. Please use a valid email address.'
+            ],
+            422
+        );
+    }
+
 
     if (
         strlen($password) < 8
@@ -189,7 +201,7 @@ try {
     // ========================================================
 
     $stmt = $db->prepare(
-        'SELECT id
+        'SELECT id, full_name, email_verified
          FROM users
          WHERE email = ?
          LIMIT 1'
@@ -200,29 +212,72 @@ try {
         $email
     ]);
 
+    $existingUser = $stmt->fetch();
 
-    if (
-        $stmt->fetch()
-    ) {
+    if ($existingUser) {
+        // If already verified, direct to login
+        if (isset($existingUser['email_verified']) && (int) $existingUser['email_verified'] === 1) {
+            registerResponse(
+                [
+                    'ok' => false,
+                    'error' =>
+                        'An account with this email already exists. Please sign in instead.'
+                ],
+                409
+            );
+        }
+
+        // If unverified, regenerate token, resend verification email
+        $token = bin2hex(random_bytes(32));
+        $expiresAt = date('Y-m-d H:i:s', time() + 86400);
+
+        try {
+            $upStmt = $db->prepare(
+                'UPDATE users
+                 SET email_verification_token = ?,
+                     email_verification_expires_at = ?
+                 WHERE id = ?'
+            );
+            $upStmt->execute([$token, $expiresAt, $existingUser['id']]);
+        } catch (Throwable $e) {}
+
+        require_once __DIR__ . '/../cron/Mailer.php';
+        $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
+        $verifyUrl = $baseUrl . '/public/verify-email.php?token=' . urlencode($token);
+        $mailSent = sendVerificationEmail(
+            $email,
+            (string) ($existingUser['full_name'] ?: $name),
+            $verifyUrl
+        );
+
         registerResponse(
             [
-                'ok' => false,
-                'error' =>
-                    'An account with this email already exists. Please log in instead.'
+                'ok' => true,
+                'requires_verification' => true,
+                'message' =>
+                    'An unverified account already exists with this email. A fresh verification link has been sent to your inbox.',
+                'email' => $email,
+                'mail_sent' => $mailSent
             ],
-            409
+            200
         );
     }
 
 
     // ========================================================
-    // CREATE USER
+    // CREATE USER WITH VERIFICATION TOKEN
     // ========================================================
+
+    $token = bin2hex(random_bytes(32));
+    $expiresAt = date('Y-m-d H:i:s', time() + 86400);
 
     $result = registerUser(
         $name,
         $email,
-        $password
+        $password,
+        0, // email_verified = 0
+        $token,
+        $expiresAt
     );
 
 
@@ -243,58 +298,27 @@ try {
 
 
     // ========================================================
-    // AUTOMATIC LOGIN
+    // SEND VERIFICATION EMAIL
     // ========================================================
 
-    $loggedIn = attemptLogin(
-        $email,
-        $password
-    );
-
-
-    if (!$loggedIn) {
-
-        registerResponse(
-            [
-                'ok' => false,
-                'error' =>
-                    'Your account was created, but automatic login failed. Please log in manually.'
-            ],
-            500
-        );
-    }
+    require_once __DIR__ . '/../cron/Mailer.php';
+    $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
+    $verifyUrl = $baseUrl . '/public/verify-email.php?token=' . urlencode($token);
+    $mailSent = sendVerificationEmail($email, $name, $verifyUrl);
 
 
     // ========================================================
-    // SUCCESS
+    // SUCCESS (VERIFICATION PENDING)
     // ========================================================
 
     registerResponse(
         [
             'ok' => true,
+            'requires_verification' => true,
             'message' =>
-                'Account created successfully.',
-            'redirect' =>
-                './onboarding.php',
-            'user' => [
-                'id' =>
-                    (int) (
-                        $_SESSION['user_id'] ??
-                        0
-                    ),
-
-                'full_name' =>
-                    (string) (
-                        $_SESSION['user_name'] ??
-                        $name
-                    ),
-
-                'name' =>
-                    (string) (
-                        $_SESSION['user_name'] ??
-                        $name
-                    )
-            ]
+                'Account created! Please check your email to verify your account before signing in.',
+            'email' => $email,
+            'mail_sent' => $mailSent
         ],
         200
     );

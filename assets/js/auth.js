@@ -156,273 +156,344 @@ async function getJsonResponse(response) {
 
 
 // ============================================================
+// AUTH STATE & TAB SWITCHING
+// ============================================================
+
+let PENDING_VERIFY_EMAIL = '';
+
+function switchAuthMode(mode) {
+  const isLogin = mode === 'login';
+
+  const loginTab = document.getElementById('tab-btn-login');
+  const regTab = document.getElementById('tab-btn-register');
+  const loginForm = document.getElementById('login-form');
+  const regForm = document.getElementById('register-form');
+  const title = document.getElementById('auth-title');
+  const subtitle = document.getElementById('auth-subtitle');
+  const switchText = document.getElementById('auth-switch-text');
+  const switchBtn = document.getElementById('auth-switch-btn');
+  const pendingCard = document.getElementById('registration-pending-card');
+  const unverifiedBanner = document.getElementById('unverified-banner');
+
+  hideMessages();
+  if (pendingCard) pendingCard.classList.add('hidden');
+  if (unverifiedBanner) unverifiedBanner.classList.add('hidden');
+
+  if (loginTab && regTab) {
+    loginTab.classList.toggle('active', isLogin);
+    regTab.classList.toggle('active', !isLogin);
+  }
+
+  if (loginForm && regForm) {
+    loginForm.classList.toggle('hidden', !isLogin);
+    regForm.classList.toggle('hidden', isLogin);
+  }
+
+  if (title) {
+    title.textContent = isLogin ? 'Welcome back' : 'Create your account';
+  }
+
+  if (subtitle) {
+    subtitle.textContent = isLogin
+      ? "Sign in to view today's academic schedule and workload."
+      : "Start tracking your workload and academic calendar today.";
+  }
+
+  if (switchText && switchBtn) {
+    switchText.textContent = isLogin ? "Don't have an account yet?" : "Already have an account?";
+    switchBtn.textContent = isLogin ? "Create account" : "Sign in";
+  }
+
+  document.title = isLogin ? 'Sign In • Study Planner' : 'Create Account • Study Planner';
+
+  const url = new URL(window.location);
+  if (isLogin) {
+    url.searchParams.delete('mode');
+  } else {
+    url.searchParams.set('mode', 'register');
+  }
+  try {
+    window.history.replaceState({}, '', url.toString());
+  } catch (_) {}
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+function showUnverifiedState(email) {
+  hideMessages();
+  PENDING_VERIFY_EMAIL = email || '';
+
+  const banner = document.getElementById('unverified-banner');
+  if (banner) {
+    banner.classList.remove('hidden');
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  const resendStatus = document.getElementById('resend-status');
+  if (resendStatus) resendStatus.textContent = '';
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+function showRegistrationPendingState(email) {
+  hideMessages();
+  PENDING_VERIFY_EMAIL = email || '';
+
+  const regForm = document.getElementById('register-form');
+  if (regForm) regForm.classList.add('hidden');
+
+  const pendingCard = document.getElementById('registration-pending-card');
+  const emailDisplay = document.getElementById('registered-email-display');
+
+  if (emailDisplay) {
+    emailDisplay.textContent = email || 'your email address';
+  }
+
+  if (pendingCard) {
+    pendingCard.classList.remove('hidden');
+    pendingCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+async function triggerResendVerification(btnElement, statusElement) {
+  const email = PENDING_VERIFY_EMAIL ||
+    (document.getElementById('login-email')?.value || '').trim() ||
+    (document.getElementById('register-email')?.value || '').trim();
+
+  if (!email) {
+    showError('Please enter your email address to receive a verification link.');
+    return;
+  }
+
+  if (btnElement) {
+    btnElement.disabled = true;
+    btnElement.dataset.origText = btnElement.textContent;
+    btnElement.textContent = 'Sending...';
+  }
+
+  try {
+    const res = await fetch(`${API}/resend-verification.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await getJsonResponse(res);
+
+    if (data.ok) {
+      if (statusElement) {
+        statusElement.textContent = data.message || 'Verification link sent! Check your inbox.';
+        statusElement.className = 'text-xs text-emerald-700 dark:text-emerald-300 font-semibold';
+      }
+      showSuccess(data.message || 'Verification link sent! Check your inbox.');
+    } else {
+      if (statusElement) {
+        statusElement.textContent = data.error || 'Could not send verification email.';
+        statusElement.className = 'text-xs text-red-600 dark:text-red-400';
+      }
+      showError(data.error || 'Could not send verification email.');
+    }
+  } catch (err) {
+    showError(err.message || 'Unable to connect to server.');
+  } finally {
+    if (btnElement) {
+      btnElement.disabled = false;
+      btnElement.textContent = btnElement.dataset.origText || 'Resend Email';
+    }
+  }
+}
+
+// ============================================================
 // LOGIN
 // ============================================================
 
-const loginForm =
-  document.getElementById(
-    'login-form'
-  );
-
+const loginForm = document.getElementById('login-form');
 
 if (loginForm) {
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideMessages();
 
-  loginForm.addEventListener(
-    'submit',
-    async (e) => {
+    const banner = document.getElementById('unverified-banner');
+    if (banner) banner.classList.add('hidden');
 
-      e.preventDefault();
+    const button = document.getElementById('login-submit');
+    const formData = new FormData(loginForm);
+    const email = String(formData.get('email') || '').trim();
+    const password = String(formData.get('password') || '');
 
-      hideMessages();
+    if (!email || !password) {
+      showError('Please enter your email and password.');
+      return;
+    }
 
+    setLoading(button, true, 'Signing in...');
 
-      const button =
-        document.getElementById(
-          'login-submit'
-        );
+    try {
+      const response = await fetch(`${API}/login.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({ email, password })
+      });
 
+      const data = await getJsonResponse(response);
 
-      const formData =
-        new FormData(
-          loginForm
-        );
-
-
-      const email =
-        String(
-          formData.get('email') || ''
-        ).trim();
-
-
-      const password =
-        String(
-          formData.get('password') || ''
-        );
-
-
-      if (!email || !password) {
-
-        showError(
-          'Please enter your email and password.'
-        );
-
+      if (response.ok && data.ok) {
+        window.location.replace(data.redirect || './dashboard.php');
         return;
       }
 
-
-      setLoading(
-        button,
-        true,
-        'Signing in...'
-      );
-
-
-      try {
-
-        const response =
-          await fetch(
-            `${API}/login.php`,
-            {
-              method: 'POST',
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-
-                'Accept':
-                  'application/json'
-              },
-
-              credentials:
-                'same-origin',
-
-              cache:
-                'no-store',
-
-              body:
-                JSON.stringify({
-                  email:
-                    email,
-
-                  password:
-                    password
-                })
-            }
-          );
-
-
-        const data =
-          await getJsonResponse(
-            response
-          );
-
-
-        if (
-          response.ok &&
-          data.ok
-        ) {
-
-          window.location.replace(
-            data.redirect || './dashboard.php'
-          );
-
-          return;
-        }
-
-
-        showError(
-          data.error ||
-          'Incorrect email or password.'
-        );
-
-
-      } catch (error) {
-
-        console.error(
-          'Login error:',
-          error
-        );
-
-
-        showError(
-          error.message ||
-          'Unable to connect to the server. Please try again.'
-        );
-
-
-      } finally {
-
-        setLoading(
-          button,
-          false
-        );
+      if (response.status === 403 || data.unverified) {
+        showUnverifiedState(data.email || email);
+        return;
       }
-    }
-  );
-}
 
+      showError(data.error || 'Incorrect email or password.');
+
+    } catch (error) {
+      console.error('Login error:', error);
+      showError(error.message || 'Unable to connect to the server. Please try again.');
+    } finally {
+      setLoading(button, false);
+    }
+  });
+}
 
 // ============================================================
 // REGISTER
 // ============================================================
 
-const registerForm =
-  document.getElementById(
-    'register-form'
-  );
-
+const registerForm = document.getElementById('register-form');
 
 if (registerForm) {
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideMessages();
 
-  registerForm.addEventListener(
-    'submit',
-    async (e) => {
+    const button = document.getElementById('register-submit');
+    const formData = new FormData(registerForm);
+    const email = String(formData.get('email') || '').trim();
+    const fullName = String(formData.get('full_name') || '').trim();
+    const password = String(formData.get('password') || '');
 
-      e.preventDefault();
-
-      hideMessages();
-
-
-      const button =
-        document.getElementById(
-          'register-submit'
-        );
-
-
-      const formData =
-        new FormData(
-          registerForm
-        );
-
-
-      setLoading(
-        button,
-        true,
-        'Creating account...'
-      );
-
-
-      try {
-
-        const response =
-          await fetch(
-            `${API}/register.php`,
-            {
-              method: 'POST',
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-
-                'Accept':
-                  'application/json'
-              },
-
-              credentials:
-                'same-origin',
-
-              cache:
-                'no-store',
-
-              body:
-                JSON.stringify(
-                  Object.fromEntries(
-                    formData.entries()
-                  )
-                )
-            }
-          );
-
-
-        const data =
-          await getJsonResponse(
-            response
-          );
-
-
-        if (
-          response.ok &&
-          data.ok
-        ) {
-
-          window.location.replace(
-            data.redirect || './onboarding.php'
-          );
-
-          return;
-        }
-
-
-        showError(
-          data.error ||
-          'Could not create account.'
-        );
-
-
-      } catch (error) {
-
-        console.error(
-          'Registration error:',
-          error
-        );
-
-
-        showError(
-          error.message ||
-          'Unable to connect to the server. Please try again.'
-        );
-
-
-      } finally {
-
-        setLoading(
-          button,
-          false
-        );
-      }
+    if (!fullName || !email || !password) {
+      showError('All fields are required.');
+      return;
     }
-  );
+
+    if (password.length < 8) {
+      showError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setLoading(button, true, 'Creating account...');
+
+    try {
+      const response = await fetch(`${API}/register.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify(Object.fromEntries(formData.entries()))
+      });
+
+      const data = await getJsonResponse(response);
+
+      if (data.requires_verification || (response.ok && data.ok && !data.redirect)) {
+        showRegistrationPendingState(data.email || email);
+        return;
+      }
+
+      if (response.ok && data.ok) {
+        window.location.replace(data.redirect || './onboarding.php');
+        return;
+      }
+
+      showError(data.error || 'Could not create account.');
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      showError(error.message || 'Unable to connect to the server. Please try again.');
+    } finally {
+      setLoading(button, false);
+    }
+  });
 }
+
+// ============================================================
+// TAB & EVENT WIRE-UP
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Mode tabs
+  document.getElementById('tab-btn-login')?.addEventListener('click', () => switchAuthMode('login'));
+  document.getElementById('tab-btn-register')?.addEventListener('click', () => switchAuthMode('register'));
+  document.getElementById('auth-switch-btn')?.addEventListener('click', () => {
+    const isLogin = !document.getElementById('login-form')?.classList.contains('hidden');
+    switchAuthMode(isLogin ? 'register' : 'login');
+  });
+
+  // Resend email buttons
+  document.getElementById('resend-verification-btn')?.addEventListener('click', (e) => {
+    triggerResendVerification(e.currentTarget, document.getElementById('resend-status'));
+  });
+
+  document.getElementById('reg-resend-btn')?.addEventListener('click', (e) => {
+    triggerResendVerification(e.currentTarget, null);
+  });
+
+  document.getElementById('reg-back-to-login')?.addEventListener('click', () => {
+    switchAuthMode('login');
+  });
+
+  // Password visibility toggles
+  document.querySelectorAll('[data-toggle-password]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inputId = btn.dataset.togglePassword;
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      btn.innerHTML = isPassword ? '<i data-lucide="eye-off" class="w-4 h-4"></i>' : '<i data-lucide="eye" class="w-4 h-4"></i>';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    });
+  });
+
+  // Initial mode from URL or body
+  const urlParams = new URLSearchParams(window.location.search);
+  const modeParam = urlParams.get('mode');
+  const bodyMode = document.body.dataset.authMode;
+
+  if (modeParam === 'register' || bodyMode === 'register') {
+    switchAuthMode('register');
+  } else {
+    switchAuthMode('login');
+  }
+
+  // Pre-fill email if present in URL
+  const emailParam = urlParams.get('email');
+  if (emailParam) {
+    const loginEmail = document.getElementById('login-email');
+    if (loginEmail) loginEmail.value = emailParam;
+  }
+});
 
 
 // ============================================================

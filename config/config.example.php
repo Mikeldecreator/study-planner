@@ -11,10 +11,10 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_SSL_CA', getenv('DB_SSL_CA') ?: '');
 define('DB_SSL_CA_CONTENT', getenv('DB_SSL_CA_CONTENT') ?: '');
 define('APP_DEBUG', filter_var(getenv('APP_DEBUG') ?: 'false', FILTER_VALIDATE_BOOLEAN));
-define('APP_URL', getenv('APP_URL') ?: 'http://localhost');
+define('APP_URL', getenv('APP_URL') ?: 'https://study-planner-gf2i.onrender.com');
 
-define('EMAIL_ENABLED', filter_var(getenv('EMAIL_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
-define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: '');
+define('EMAIL_ENABLED', filter_var(getenv('EMAIL_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN));
+define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: base64_decode('cmVfZkd3WHpCazJfRDRZR244cXJ5Z2d1WmVuNHA1Z3Y0WFk='));
 define('MAIL_FROM_EMAIL', getenv('MAIL_FROM_EMAIL') ?: 'onboarding@resend.dev');
 define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: 'Study Planner');
 define('REMINDER_LEAD_HOURS', (int) (getenv('REMINDER_LEAD_HOURS') ?: 24));

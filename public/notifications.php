@@ -214,6 +214,13 @@ requirePageLogin();
       </section>
 
 
+      <!-- Mobile Search Input -->
+      <div class="relative md:hidden w-full">
+        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input id="notification-search-mobile" type="search" placeholder="Search notifications..." aria-label="Search notifications" autocomplete="off"
+          class="focus-ring w-full h-11 bg-white dark:bg-[#131A18] border border-[#E0EBE8] dark:border-white/10 rounded-xl pl-10 pr-4 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60 transition-colors">
+      </div>
+
       <!-- =======================================================
            NOTIFICATIONS + SIDEBAR
       ======================================================== -->

@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS users (
     onboarding_step TINYINT UNSIGNED NOT NULL DEFAULT 1,
     academic_session VARCHAR(50) DEFAULT NULL,
     current_semester VARCHAR(50) DEFAULT NULL,
-    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    email_verified   TINYINT(1)   NOT NULL DEFAULT 0,
+    email_verification_token VARCHAR(100) DEFAULT NULL,
+    email_verification_expires_at DATETIME DEFAULT NULL,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_users_email_token (email_verification_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Courses (parent to tasks, schedule_events)

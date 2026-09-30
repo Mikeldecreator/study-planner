@@ -94,7 +94,7 @@ requirePageLogin();
 
       <div class="relative hidden md:block flex-1 max-w-xl mx-3 lg:mx-8">
         <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-        <input type="text" placeholder="Search sessions, courses, topics..."
+        <input id="schedule-search" type="search" placeholder="Search sessions, courses, topics..." aria-label="Search schedule"
           class="focus-ring w-full h-11 bg-[#f7faf8] dark:bg-white/[.04] border border-gray-200 dark:border-white/10 rounded-xl pl-10 pr-4 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60 transition-colors">
       </div>
 
@@ -141,6 +141,13 @@ requirePageLogin();
           </button>
         </div>
       </section>
+
+      <!-- Mobile Search Input -->
+      <div class="relative md:hidden w-full">
+        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input id="schedule-search-mobile" type="search" placeholder="Search sessions, courses, topics..." aria-label="Search schedule"
+          class="focus-ring w-full h-10 bg-[#f7faf8] dark:bg-white/[.04] border border-gray-200 dark:border-white/10 rounded-xl pl-10 pr-4 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60 transition-colors">
+      </div>
 
       <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4" id="schedule-stat-cards"></div>
 

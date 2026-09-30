@@ -878,6 +878,7 @@ function buildQuery() {
     '';
 
   const q =
+    getEl('global-search')?.value.trim() ||
     getEl('task-search')?.value.trim() ||
     getEl('filter-search-side')?.value.trim() ||
     '';
@@ -1734,6 +1735,7 @@ function renderTable(tasks) {
     );
 
   if (!displayTasks.length) {
+    const activeSearchQuery = (getEl('global-search')?.value || getEl('task-search')?.value || getEl('filter-search-side')?.value || '').trim();
     let emptyIcon = 'clipboard-list';
     let emptyTitle = 'Nothing to study yet';
     let emptySub = 'Add your first assignment, reading, or prep to study.';
@@ -1746,7 +1748,19 @@ function renderTable(tasks) {
       </button>
     `;
 
-    if (isCompletedTab) {
+    if (activeSearchQuery) {
+      emptyIcon = 'search-x';
+      emptyTitle = 'No matching work found';
+      emptySub = `No tasks match "${esc(activeSearchQuery)}". Try searching for a different course, title, or keyword.`;
+      emptyButton = `
+        <button
+          type="button"
+          id="clear-task-search-btn"
+          class="mt-3 px-3.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition">
+          Clear search
+        </button>
+      `;
+    } else if (isCompletedTab) {
       emptyIcon = 'archive';
       emptyTitle = 'No completed tasks yet';
       emptySub = 'Completed tasks and recorded study sessions will appear here.';
@@ -1788,6 +1802,7 @@ function renderTable(tasks) {
       </tr>
     `;
 
+    getEl('clear-task-search-btn')?.addEventListener('click', resetFilters);
     getEl('clear-task-filters')?.addEventListener('click', resetFilters);
     getEl('empty-add-task-btn')?.addEventListener('click', openAddTask);
 
@@ -3208,6 +3223,7 @@ function resetFilters() {
 
     'filter-status-side',
 
+    'global-search',
     'task-search',
     'filter-search-side'
   ].forEach(
@@ -3392,83 +3408,26 @@ function bindFilters() {
   );
 
 
-  /* Main search */
+  /* Unified search input syncing & debounce */
+  function handleTaskSearchInput(val) {
+    const globalSearch = getEl('global-search');
+    const mainSearch = getEl('task-search');
+    const sideSearch = getEl('filter-search-side');
 
-  getEl(
-    'task-search'
-  )?.addEventListener(
-    'input',
-    () => {
+    if (globalSearch && globalSearch.value !== val) globalSearch.value = val;
+    if (mainSearch && mainSearch.value !== val) mainSearch.value = val;
+    if (sideSearch && sideSearch.value !== val) sideSearch.value = val;
 
-      syncSideFiltersFromMain();
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      CURRENT_PAGE = 1;
+      loadTasks();
+    }, 200);
+  }
 
-      clearTimeout(
-        searchDebounce
-      );
-
-      searchDebounce =
-        setTimeout(
-          () => {
-
-            CURRENT_PAGE =
-              1;
-
-            loadTasks();
-
-          },
-          350
-        );
-
-    }
-  );
-
-
-  /* Side search */
-
-  getEl(
-    'filter-search-side'
-  )?.addEventListener(
-    'input',
-    () => {
-
-      const mainSearch =
-        getEl(
-          'task-search'
-        );
-
-      const sideSearch =
-        getEl(
-          'filter-search-side'
-        );
-
-      if (
-        mainSearch &&
-        sideSearch
-      ) {
-
-        mainSearch.value =
-          sideSearch.value;
-      }
-
-      clearTimeout(
-        searchDebounce
-      );
-
-      searchDebounce =
-        setTimeout(
-          () => {
-
-            CURRENT_PAGE =
-              1;
-
-            loadTasks();
-
-          },
-          350
-        );
-
-    }
-  );
+  getEl('global-search')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
+  getEl('task-search')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
+  getEl('filter-search-side')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
 }
 
 

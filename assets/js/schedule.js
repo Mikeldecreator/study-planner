@@ -27,6 +27,40 @@ const DOW_LABELS = [
 let ALL_EVENTS = [];
 let ALL_TASKS = [];
 let COURSES_CACHE = [];
+let SCHEDULE_SEARCH_QUERY = '';
+
+function getFilteredEvents() {
+    const q = SCHEDULE_SEARCH_QUERY.trim().toLowerCase();
+    if (!q) return ALL_EVENTS;
+    return ALL_EVENTS.filter(ev => {
+        const title = (ev.title || '').toLowerCase();
+        const code = (ev.course_code || '').toLowerCase();
+        const name = (ev.course_name || '').toLowerCase();
+        const loc = (ev.location || '').toLowerCase();
+        const type = (ev.type || '').toLowerCase();
+        const taskTitle = (ev.task_title || '').toLowerCase();
+        return title.includes(q) || code.includes(q) || name.includes(q) || loc.includes(q) || type.includes(q) || taskTitle.includes(q);
+    });
+}
+
+function getFilteredTasks() {
+    const q = SCHEDULE_SEARCH_QUERY.trim().toLowerCase();
+    if (!q) return ALL_TASKS;
+    return ALL_TASKS.filter(task => {
+        const title = (task.title || '').toLowerCase();
+        const code = (task.course_code || '').toLowerCase();
+        const name = (task.course_name || '').toLowerCase();
+        const type = (task.type || '').toLowerCase();
+        const priority = (task.priority || '').toLowerCase();
+        return title.includes(q) || code.includes(q) || name.includes(q) || type.includes(q) || priority.includes(q);
+    });
+}
+
+function onScheduleSearch(query) {
+    SCHEDULE_SEARCH_QUERY = String(query || '').trim();
+    renderCurrentView();
+    renderTodaySessions();
+}
 
 let distributionChart = null;
 
@@ -790,7 +824,7 @@ function renderMiniCalendar() {
 
 
         const hasEvents =
-            ALL_EVENTS.some(
+            getFilteredEvents().some(
                 event =>
                     eventDateForDay(
                         date,
@@ -800,7 +834,7 @@ function renderMiniCalendar() {
 
 
         const hasTasks =
-            ALL_TASKS.some(
+            getFilteredTasks().some(
                 task =>
                     taskMatchesDate(
                         task,
@@ -1305,7 +1339,7 @@ function renderGrid() {
                 /* Recurring schedule events */
 
                 const dayEvents =
-                    ALL_EVENTS
+                    getFilteredEvents()
                         .filter(
                             event =>
                                 String(
@@ -1349,7 +1383,7 @@ function renderGrid() {
                 /* Tasks due on this date */
 
                 const dayTasks =
-                    ALL_TASKS
+                    getFilteredTasks()
                         .filter(
                             task =>
                                 taskMatchesDate(
@@ -2023,7 +2057,7 @@ function renderMonthCalendar() {
 
 
         const events =
-            ALL_EVENTS
+            getFilteredEvents()
                 .filter(
                     event =>
                         eventDateForDay(
@@ -2044,7 +2078,7 @@ function renderMonthCalendar() {
 
 
         const tasks =
-            ALL_TASKS
+            getFilteredTasks()
                 .filter(
                     task =>
                         taskMatchesDate(
@@ -2497,6 +2531,10 @@ function renderCurrentView() {
     }
 
 
+    const activeEvents = getFilteredEvents();
+    const activeTasks = getFilteredTasks();
+    const isFiltering = SCHEDULE_SEARCH_QUERY.length > 0;
+
     if (
         scheduleView === 'week'
     ) {
@@ -2518,7 +2556,7 @@ function renderCurrentView() {
 
 
         const weekTaskCount =
-            ALL_TASKS.filter(
+            activeTasks.filter(
                 task => {
 
                     const due =
@@ -2544,20 +2582,31 @@ function renderCurrentView() {
             ).length;
 
 
-        summary.textContent =
-            `Showing 7 days · ${
-                ALL_EVENTS.length
-            } session${
-                ALL_EVENTS.length === 1
-                    ? ''
-                    : 's'
-            } · ${
-                weekTaskCount
-            } task${
-                weekTaskCount === 1
-                    ? ''
-                    : 's'
-            }`;
+        if (isFiltering) {
+            summary.innerHTML = `<span>Filtered by &ldquo;<strong>${escapeHtml(SCHEDULE_SEARCH_QUERY)}</strong>&rdquo; &middot; ${activeEvents.length} session${activeEvents.length === 1 ? '' : 's'} &middot; ${weekTaskCount} task${weekTaskCount === 1 ? '' : 's'}</span> <button type="button" id="clear-schedule-search" class="ml-2 font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Clear search</button>`;
+            document.getElementById('clear-schedule-search')?.addEventListener('click', () => {
+                const s1 = document.getElementById('schedule-search');
+                const s2 = document.getElementById('schedule-search-mobile');
+                if (s1) s1.value = '';
+                if (s2) s2.value = '';
+                onScheduleSearch('');
+            });
+        } else {
+            summary.textContent =
+                `Showing 7 days · ${
+                    activeEvents.length
+                } session${
+                    activeEvents.length === 1
+                        ? ''
+                        : 's'
+                } · ${
+                    weekTaskCount
+                } task${
+                    weekTaskCount === 1
+                        ? ''
+                        : 's'
+                }`;
+        }
 
 
     } else if (
@@ -2565,7 +2614,7 @@ function renderCurrentView() {
     ) {
 
         const dayEventCount =
-            ALL_EVENTS.filter(
+            activeEvents.filter(
                 event =>
                     String(
                         event.day_of_week
@@ -2577,7 +2626,7 @@ function renderCurrentView() {
 
 
         const dayTaskCount =
-            ALL_TASKS.filter(
+            activeTasks.filter(
                 task =>
                     taskMatchesDate(
                         task,
@@ -2586,33 +2635,44 @@ function renderCurrentView() {
             ).length;
 
 
-        summary.textContent =
-            `${formatDate(
-                anchorDate,
-                {
-                    weekday: 'long',
-                    month: 'short',
-                    day: 'numeric'
-                }
-            )} · ${
-                dayEventCount
-            } session${
-                dayEventCount === 1
-                    ? ''
-                    : 's'
-            } · ${
-                dayTaskCount
-            } task${
-                dayTaskCount === 1
-                    ? ''
-                    : 's'
-            }`;
+        if (isFiltering) {
+            summary.innerHTML = `<span>Filtered by &ldquo;<strong>${escapeHtml(SCHEDULE_SEARCH_QUERY)}</strong>&rdquo; &middot; ${dayEventCount} session${dayEventCount === 1 ? '' : 's'} &middot; ${dayTaskCount} task${dayTaskCount === 1 ? '' : 's'}</span> <button type="button" id="clear-schedule-search" class="ml-2 font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Clear search</button>`;
+            document.getElementById('clear-schedule-search')?.addEventListener('click', () => {
+                const s1 = document.getElementById('schedule-search');
+                const s2 = document.getElementById('schedule-search-mobile');
+                if (s1) s1.value = '';
+                if (s2) s2.value = '';
+                onScheduleSearch('');
+            });
+        } else {
+            summary.textContent =
+                `${formatDate(
+                    anchorDate,
+                    {
+                        weekday: 'long',
+                        month: 'short',
+                        day: 'numeric'
+                    }
+                )} · ${
+                    dayEventCount
+                } session${
+                    dayEventCount === 1
+                        ? ''
+                        : 's'
+                } · ${
+                    dayTaskCount
+                } task${
+                    dayTaskCount === 1
+                        ? ''
+                        : 's'
+                }`;
+        }
 
 
     } else {
 
         const monthTasks =
-            ALL_TASKS.filter(
+            activeTasks.filter(
                 task => {
 
                     const due =
@@ -2632,26 +2692,37 @@ function renderCurrentView() {
             ).length;
 
 
-        summary.textContent =
-            `${formatDate(
-                anchorDate,
-                {
-                    month: 'long',
-                    year: 'numeric'
-                }
-            )} · ${
-                ALL_EVENTS.length
-            } recurring session${
-                ALL_EVENTS.length === 1
-                    ? ''
-                    : 's'
-            } · ${
-                monthTasks
-            } task${
-                monthTasks === 1
-                    ? ''
-                    : 's'
-            }`;
+        if (isFiltering) {
+            summary.innerHTML = `<span>Filtered by &ldquo;<strong>${escapeHtml(SCHEDULE_SEARCH_QUERY)}</strong>&rdquo; &middot; ${activeEvents.length} session${activeEvents.length === 1 ? '' : 's'} &middot; ${monthTasks} task${monthTasks === 1 ? '' : 's'}</span> <button type="button" id="clear-schedule-search" class="ml-2 font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Clear search</button>`;
+            document.getElementById('clear-schedule-search')?.addEventListener('click', () => {
+                const s1 = document.getElementById('schedule-search');
+                const s2 = document.getElementById('schedule-search-mobile');
+                if (s1) s1.value = '';
+                if (s2) s2.value = '';
+                onScheduleSearch('');
+            });
+        } else {
+            summary.textContent =
+                `${formatDate(
+                    anchorDate,
+                    {
+                        month: 'long',
+                        year: 'numeric'
+                    }
+                )} · ${
+                    activeEvents.length
+                } recurring session${
+                    activeEvents.length === 1
+                        ? ''
+                        : 's'
+                } · ${
+                    monthTasks
+                } task${
+                    monthTasks === 1
+                        ? ''
+                        : 's'
+                }`;
+        }
 
     }
 
@@ -2823,7 +2894,7 @@ function renderTodaySessions() {
 
 
     const todays =
-        ALL_EVENTS
+        getFilteredEvents()
             .filter(
                 event =>
                     String(
@@ -2846,7 +2917,7 @@ function renderTodaySessions() {
 
 
     const todaysTasks =
-        ALL_TASKS
+        getFilteredTasks()
             .filter(
                 task =>
                     taskMatchesDate(
@@ -2897,7 +2968,7 @@ function renderTodaySessions() {
             <p
                 class="text-xs text-gray-400 dark:text-gray-500 rounded-xl bg-gray-50 dark:bg-white/[.03] px-3 py-3"
             >
-                Nothing scheduled today.
+                ${SCHEDULE_SEARCH_QUERY ? `No sessions or tasks match &ldquo;${escapeHtml(SCHEDULE_SEARCH_QUERY)}&rdquo;.` : 'Nothing scheduled today.'}
             </p>
 
         `;
@@ -5538,6 +5609,40 @@ window.APP_READY.then(
         if (urlParams.get('import') === '1' || urlParams.get('open_import') === '1') {
             document.getElementById('open-import-timetable')?.click();
         }
+
+        function initScheduleSearch() {
+            const sDesktop = document.getElementById('schedule-search');
+            const sMobile = document.getElementById('schedule-search-mobile');
+            let debounceTimer = null;
+
+            function handleInput(e) {
+                const val = e.target.value;
+                if (sDesktop && sDesktop !== e.target) sDesktop.value = val;
+                if (sMobile && sMobile !== e.target) sMobile.value = val;
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    onScheduleSearch(val);
+                }, 150);
+            }
+
+            function handleKeydown(e) {
+                if (e.key === 'Escape') {
+                    if (sDesktop) sDesktop.value = '';
+                    if (sMobile) sMobile.value = '';
+                    onScheduleSearch('');
+                }
+            }
+
+            if (sDesktop) {
+                sDesktop.addEventListener('input', handleInput);
+                sDesktop.addEventListener('keydown', handleKeydown);
+            }
+            if (sMobile) {
+                sMobile.addEventListener('input', handleInput);
+                sMobile.addEventListener('keydown', handleKeydown);
+            }
+        }
+        initScheduleSearch();
 
     }
 );
