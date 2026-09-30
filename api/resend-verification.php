@@ -67,15 +67,16 @@ try {
 
     recordRateLimitHit('resend_verification', $rateId, 600);
 
-    $token = bin2hex(random_bytes(32));
+    $rawToken = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $rawToken);
     $expiresAt = date('Y-m-d H:i:s', time() + 86400);
 
     $up = $db->prepare('UPDATE users SET email_verification_token = ?, email_verification_expires_at = ? WHERE id = ?');
-    $up->execute([$token, $expiresAt, $user['id']]);
+    $up->execute([$tokenHash, $expiresAt, $user['id']]);
 
     require_once __DIR__ . '/../cron/Mailer.php';
     $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
-    $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($token);
+    $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($rawToken);
     $mailSent = sendVerificationEmail($email, (string) $user['full_name'], $verifyUrl);
 
     $resPayload = [
@@ -83,10 +84,6 @@ try {
         'message' => 'A new verification link has been sent to your email. Please check your inbox.',
         'mail_sent' => $mailSent
     ];
-    if ((defined('APP_DEBUG') && APP_DEBUG) || !$mailSent) {
-        $resPayload['verify_url'] = $verifyUrl;
-        $resPayload['token'] = $token;
-    }
 
     resendResponse($resPayload, 200);
 

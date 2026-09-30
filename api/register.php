@@ -228,7 +228,8 @@ try {
         }
 
         // If unverified, regenerate token, resend verification email
-        $token = bin2hex(random_bytes(32));
+        $rawToken = bin2hex(random_bytes(32));
+        $tokenHash = hash('sha256', $rawToken);
         $expiresAt = date('Y-m-d H:i:s', time() + 86400);
 
         try {
@@ -238,12 +239,12 @@ try {
                      email_verification_expires_at = ?
                  WHERE id = ?'
             );
-            $upStmt->execute([$token, $expiresAt, $existingUser['id']]);
+            $upStmt->execute([$tokenHash, $expiresAt, $existingUser['id']]);
         } catch (Throwable $e) {}
 
         require_once __DIR__ . '/../cron/Mailer.php';
         $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
-        $verifyUrl = $baseUrl . '/public/verify-email.php?token=' . urlencode($token);
+        $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($rawToken);
         $mailSent = sendVerificationEmail(
             $email,
             (string) ($existingUser['full_name'] ?: $name),
@@ -265,10 +266,11 @@ try {
 
 
     // ========================================================
-    // CREATE USER WITH VERIFICATION TOKEN
+    // CREATE USER WITH HASHED VERIFICATION TOKEN
     // ========================================================
 
-    $token = bin2hex(random_bytes(32));
+    $rawToken = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $rawToken);
     $expiresAt = date('Y-m-d H:i:s', time() + 86400);
 
     $result = registerUser(
@@ -276,7 +278,7 @@ try {
         $email,
         $password,
         0, // email_verified = 0
-        $token,
+        $tokenHash,
         $expiresAt
     );
 
@@ -298,33 +300,27 @@ try {
 
 
     // ========================================================
-    // SEND VERIFICATION EMAIL
+    // SEND VERIFICATION EMAIL (CONTAINS RAW TOKEN)
     // ========================================================
 
     require_once __DIR__ . '/../cron/Mailer.php';
     $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
-    $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($token);
+    $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($rawToken);
     $mailSent = sendVerificationEmail($email, $name, $verifyUrl);
 
 
     // ========================================================
-    // SUCCESS (VERIFICATION PENDING)
+    // SUCCESS (VERIFICATION PENDING - NEVER EXPOSES TOKENS/URLS)
     // ========================================================
 
-    $payload = [
+    registerResponse([
         'ok' => true,
         'requires_verification' => true,
         'message' =>
             'Account created! Please check your email to verify your account before signing in.',
         'email' => $email,
         'mail_sent' => $mailSent
-    ];
-    if ((defined('APP_DEBUG') && APP_DEBUG) || !$mailSent) {
-        $payload['verify_url'] = $verifyUrl;
-        $payload['token'] = $token;
-    }
-
-    registerResponse($payload, 200);
+    ], 200);
 
 
 } catch (

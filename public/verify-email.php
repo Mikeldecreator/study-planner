@@ -12,8 +12,10 @@ $userEmail = '';
 if ($token !== '') {
     try {
         $db = getDb();
-        $stmt = $db->prepare('SELECT id, full_name, email, email_verified, email_verification_expires_at FROM users WHERE email_verification_token = ? LIMIT 1');
-        $stmt->execute([$token]);
+        $tokenHash = hash('sha256', $token);
+        // Safe backward-compatible lookup: check hashed token or legacy plaintext token
+        $stmt = $db->prepare('SELECT id, full_name, email, email_verified, email_verification_expires_at FROM users WHERE email_verification_token = ? OR email_verification_token = ? LIMIT 1');
+        $stmt->execute([$tokenHash, $token]);
         $user = $stmt->fetch();
 
         if ($user) {
