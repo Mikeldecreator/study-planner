@@ -75,14 +75,20 @@ try {
 
     require_once __DIR__ . '/../cron/Mailer.php';
     $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
-    $verifyUrl = $baseUrl . '/public/verify-email.php?token=' . urlencode($token);
+    $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($token);
     $mailSent = sendVerificationEmail($email, (string) $user['full_name'], $verifyUrl);
 
-    resendResponse([
+    $resPayload = [
         'ok' => true,
         'message' => 'A new verification link has been sent to your email. Please check your inbox.',
         'mail_sent' => $mailSent
-    ], 200);
+    ];
+    if ((defined('APP_DEBUG') && APP_DEBUG) || !$mailSent) {
+        $resPayload['verify_url'] = $verifyUrl;
+        $resPayload['token'] = $token;
+    }
+
+    resendResponse($resPayload, 200);
 
 } catch (Throwable $e) {
     error_log('[RESEND VERIFICATION ERROR] ' . $e->getMessage());

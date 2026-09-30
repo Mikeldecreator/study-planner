@@ -239,7 +239,7 @@ function showUnverifiedState(email) {
   }
 }
 
-function showRegistrationPendingState(email) {
+function showRegistrationPendingState(email, verifyUrl) {
   hideMessages();
   PENDING_VERIFY_EMAIL = email || '';
 
@@ -251,6 +251,17 @@ function showRegistrationPendingState(email) {
 
   if (emailDisplay) {
     emailDisplay.textContent = email || 'your email address';
+  }
+
+  if (verifyUrl && pendingCard) {
+    let devLink = document.getElementById('dev-verify-link');
+    if (!devLink) {
+      devLink = document.createElement('div');
+      devLink.id = 'dev-verify-link';
+      devLink.className = 'mt-4 p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 text-xs text-center';
+      pendingCard.appendChild(devLink);
+    }
+    devLink.innerHTML = `<span class="text-gray-600 dark:text-gray-300">Direct activation link:</span> <a href="${escapeHtml(verifyUrl)}" class="font-bold text-emerald-700 dark:text-emerald-300 underline ml-1">Click here to activate account &rarr;</a>`;
   }
 
   if (pendingCard) {
@@ -289,7 +300,8 @@ async function triggerResendVerification(btnElement, statusElement) {
 
     if (data.ok) {
       if (statusElement) {
-        statusElement.textContent = data.message || 'Verification link sent! Check your inbox.';
+        statusElement.innerHTML = escapeHtml(data.message || 'Verification link sent! Check your inbox.') +
+          (data.verify_url ? ` <a href="${escapeHtml(data.verify_url)}" class="font-bold underline ml-1">Activate directly &rarr;</a>` : '');
         statusElement.className = 'text-xs text-emerald-700 dark:text-emerald-300 font-semibold';
       }
       showSuccess(data.message || 'Verification link sent! Check your inbox.');
@@ -415,7 +427,7 @@ if (registerForm) {
       const data = await getJsonResponse(response);
 
       if (data.requires_verification || (response.ok && data.ok && !data.redirect)) {
-        showRegistrationPendingState(data.email || email);
+        showRegistrationPendingState(data.email || email, data.verify_url);
         return;
       }
 

@@ -303,7 +303,7 @@ try {
 
     require_once __DIR__ . '/../cron/Mailer.php';
     $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
-    $verifyUrl = $baseUrl . '/public/verify-email.php?token=' . urlencode($token);
+    $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($token);
     $mailSent = sendVerificationEmail($email, $name, $verifyUrl);
 
 
@@ -311,17 +311,20 @@ try {
     // SUCCESS (VERIFICATION PENDING)
     // ========================================================
 
-    registerResponse(
-        [
-            'ok' => true,
-            'requires_verification' => true,
-            'message' =>
-                'Account created! Please check your email to verify your account before signing in.',
-            'email' => $email,
-            'mail_sent' => $mailSent
-        ],
-        200
-    );
+    $payload = [
+        'ok' => true,
+        'requires_verification' => true,
+        'message' =>
+            'Account created! Please check your email to verify your account before signing in.',
+        'email' => $email,
+        'mail_sent' => $mailSent
+    ];
+    if ((defined('APP_DEBUG') && APP_DEBUG) || !$mailSent) {
+        $payload['verify_url'] = $verifyUrl;
+        $payload['token'] = $token;
+    }
+
+    registerResponse($payload, 200);
 
 
 } catch (
