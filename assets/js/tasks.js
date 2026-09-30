@@ -3428,6 +3428,15 @@ function bindFilters() {
   getEl('global-search')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
   getEl('task-search')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
   getEl('filter-search-side')?.addEventListener('input', e => handleTaskSearchInput(e.target.value));
+
+  const handleTaskSearchKeydown = e => {
+    if (e.key === 'Escape') {
+      handleTaskSearchInput('');
+    }
+  };
+  getEl('global-search')?.addEventListener('keydown', handleTaskSearchKeydown);
+  getEl('task-search')?.addEventListener('keydown', handleTaskSearchKeydown);
+  getEl('filter-search-side')?.addEventListener('keydown', handleTaskSearchKeydown);
 }
 
 

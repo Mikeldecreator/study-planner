@@ -340,6 +340,15 @@ function syncSearch(value, source) {
 }
 document.getElementById('course-search')?.addEventListener('input', e => syncSearch(e.target.value, 'top'));
 document.getElementById('course-search-inline')?.addEventListener('input', e => syncSearch(e.target.value, 'inline'));
+
+function handleCourseSearchKeydown(e) {
+  if (e.key === 'Escape') {
+    clearCourseSearch();
+  }
+}
+document.getElementById('course-search')?.addEventListener('keydown', handleCourseSearchKeydown);
+document.getElementById('course-search-inline')?.addEventListener('keydown', handleCourseSearchKeydown);
+
 document.getElementById('course-semester')?.addEventListener('change', () => applyFilters(1));
 document.getElementById('course-department')?.addEventListener('change', () => applyFilters(1));
 document.getElementById('course-sort')?.addEventListener('change', () => applyFilters(1));
