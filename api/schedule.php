@@ -8,14 +8,16 @@ $userId = currentUserId();
 $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
-function ownedTaskIdOrNull(PDO $db, $taskId, int $userId): ?int {
-    if ($taskId === null || $taskId === '' || !is_numeric($taskId)) {
-        return null;
+if (!function_exists('ownedTaskIdOrNull')) {
+    function ownedTaskIdOrNull(PDO $db, $taskId, int $userId): ?int {
+        if ($taskId === null || $taskId === '' || !is_numeric($taskId)) {
+            return null;
+        }
+        $stmt = $db->prepare('SELECT id FROM tasks WHERE id = ? AND user_id = ? LIMIT 1');
+        $stmt->execute([(int) $taskId, $userId]);
+        $id = $stmt->fetchColumn();
+        return $id === false ? null : (int) $id;
     }
-    $stmt = $db->prepare('SELECT id FROM tasks WHERE id = ? AND user_id = ? LIMIT 1');
-    $stmt->execute([(int) $taskId, $userId]);
-    $id = $stmt->fetchColumn();
-    return $id === false ? null : (int) $id;
 }
 
 /**
