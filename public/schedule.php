@@ -116,28 +116,28 @@ requirePageLogin();
       <div id="bell-dropdown" class="hidden absolute right-4 sm:right-8 top-16 w-80 max-w-[90vw] surface rounded-2xl shadow-xl z-30 max-h-96 overflow-y-auto"></div>
     </header>
 
-    <div class="p-4 sm:p-6 xl:p-8 space-y-5 sm:space-y-6">
-      <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <div class="p-3 sm:p-6 xl:p-8 space-y-3.5 sm:space-y-6">
+      <section class="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-4">
         <div>
-          <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-semibold mb-1">
-            <i data-lucide="calendar-check-2" class="w-4 h-4"></i>
+          <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-semibold mb-0.5 sm:mb-1">
+            <i data-lucide="calendar-check-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
             <span>This week</span>
           </div>
-          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">My Classes</h2>
-          <p class="text-gray-500 dark:text-gray-400 text-sm mt-1.5 max-w-2xl">Your recurring weekly timetable — see your classes and find free study time.</p>
+          <h2 class="text-xl sm:text-3xl font-bold tracking-tight">My Classes</h2>
+          <p class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mt-0.5 sm:mt-1.5 max-w-2xl">Your recurring weekly timetable — see your classes and find free study time.</p>
         </div>
         <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2.5">
-          <button id="open-auto-schedule" type="button" class="focus-ring btn-press bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/60 dark:border-emerald-700/50 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors shadow-sm">
-            <i data-lucide="sparkles" class="w-4 h-4 text-emerald-700 dark:text-emerald-300"></i> Auto-Schedule
+          <button id="open-auto-schedule" type="button" class="focus-ring btn-press bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/60 dark:border-emerald-700/50 rounded-xl px-2.5 py-2 sm:px-3 sm:py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 dark:text-emerald-300"></i> Auto-Schedule
           </button>
-          <button id="open-import-timetable" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors">
-            <i data-lucide="upload" class="w-4 h-4"></i> Add Classes
+          <button id="open-import-timetable" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-2.5 py-2 sm:px-3 sm:py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors">
+            <i data-lucide="upload" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Add Classes
           </button>
-          <button id="open-study-prefs" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors">
-            <i data-lucide="sliders" class="w-4 h-4"></i> Preferences
+          <button id="open-study-prefs" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-2.5 py-2 sm:px-3 sm:py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors">
+            <i data-lucide="sliders" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Preferences
           </button>
-          <button id="open-add-session" type="button" class="focus-ring btn-press bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm transition-colors">
-            <i data-lucide="plus" class="w-4 h-4"></i> Add Session
+          <button id="open-add-session" type="button" class="focus-ring btn-press bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm transition-colors">
+            <i data-lucide="plus" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Add Session
           </button>
         </div>
       </section>
@@ -149,30 +149,30 @@ requirePageLogin();
           class="focus-ring w-full h-10 bg-[#f7faf8] dark:bg-white/[.04] border border-gray-200 dark:border-white/10 rounded-xl pl-10 pr-4 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60 transition-colors">
       </div>
 
-      <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4" id="schedule-stat-cards"></div>
+      <div class="grid grid-cols-2 xl:grid-cols-5 gap-2 sm:gap-4" id="schedule-stat-cards"></div>
 
-      <div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_320px] gap-4 xl:gap-5 items-start">
+      <div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_320px] gap-3.5 xl:gap-5 items-start">
         <section class="surface rounded-2xl overflow-hidden min-w-0">
-          <div class="px-4 sm:px-5 py-3.5 border-b border-gray-100 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
+          <div class="px-3.5 sm:px-5 py-2.5 sm:py-3.5 border-b border-gray-100 dark:border-white/10 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
             <div class="flex items-center gap-2">
-              <div class="flex items-center gap-1.5">
-                <button type="button" id="schedule-prev" class="focus-ring w-9 h-9 rounded-lg border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors" aria-label="Previous period">
-                  <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              <div class="flex items-center gap-1">
+                <button type="button" id="schedule-prev" class="focus-ring w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors" aria-label="Previous period">
+                  <i data-lucide="chevron-left" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                 </button>
-                <button type="button" id="schedule-next" class="focus-ring w-9 h-9 rounded-lg border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors" aria-label="Next period">
-                  <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                <button type="button" id="schedule-next" class="focus-ring w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors" aria-label="Next period">
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                 </button>
               </div>
-              <button type="button" id="schedule-today" class="focus-ring inline-flex px-2.5 h-9 items-center rounded-lg border border-gray-200 dark:border-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">Today</button>
-              <div class="ml-1.5">
-                <div id="schedule-range-label" class="text-sm sm:text-base font-bold">This week</div>
-                <div id="schedule-range-subtitle" class="text-[11px] text-gray-400">Recurring timetable</div>
+              <button type="button" id="schedule-today" class="focus-ring inline-flex px-2 h-8 sm:h-9 items-center rounded-lg border border-gray-200 dark:border-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">Today</button>
+              <div class="ml-1 sm:ml-1.5">
+                <div id="schedule-range-label" class="text-xs sm:text-base font-bold">This week</div>
+                <div id="schedule-range-subtitle" class="text-[10px] sm:text-[11px] text-gray-400">Recurring timetable</div>
               </div>
             </div>
             <div id="schedule-view-switcher" class="flex items-center rounded-xl bg-gray-100 dark:bg-white/[.05] p-1 text-xs font-semibold">
-              <button type="button" data-view="week" class="schedule-view-btn px-4 py-2 rounded-lg bg-emerald-700 text-white shadow-sm">Week</button>
-              <button type="button" data-view="day" class="schedule-view-btn px-4 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100">Day</button>
-              <button type="button" data-view="month" class="schedule-view-btn px-4 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100">Month</button>
+              <button type="button" data-view="week" class="schedule-view-btn px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-emerald-700 text-white shadow-sm">Week</button>
+              <button type="button" data-view="day" class="schedule-view-btn px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100">Day</button>
+              <button type="button" data-view="month" class="schedule-view-btn px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100">Month</button>
             </div>
           </div>
 

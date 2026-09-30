@@ -256,20 +256,60 @@ requirePageLogin();
 
   @media(max-width:640px){
     .settings-content{
-      padding:16px
+      padding:12px
     }
 
     .settings-hero-body{
-      flex-direction:column;
-      align-items:flex-start
+      padding:14px 16px;
+      gap:12px;
+    }
+
+    .settings-icon{
+      width:34px;
+      height:34px;
+    }
+
+    .settings-icon svg{
+      width:18px;
+      height:18px;
     }
 
     .settings-stats{
-      grid-template-columns:1fr 1fr
+      padding:12px;
+      gap:8px 0;
+    }
+
+    .settings-stats > div{
+      padding:4px 8px;
+      gap:8px;
+    }
+
+    .settings-stats strong{
+      font-size:16px;
+    }
+
+    .settings-stats span{
+      font-size:11px;
+    }
+
+    .settings-card{
+      padding:14px 16px !important;
+      border-radius:14px;
     }
 
     .settings-row{
-      padding:13px 12px
+      min-height:48px;
+      padding:10px 8px;
+    }
+
+    .settings-row-icon{
+      width:32px;
+      height:32px;
+    }
+
+    .settings-row-icon svg{
+      width:16px;
+      height:16px;
     }
 
     .settings-row-value{
@@ -461,13 +501,13 @@ requirePageLogin();
               <div
                 id="profile-avatar"
                 class="avatar-ring
-                       w-[94px] h-[94px]
+                       w-[68px] h-[68px] sm:w-[94px] sm:h-[94px]
                        rounded-full
                        overflow-hidden
                        avatar-fallback
                        flex items-center
                        justify-center
-                       text-3xl font-bold
+                       text-xl sm:text-3xl font-bold
                        text-emerald-800"
               >
                 <span id="profile-avatar-fallback">
@@ -479,7 +519,7 @@ requirePageLogin();
                 id="change-avatar-btn"
                 type="button"
                 class="absolute right-0 bottom-0
-                       w-8 h-8 rounded-full
+                       w-7 h-7 sm:w-8 sm:h-8 rounded-full
                        bg-emerald-600 text-white
                        grid place-items-center
                        border-2 border-white
@@ -489,7 +529,7 @@ requirePageLogin();
               >
                 <i
                   data-lucide="camera"
-                  class="w-4 h-4"
+                  class="w-3.5 h-3.5 sm:w-4 sm:h-4"
                 ></i>
               </button>
 
@@ -508,7 +548,7 @@ requirePageLogin();
 
               <h2
                 id="profile-name"
-                class="text-2xl
+                class="text-xl
                        sm:text-[28px]
                        font-bold
                        truncate"
@@ -520,16 +560,16 @@ requirePageLogin();
               <div
                 class="flex flex-wrap
                        items-center
-                       gap-2
-                       text-sm
-                       mt-2
+                       gap-1.5 sm:gap-2
+                       text-xs sm:text-sm
+                       mt-1 sm:mt-2
                        text-[#0e4037]
                        dark:text-[#d6eee5]"
               >
 
                 <i
                   data-lucide="graduation-cap"
-                  class="w-4 h-4"
+                  class="w-3.5 h-3.5 sm:w-4 sm:h-4"
                 ></i>
 
                 <span id="profile-level">
@@ -552,10 +592,10 @@ requirePageLogin();
                 class="tagline-wrap
                        flex items-center
                        gap-2
-                       text-sm
+                       text-xs sm:text-sm
                        text-[#476c83]
                        dark:text-gray-400
-                       mt-3"
+                       mt-1.5 sm:mt-3"
               >
 
                 <span
@@ -576,7 +616,7 @@ requirePageLogin();
                 >
                   <i
                     data-lucide="pencil"
-                    class="w-4 h-4"
+                    class="w-3.5 h-3.5 sm:w-4 sm:h-4"
                   ></i>
                 </button>
 
@@ -597,15 +637,15 @@ requirePageLogin();
                    text-emerald-800
                    dark:text-emerald-300
                    rounded-xl
-                   px-5 py-3
-                   text-sm font-semibold
+                   px-3.5 sm:px-5 py-2 sm:py-3
+                   text-xs sm:text-sm font-semibold
                    hover:bg-emerald-50
                    dark:hover:bg-emerald-900/20
                    flex items-center gap-2"
           >
             <i
               data-lucide="pencil"
-              class="w-4 h-4"
+              class="w-3.5 h-3.5 sm:w-4 sm:h-4"
             ></i>
 
             Edit Profile

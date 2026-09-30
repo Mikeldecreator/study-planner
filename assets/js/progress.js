@@ -1163,7 +1163,7 @@ function renderCourseRow(
 
   return `
     <div
-      class="group px-5 sm:px-6 py-5 ${
+      class="group px-3.5 sm:px-6 py-3.5 sm:py-5 ${
         index > 0
           ? 'border-t border-gray-100 dark:border-white/[.06]'
           : ''
@@ -1172,12 +1172,12 @@ function renderCourseRow(
 
       <!-- Top row -->
       <div
-        class="flex items-start gap-3 sm:gap-4"
+        class="flex items-start gap-2.5 sm:gap-4"
       >
 
         <!-- Course icon -->
         <div
-          class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm"
+          class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm text-sm sm:text-base"
           style="background:${escapeAttribute(
             color
           )};"

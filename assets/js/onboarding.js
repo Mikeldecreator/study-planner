@@ -92,9 +92,10 @@
 
       return `
         <button type="button" onclick="window.goToStep(${s.num})" 
-          class="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition cursor-pointer ${badgeClass}">
-          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border border-current">${icon}</span>
-          <span>${s.label}</span>
+          class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border text-[11px] sm:text-xs font-semibold whitespace-nowrap transition cursor-pointer ${badgeClass}">
+          <span class="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-bold border border-current">${icon}</span>
+          <span class="sm:hidden">${s.short}</span>
+          <span class="hidden sm:inline">${s.label}</span>
         </button>
       `;
     }).join('');
@@ -548,21 +549,21 @@
 
     tbody.innerHTML = coursesList.map((c, i) => `
       <tr class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition">
-        <td class="p-2.5">
+        <td class="p-1.5 sm:p-2.5">
           <input type="text" value="${escapeHtml(c.code)}" onchange="updateCourseField(${i}, 'code', this.value)"
-            placeholder="e.g. CSC 411" class="course-code-input w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-bold uppercase tracking-wider outline-none focus:border-emerald-600">
+            placeholder="e.g. CSC 411" class="course-code-input w-full px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-bold uppercase tracking-wider outline-none focus:border-emerald-600">
         </td>
-        <td class="p-2.5">
+        <td class="p-1.5 sm:p-2.5">
           <input type="text" value="${escapeHtml(c.name)}" onchange="updateCourseField(${i}, 'name', this.value)"
-            placeholder="e.g. Computer Networks" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-medium outline-none focus:border-emerald-600">
+            placeholder="e.g. Computer Networks" class="w-full px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-medium outline-none focus:border-emerald-600">
         </td>
-        <td class="p-2.5 text-center">
+        <td class="p-1.5 sm:p-2.5 text-center">
           <input type="number" min="1" max="6" value="${c.credits}" onchange="updateCourseField(${i}, 'credits', this.value)"
-            class="w-14 mx-auto text-center px-1.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-bold outline-none focus:border-emerald-600">
+            class="w-12 sm:w-14 mx-auto text-center px-1 py-1 sm:py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-bold outline-none focus:border-emerald-600">
         </td>
-        <td class="p-2.5 text-center">
-          <button type="button" onclick="removeCourseRow(${i})" class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg transition" title="Remove course">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
+        <td class="p-1.5 sm:p-2.5 text-center">
+          <button type="button" onclick="removeCourseRow(${i})" class="text-gray-400 hover:text-red-500 p-1 sm:p-1.5 rounded-lg transition" title="Remove course">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           </button>
         </td>
       </tr>
@@ -849,29 +850,29 @@
 
     tbody.innerHTML = timetableList.map((t, i) => `
       <tr class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition">
-        <td class="p-2.5">
-          <select onchange="updateTtField(${i}, 'day_of_week', this.value)" class="w-full px-2 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-semibold outline-none focus:border-emerald-600">
+        <td class="p-1.5 sm:p-2.5">
+          <select onchange="updateTtField(${i}, 'day_of_week', this.value)" class="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-semibold outline-none focus:border-emerald-600">
             ${[1, 2, 3, 4, 5, 6, 0].map(d => `<option value="${d}" ${Number(t.day_of_week) === d ? 'selected' : ''}>${dayMapNames[d]}</option>`).join('')}
           </select>
         </td>
-        <td class="p-2.5">
+        <td class="p-1.5 sm:p-2.5">
           <input type="text" value="${escapeHtml(t.course_code || '')}" onchange="updateTtField(${i}, 'course_code', this.value)"
-            placeholder="CSC 411" class="w-full px-2 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-bold uppercase outline-none focus:border-emerald-600">
+            placeholder="CSC 411" class="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs font-bold uppercase outline-none focus:border-emerald-600">
         </td>
-        <td class="p-2.5">
+        <td class="p-1.5 sm:p-2.5">
           <input type="text" value="${escapeHtml(t.title || '')}" onchange="updateTtField(${i}, 'title', this.value)"
-            placeholder="Lecture (Room 4)" class="w-full px-2 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs outline-none focus:border-emerald-600">
+            placeholder="Lecture (Room 4)" class="w-full px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-xs outline-none focus:border-emerald-600">
         </td>
-        <td class="p-2.5">
+        <td class="p-1.5 sm:p-2.5">
           <div class="flex items-center gap-1">
-            <input type="time" value="${t.start_time.slice(0, 5)}" onchange="updateTtField(${i}, 'start_time', this.value + ':00')" class="w-16 px-1 py-1 rounded border border-gray-200 dark:border-white/10 text-[11px] bg-transparent outline-none">
+            <input type="time" value="${t.start_time.slice(0, 5)}" onchange="updateTtField(${i}, 'start_time', this.value + ':00')" class="w-14 sm:w-16 px-1 py-1 rounded border border-gray-200 dark:border-white/10 text-[10px] sm:text-[11px] bg-transparent outline-none">
             <span class="text-gray-400 text-xs">-</span>
-            <input type="time" value="${t.end_time.slice(0, 5)}" onchange="updateTtField(${i}, 'end_time', this.value + ':00')" class="w-16 px-1 py-1 rounded border border-gray-200 dark:border-white/10 text-[11px] bg-transparent outline-none">
+            <input type="time" value="${t.end_time.slice(0, 5)}" onchange="updateTtField(${i}, 'end_time', this.value + ':00')" class="w-14 sm:w-16 px-1 py-1 rounded border border-gray-200 dark:border-white/10 text-[10px] sm:text-[11px] bg-transparent outline-none">
           </div>
         </td>
-        <td class="p-2.5 text-center">
-          <button type="button" onclick="removeTimetableRow(${i})" class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg transition" title="Remove class">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
+        <td class="p-1.5 sm:p-2.5 text-center">
+          <button type="button" onclick="removeTimetableRow(${i})" class="text-gray-400 hover:text-red-500 p-1 sm:p-1.5 rounded-lg transition" title="Remove class">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           </button>
         </td>
       </tr>

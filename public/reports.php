@@ -38,9 +38,15 @@ requirePageLogin();
     background: #ffffff;
     border: 1px solid #dfeae7;
     border-radius: 14px;
-    padding: 18px;
+    padding: 10px 12px;
     box-shadow: 0 3px 12px rgba(18, 67, 57, 0.045);
     transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  @media (min-width: 640px) {
+    .report-kpi {
+      padding: 18px;
+    }
   }
 
   .report-kpi:hover {
@@ -327,10 +333,10 @@ requirePageLogin();
 
     <!-- PAGE CONTENT -->
     <div
-      class="p-4 sm:p-6 lg:p-8
+      class="p-3.5 sm:p-6 lg:p-8
              max-w-[1550px]
              mx-auto
-             space-y-5"
+             space-y-4 sm:space-y-5"
     >
 
 
@@ -340,25 +346,25 @@ requirePageLogin();
                sm:flex-row
                sm:items-end
                justify-between
-               gap-4"
+               gap-3 sm:gap-4"
       >
 
         <div>
 
           <div
-            class="text-[11px]
+            class="text-[10px] sm:text-[11px]
                    font-bold
                    uppercase
                    tracking-[0.16em]
                    text-emerald-700
                    dark:text-emerald-400
-                   mb-1"
+                   mb-0.5 sm:mb-1"
           >
             Academic analytics
           </div>
 
           <h2
-            class="text-2xl sm:text-3xl
+            class="text-xl sm:text-3xl
                    font-bold
                    tracking-tight
                    text-[#123b33]
@@ -368,10 +374,10 @@ requirePageLogin();
           </h2>
 
           <p
-            class="text-sm
+            class="text-xs sm:text-sm
                    text-[#68827c]
                    dark:text-gray-400
-                   mt-1"
+                   mt-0.5 sm:mt-1"
             id="range-label"
           >
             Loading…
@@ -396,13 +402,13 @@ requirePageLogin();
           <select
             id="range-select"
             class="appearance-none
-                   min-w-[165px]
+                   min-w-[140px] sm:min-w-[165px]
                    bg-white dark:bg-[#131A18]
                    border border-[#dfeae7]
                    dark:border-white/10
                    rounded-lg
-                   pl-9 pr-9 py-2.5
-                   text-sm
+                   pl-8 sm:pl-9 pr-8 sm:pr-9 py-2 sm:py-2.5
+                   text-xs sm:text-sm
                    font-medium
                    focus:outline-none
                    focus:ring-2
@@ -447,7 +453,7 @@ requirePageLogin();
                grid-cols-2
                md:grid-cols-3
                xl:grid-cols-5
-               gap-3
+               gap-2
                sm:gap-4"
       ></section>
 
@@ -471,7 +477,7 @@ requirePageLogin();
         >
 
           <div
-            class="px-5 sm:px-6 py-4
+            class="px-4 sm:px-6 py-3 sm:py-4
                    border-b
                    border-[#e8f0ed]
                    dark:border-white/10
@@ -484,7 +490,7 @@ requirePageLogin();
 
               <h3
                 class="font-bold
-                       text-lg
+                       text-base sm:text-lg
                        text-[#123b33]
                        dark:text-white
                        flex
@@ -494,7 +500,7 @@ requirePageLogin();
 
                 <i
                   data-lucide="trending-up"
-                  class="w-5 h-5
+                  class="w-4 h-4 sm:w-5 sm:h-5
                          text-emerald-700
                          dark:text-emerald-400"
                 ></i>
@@ -504,10 +510,10 @@ requirePageLogin();
               </h3>
 
               <p
-                class="text-xs
+                class="text-[11px] sm:text-xs
                        text-[#6a8580]
                        dark:text-gray-400
-                       mt-1"
+                       mt-0.5 sm:mt-1"
               >
                 Your performance progression across the
                 current reporting period.
@@ -533,11 +539,11 @@ requirePageLogin();
 
           </div>
 
-          <div class="p-4 sm:p-5">
+          <div class="p-3.5 sm:p-5">
 
             <div
               class="relative
-                     h-[255px]
+                     h-[200px]
                      sm:h-[275px]"
             >
               <canvas
@@ -550,8 +556,8 @@ requirePageLogin();
               class="mt-3
                      flex
                      flex-wrap
-                     gap-x-5
-                     gap-y-2
+                     gap-x-4 sm:gap-x-5
+                     gap-y-1.5 sm:gap-y-2
                      text-xs"
             ></div>
 
@@ -568,7 +574,7 @@ requirePageLogin();
         >
 
           <div
-            class="px-5 sm:px-6 py-4
+            class="px-4 sm:px-6 py-3 sm:py-4
                    border-b
                    border-[#e8f0ed]
                    dark:border-white/10"
@@ -576,7 +582,7 @@ requirePageLogin();
 
             <h3
               class="font-bold
-                     text-lg
+                     text-base sm:text-lg
                      text-[#123b33]
                      dark:text-white
                      flex
@@ -586,7 +592,7 @@ requirePageLogin();
 
               <i
                 data-lucide="pie-chart"
-                class="w-5 h-5
+                class="w-4 h-4 sm:w-5 sm:h-5
                        text-emerald-700
                        dark:text-emerald-400"
               ></i>
@@ -596,10 +602,10 @@ requirePageLogin();
             </h3>
 
             <p
-              class="text-xs
+              class="text-[11px] sm:text-xs
                      text-[#6a8580]
                      dark:text-gray-400
-                     mt-1"
+                     mt-0.5 sm:mt-1"
             >
               Current distribution of your tasks.
             </p>
@@ -607,7 +613,7 @@ requirePageLogin();
           </div>
 
 
-          <div class="p-5 sm:p-6">
+          <div class="p-3.5 sm:p-6">
 
             <div
               class="flex flex-col
@@ -615,12 +621,12 @@ requirePageLogin();
                      xl:flex-col
                      2xl:flex-row
                      items-center
-                     gap-6"
+                     gap-4 sm:gap-6"
             >
 
               <div
                 class="relative
-                       w-40 h-40
+                       w-32 h-32 sm:w-40 sm:h-40
                        shrink-0"
               >
 
@@ -640,7 +646,7 @@ requirePageLogin();
 
                   <div
                     id="task-status-total"
-                    class="text-2xl
+                    class="text-xl sm:text-2xl
                            font-bold
                            text-[#113d34]
                            dark:text-white"
@@ -663,7 +669,7 @@ requirePageLogin();
               <div
                 id="task-status-legend"
                 class="w-full
-                       space-y-3
+                       space-y-2 sm:space-y-3
                        text-xs"
               ></div>
 
@@ -684,7 +690,7 @@ requirePageLogin();
         class="grid
                grid-cols-1
                lg:grid-cols-2
-               gap-4"
+               gap-3 sm:gap-4"
       >
 
         <!-- Weekly Study Time -->
@@ -692,22 +698,22 @@ requirePageLogin();
           class="report-card
                  dark:bg-[#131A18]
                  dark:border-white/10
-                 p-5 sm:p-6"
+                 p-3.5 sm:p-6"
         >
 
           <div
             class="flex
                    items-center
                    justify-between
-                   gap-4
-                   mb-5"
+                   gap-3 sm:gap-4
+                   mb-3 sm:mb-5"
           >
 
             <div>
 
               <h3
                 class="font-bold
-                       text-lg
+                       text-base sm:text-lg
                        text-[#123b33]
                        dark:text-white
                        flex
@@ -717,7 +723,7 @@ requirePageLogin();
 
                 <i
                   data-lucide="clock-3"
-                  class="w-5 h-5
+                  class="w-4 h-4 sm:w-5 sm:h-5
                          text-emerald-700
                          dark:text-emerald-400"
                 ></i>
@@ -727,10 +733,10 @@ requirePageLogin();
               </h3>
 
               <p
-                class="text-xs
+                class="text-[11px] sm:text-xs
                        text-[#6a8580]
                        dark:text-gray-400
-                       mt-1"
+                       mt-0.5 sm:mt-1"
               >
                 Hours studied across the week.
               </p>
@@ -741,7 +747,7 @@ requirePageLogin();
 
               <div
                 id="weekly-study-total"
-                class="text-lg
+                class="text-base sm:text-lg
                        font-bold
                        text-[#123b33]
                        dark:text-white"
@@ -763,7 +769,7 @@ requirePageLogin();
 
           <div
             id="weekly-study-chart"
-            class="h-[245px]"
+            class="h-[190px] sm:h-[245px]"
           ></div>
 
         </div>
@@ -774,22 +780,22 @@ requirePageLogin();
           class="report-card
                  dark:bg-[#131A18]
                  dark:border-white/10
-                 p-5 sm:p-6"
+                 p-3.5 sm:p-6"
         >
 
           <div
             class="flex
                    items-center
                    justify-between
-                   gap-4
-                   mb-5"
+                   gap-3 sm:gap-4
+                   mb-3 sm:mb-5"
           >
 
             <div>
 
               <h3
                 class="font-bold
-                       text-lg
+                       text-base sm:text-lg
                        text-[#123b33]
                        dark:text-white
                        flex
@@ -799,7 +805,7 @@ requirePageLogin();
 
                 <i
                   data-lucide="pie-chart"
-                  class="w-5 h-5
+                  class="w-4 h-4 sm:w-5 sm:h-5
                          text-violet-600
                          dark:text-violet-400"
                 ></i>
@@ -809,10 +815,10 @@ requirePageLogin();
               </h3>
 
               <p
-                class="text-xs
+                class="text-[11px] sm:text-xs
                        text-[#6a8580]
                        dark:text-gray-400
-                       mt-1"
+                       mt-0.5 sm:mt-1"
               >
                 Course progress by subject.
               </p>
@@ -832,7 +838,7 @@ requirePageLogin();
 
           <div
             id="subject-breakdown"
-            class="space-y-4"
+            class="space-y-3 sm:space-y-4"
           ></div>
 
         </div>
@@ -848,7 +854,7 @@ requirePageLogin();
         class="grid
                grid-cols-1
                xl:grid-cols-[minmax(0,1fr)_380px]
-               gap-4"
+               gap-3 sm:gap-4"
       >
 
         <!-- Course Performance -->
@@ -860,7 +866,7 @@ requirePageLogin();
         >
 
           <div
-            class="px-5 sm:px-6 py-4
+            class="px-4 sm:px-6 py-3 sm:py-4
                    border-b
                    border-[#e8f0ed]
                    dark:border-white/10
@@ -873,7 +879,7 @@ requirePageLogin();
 
               <h3
                 class="font-bold
-                       text-lg
+                       text-base sm:text-lg
                        text-[#123b33]
                        dark:text-white
                        flex
@@ -883,7 +889,7 @@ requirePageLogin();
 
                 <i
                   data-lucide="book-open-check"
-                  class="w-5 h-5
+                  class="w-4 h-4 sm:w-5 sm:h-5
                          text-emerald-700
                          dark:text-emerald-400"
                 ></i>
@@ -893,10 +899,10 @@ requirePageLogin();
               </h3>
 
               <p
-                class="text-xs
+                class="text-[11px] sm:text-xs
                        text-[#6a8580]
                        dark:text-gray-400
-                       mt-1"
+                       mt-0.5 sm:mt-1"
               >
                 Progress across your registered courses.
               </p>
@@ -917,7 +923,7 @@ requirePageLogin();
 
           <div
             id="course-performance"
-            class="p-5 sm:p-6 space-y-4"
+            class="p-3.5 sm:p-6 space-y-3 sm:space-y-4"
           ></div>
 
         </div>
@@ -932,7 +938,7 @@ requirePageLogin();
         >
 
           <div
-            class="px-5 sm:px-6 py-4
+            class="px-4 sm:px-6 py-3 sm:py-4
                    border-b
                    border-[#e8f0ed]
                    dark:border-white/10"
@@ -940,7 +946,7 @@ requirePageLogin();
 
             <h3
               class="font-bold
-                     text-lg
+                     text-base sm:text-lg
                      text-[#123b33]
                      dark:text-white
                      flex
@@ -950,7 +956,7 @@ requirePageLogin();
 
               <i
                 data-lucide="lightbulb"
-                class="w-5 h-5
+                class="w-4 h-4 sm:w-5 sm:h-5
                        text-amber-600
                        dark:text-amber-400"
               ></i>
@@ -960,10 +966,10 @@ requirePageLogin();
             </h3>
 
             <p
-              class="text-xs
+              class="text-[11px] sm:text-xs
                      text-[#6a8580]
                      dark:text-gray-400
-                     mt-1"
+                     mt-0.5 sm:mt-1"
             >
               Based on your current report data.
             </p>
@@ -971,26 +977,26 @@ requirePageLogin();
           </div>
 
 
-          <div class="p-5 sm:p-6">
+          <div class="p-3.5 sm:p-6">
 
             <div
               id="performance-insights"
-              class="space-y-2.5"
+              class="space-y-2 sm:space-y-2.5"
             ></div>
 
 
             <div
-              class="mt-5
-                     pt-5
+              class="mt-4 sm:mt-5
+                     pt-4 sm:pt-5
                      border-t
                      border-[#e8f0ed]
                      dark:border-white/10"
             >
 
-              <div class="flex items-start gap-3">
+              <div class="flex items-start gap-2.5 sm:gap-3">
 
                 <div
-                  class="w-9 h-9
+                  class="w-8 h-8 sm:w-9 sm:h-9
                          shrink-0
                          rounded-lg
                          bg-emerald-50
@@ -1011,7 +1017,7 @@ requirePageLogin();
                 <div>
 
                   <div
-                    class="text-[11px]
+                    class="text-[10px] sm:text-[11px]
                            uppercase
                            tracking-wider
                            font-bold
@@ -1023,11 +1029,11 @@ requirePageLogin();
 
                   <div
                     id="suggested-action"
-                    class="text-sm
-                           leading-6
+                    class="text-xs sm:text-sm
+                           leading-5 sm:leading-6
                            text-[#294941]
                            dark:text-gray-200
-                           mt-1"
+                           mt-0.5 sm:mt-1"
                   >
                     –
                   </div>
@@ -1057,7 +1063,7 @@ requirePageLogin();
       >
 
         <div
-          class="px-5 sm:px-6 py-4
+          class="px-4 sm:px-6 py-3 sm:py-4
                  border-b
                  border-[#e8f0ed]
                  dark:border-white/10
@@ -1071,7 +1077,7 @@ requirePageLogin();
 
             <h3
               class="font-bold
-                     text-lg
+                     text-base sm:text-lg
                      text-[#123b33]
                      dark:text-white
                      flex
@@ -1081,7 +1087,7 @@ requirePageLogin();
 
               <i
                 data-lucide="file-bar-chart-2"
-                class="w-5 h-5
+                class="w-4 h-4 sm:w-5 sm:h-5
                        text-violet-600
                        dark:text-violet-400"
               ></i>
@@ -1091,10 +1097,10 @@ requirePageLogin();
             </h3>
 
             <p
-              class="text-xs
+              class="text-[11px] sm:text-xs
                      text-[#6a8580]
                      dark:text-gray-400
-                     mt-1"
+                     mt-0.5 sm:mt-1"
             >
               Your available report views for the current period.
             </p>
@@ -1113,8 +1119,11 @@ requirePageLogin();
 
         </div>
 
+        <!-- Mobile Card List for < md -->
+        <div id="recent-reports-mobile-cards" class="divide-y divide-gray-100 dark:divide-white/5 block md:hidden"></div>
 
-        <div class="overflow-x-auto">
+        <!-- Desktop Table for >= md -->
+        <div class="overflow-x-auto hidden md:block">
 
           <table class="w-full min-w-[760px]">
 

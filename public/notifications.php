@@ -153,14 +153,14 @@ requirePageLogin();
     <!-- =========================================================
          PAGE CONTENT
     ========================================================== -->
-    <div class="p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1600px] mx-auto">
+    <div class="p-3.5 sm:p-6 lg:p-7 space-y-4 sm:space-y-5 max-w-[1600px] mx-auto">
 
 
       <!-- =======================================================
            HERO
       ======================================================== -->
       <section
-        class="relative overflow-hidden rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-r from-[#E2F7EF] via-[#EEF9F5] to-[#DFF3E7] dark:from-[#122D24] dark:via-[#14251F] dark:to-[#12271F] px-5 sm:px-8 py-5 sm:py-6"
+        class="relative overflow-hidden rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-r from-[#E2F7EF] via-[#EEF9F5] to-[#DFF3E7] dark:from-[#122D24] dark:via-[#14251F] dark:to-[#12271F] px-4 sm:px-8 py-3.5 sm:py-6"
       >
 
         <div
@@ -168,29 +168,29 @@ requirePageLogin();
         ></div>
 
         <div
-          class="relative flex flex-col sm:flex-row sm:items-center justify-between gap-5"
+          class="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-5"
         >
 
-          <div class="flex items-center gap-4 sm:gap-5 min-w-0">
+          <div class="flex items-center gap-3 sm:gap-5 min-w-0">
 
             <div
-              class="w-16 h-16 sm:w-[76px] sm:h-[76px] rounded-full bg-[#D4F1E5] dark:bg-emerald-900/50 text-[#075F49] dark:text-emerald-300 flex items-center justify-center shrink-0 border border-white/80 dark:border-white/10"
+              class="w-10 h-10 sm:w-[76px] sm:h-[76px] rounded-full bg-[#D4F1E5] dark:bg-emerald-900/50 text-[#075F49] dark:text-emerald-300 flex items-center justify-center shrink-0 border border-white/80 dark:border-white/10"
             >
               <i
                 data-lucide="bell"
-                class="w-8 h-8 sm:w-9 sm:h-9"
+                class="w-5 h-5 sm:w-9 sm:h-9"
               ></i>
             </div>
 
             <div class="min-w-0">
 
-              <h2 class="text-2xl sm:text-3xl font-bold">
+              <h2 class="text-xl sm:text-3xl font-bold">
                 Notifications
               </h2>
 
               <p
                 id="notification-summary"
-                class="text-sm sm:text-base text-[#42675F] dark:text-gray-400 mt-1"
+                class="text-xs sm:text-base text-[#42675F] dark:text-gray-400 mt-0.5 sm:mt-1"
               >
                 Loading your notifications…
               </p>
@@ -203,7 +203,7 @@ requirePageLogin();
           <button
             id="mark-all-read"
             type="button"
-            class="btn-press inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-white/60 dark:bg-emerald-950/20 px-4 py-2.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-white dark:hover:bg-emerald-950/40 transition-colors shrink-0"
+            class="btn-press inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-white/60 dark:bg-emerald-950/20 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-white dark:hover:bg-emerald-950/40 transition-colors shrink-0"
           >
             <i data-lucide="check-check" class="w-4 h-4"></i>
             Mark all as read
@@ -218,14 +218,14 @@ requirePageLogin();
       <div class="relative md:hidden w-full">
         <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
         <input id="notification-search-mobile" type="search" placeholder="Search notifications..." aria-label="Search notifications" autocomplete="off"
-          class="focus-ring w-full h-11 bg-white dark:bg-[#131A18] border border-[#E0EBE8] dark:border-white/10 rounded-xl pl-10 pr-4 text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60 transition-colors">
+          class="focus-ring w-full h-10 bg-white dark:bg-[#131A18] border border-[#E0EBE8] dark:border-white/10 rounded-xl pl-10 pr-4 text-xs sm:text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-400/60 transition-colors">
       </div>
 
       <!-- =======================================================
            NOTIFICATIONS + SIDEBAR
       ======================================================== -->
       <section
-        class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_355px] gap-4"
+        class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_355px] gap-3 sm:gap-4"
       >
 
 
@@ -243,18 +243,18 @@ requirePageLogin();
 
             <div
               id="notification-tabs"
-              class="flex items-center min-w-max px-3 sm:px-4"
+              class="flex items-center min-w-max px-2 sm:px-4"
             >
 
               <button
                 type="button"
                 data-notification-tab="all"
-                class="notification-tab is-active px-4 py-4 text-sm font-semibold border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400"
+                class="notification-tab is-active px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-semibold border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400"
               >
                 All
                 <span
                   data-tab-count="all"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>
@@ -263,12 +263,12 @@ requirePageLogin();
               <button
                 type="button"
                 data-notification-tab="unread"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+                class="notification-tab px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Unread
                 <span
                   data-tab-count="unread"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>
@@ -277,12 +277,12 @@ requirePageLogin();
               <button
                 type="button"
                 data-notification-tab="academic"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+                class="notification-tab px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Academic
                 <span
                   data-tab-count="academic"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>
@@ -291,12 +291,12 @@ requirePageLogin();
               <button
                 type="button"
                 data-notification-tab="deadline"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+                class="notification-tab px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Deadline
                 <span
                   data-tab-count="deadline"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>
@@ -305,12 +305,12 @@ requirePageLogin();
               <button
                 type="button"
                 data-notification-tab="class"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+                class="notification-tab px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Class
                 <span
                   data-tab-count="class"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>
@@ -319,12 +319,12 @@ requirePageLogin();
               <button
                 type="button"
                 data-notification-tab="study"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+                class="notification-tab px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 Study
                 <span
                   data-tab-count="study"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>
@@ -333,12 +333,12 @@ requirePageLogin();
               <button
                 type="button"
                 data-notification-tab="general"
-                class="notification-tab px-4 py-4 text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
+                class="notification-tab px-3 sm:px-4 py-2.5 sm:py-4 text-xs sm:text-sm font-medium border-b-2 border-transparent text-[#55756D] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400"
               >
                 General
                 <span
                   data-tab-count="general"
-                  class="ml-1.5 inline-flex min-w-6 h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[11px]"
+                  class="ml-1 sm:ml-1.5 inline-flex min-w-5 sm:min-w-6 h-5 sm:h-6 px-1.5 items-center justify-center rounded-full bg-gray-100 dark:bg-white/10 text-[10px] sm:text-[11px]"
                 >
                   0
                 </span>

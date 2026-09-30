@@ -864,6 +864,7 @@ function renderAttentionBanner() {
 
 function renderTable(rows) {
   const tbody = document.getElementById('deadline-table-body');
+  const mobileCards = document.getElementById('deadlines-mobile-cards');
   const footer = document.getElementById('deadline-table-footer');
   if (!tbody) return;
 
@@ -885,6 +886,17 @@ function renderTable(rows) {
           </td>
         </tr>
       `;
+      if (mobileCards) {
+        mobileCards.innerHTML = `
+          <div class="p-6 text-center bg-white dark:bg-[#151c1a] rounded-xl border border-gray-100 dark:border-white/5">
+            <div class="w-10 h-10 mx-auto rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+            </div>
+            <div class="font-bold text-sm mt-2 text-gray-900 dark:text-white">No work due soon</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">You're all caught up!</div>
+          </div>
+        `;
+      }
     } else {
       tbody.innerHTML = `
         <tr>
@@ -897,6 +909,14 @@ function renderTable(rows) {
           </td>
         </tr>
       `;
+      if (mobileCards) {
+        mobileCards.innerHTML = `
+          <div class="p-6 text-center bg-white dark:bg-[#151c1a] rounded-xl border border-gray-100 dark:border-white/5">
+            <div class="font-semibold text-sm text-gray-800 dark:text-gray-200">No work matches your filters</div>
+            <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Try changing your filters or search.</div>
+          </div>
+        `;
+      }
     }
 
     if (footer) {
@@ -908,8 +928,11 @@ function renderTable(rows) {
   }
 
   tbody.innerHTML = rows.map((deadline, index) => deadlineRow(deadline, index)).join('');
+  if (mobileCards) {
+    mobileCards.innerHTML = rows.map(deadline => deadlineMobileCard(deadline)).join('');
+  }
 
-  tbody.querySelectorAll('.view-deadline-btn, .view-detail-trigger').forEach(btn => {
+  document.querySelectorAll('.view-deadline-btn, .view-detail-trigger').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
       const item = ALL_DEADLINES.find(d => String(d.id) === String(id));
@@ -936,6 +959,70 @@ function renderTable(rows) {
 
   tickCountdowns();
   initLucide();
+}
+
+function deadlineMobileCard(deadline) {
+  const urgency = deadline.urgency || 'on_track';
+  const isOverdue = urgency === 'overdue';
+  const isDueSoon = urgency === 'due_soon';
+  const badgeClasses = isOverdue
+    ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30'
+    : (isDueSoon
+      ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30');
+
+  const dueDate = new Date(deadline.due_at);
+  const dueText = !Number.isNaN(dueDate.getTime())
+    ? dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : '—';
+  const courseCode = deadline.course_code ? escapeHtml(deadline.course_code) : 'Academic';
+  const systemProgress = Math.round(Number(deadline.system_progress ?? deadline.progress ?? 0));
+
+  return `
+    <div class="p-3 rounded-xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#151c1a] shadow-xs">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">${courseCode}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClasses}">
+              ${isOverdue ? 'Overdue' : (isDueSoon ? 'Due Soon' : 'On Track')}
+            </span>
+          </div>
+          <h4
+            class="font-bold text-sm text-gray-900 dark:text-white mt-1.5 truncate cursor-pointer view-detail-trigger"
+            data-id="${deadline.id}"
+          >
+            ${escapeHtml(deadline.title)}
+          </h4>
+        </div>
+        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 shrink-0 mt-0.5">${dueText}</span>
+      </div>
+      <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-white/5">
+        <div class="flex items-center gap-1.5 flex-1 max-w-[140px]">
+          <div class="flex-1 h-1.5 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-600 rounded-full" style="width: ${systemProgress}%"></div>
+          </div>
+          <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400">${systemProgress}%</span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <a
+            href="tasks.php?focus_task_id=${escapeAttribute(deadline.id)}"
+            class="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold flex items-center gap-1 transition"
+          >
+            <i data-lucide="timer" class="w-3 h-3"></i> Focus
+          </a>
+          <button
+            type="button"
+            class="view-deadline-btn p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+            data-id="${escapeAttribute(deadline.id)}"
+            title="Details"
+          >
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function deadlineRow(deadline, index) {

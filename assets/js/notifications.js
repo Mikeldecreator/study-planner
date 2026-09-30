@@ -440,13 +440,13 @@
             const relTime = formatRelativeTime(item.send_at || item.created_at);
 
             return `
-                <div data-feed-id="${item.id}" class="p-4 sm:p-5 flex items-start justify-between gap-4 transition-colors ${unread ? 'bg-emerald-50/40 dark:bg-emerald-950/15' : 'hover:bg-gray-50/60 dark:hover:bg-white/[0.02]'}">
-                    <div class="flex items-start gap-3.5 min-w-0 flex-1">
-                        <div class="w-10 h-10 rounded-xl ${tone.bg} ${tone.text} flex items-center justify-center shrink-0 mt-0.5 border ${tone.border}">
-                            <i data-lucide="${icon}" class="w-5 h-5"></i>
+                <div data-feed-id="${item.id}" class="p-3 sm:p-5 flex items-start justify-between gap-2.5 sm:gap-4 transition-colors ${unread ? 'bg-emerald-50/40 dark:bg-emerald-950/15' : 'hover:bg-gray-50/60 dark:hover:bg-white/[0.02]'}">
+                    <div class="flex items-start gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl ${tone.bg} ${tone.text} flex items-center justify-center shrink-0 mt-0.5 border ${tone.border}">
+                            <i data-lucide="${icon}" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                         </div>
                         <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
                                 <span class="text-xs font-bold text-gray-900 dark:text-gray-100">${escapeHtml(item.title || 'Academic Alert')}</span>
                                 <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${tone.badgeBg}">
                                     ${tone.label}
@@ -454,20 +454,20 @@
                                 ${unread ? '<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Unread</span>' : ''}
                             </div>
                             <p class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed">${escapeHtml(item.message)}</p>
-                            <div class="flex items-center gap-3 mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                            <div class="flex items-center gap-2.5 sm:gap-3 mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500">
                                 <span>${relTime}</span>
-                                ${item.task_title ? `<span class="truncate max-w-[200px]">Task: ${escapeHtml(item.task_title)}</span>` : ''}
+                                ${item.task_title ? `<span class="truncate max-w-[150px] sm:max-w-[200px]">Task: ${escapeHtml(item.task_title)}</span>` : ''}
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 shrink-0">
+                    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
                         ${unread ? `
-                            <button data-action="mark-read" data-id="${item.id}" type="button" class="px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-[#1a2421] border border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition shadow-sm">
+                            <button data-action="mark-read" data-id="${item.id}" type="button" class="px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-[#1a2421] border border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition shadow-sm">
                                 Mark read
                             </button>
                         ` : ''}
                         ${item.action_url ? `
-                            <a href="${escapeHtml(item.action_url)}" class="p-1.5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition rounded-lg hover:bg-gray-100 dark:hover:bg-white/5" title="View details">
+                            <a href="${escapeHtml(item.action_url)}" class="p-1 sm:p-1.5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition rounded-lg hover:bg-gray-100 dark:hover:bg-white/5" title="View details">
                                 <i data-lucide="external-link" class="w-4 h-4"></i>
                             </a>
                         ` : ''}

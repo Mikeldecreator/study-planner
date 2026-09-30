@@ -38,7 +38,7 @@ $prefillEmail = trim((string) ($_GET['email'] ?? ''));
 
 <body class="bg-[#F4F8F6] dark:bg-[#090E0C] text-[#082E2A] dark:text-gray-100 min-h-screen flex items-center justify-center p-3 sm:p-6 lg:p-8 transition-colors" data-auth-mode="<?= htmlspecialchars($initialMode) ?>">
 
-  <div class="w-full max-w-5xl bg-white dark:bg-[#121A17] rounded-3xl shadow-xl border border-[#E0EBE8] dark:border-white/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+  <div class="w-full max-w-5xl bg-white dark:bg-[#121A17] rounded-3xl shadow-xl border border-[#E0EBE8] dark:border-white/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[640px]">
 
     <!-- ======================================================= -->
     <!-- LEFT PANEL: ACADEMIC BRANDING & VALUE PROPOSITION -->
@@ -122,21 +122,21 @@ $prefillEmail = trim((string) ($_GET['email'] ?? ''));
     <!-- ======================================================= -->
     <!-- RIGHT PANEL: UNIFIED AUTH CARD (LOGIN & REGISTER TOGGLE) -->
     <!-- ======================================================= -->
-    <div class="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-center bg-white dark:bg-[#121A17]">
+    <div class="lg:col-span-7 p-4 sm:p-10 lg:p-12 flex flex-col justify-center bg-white dark:bg-[#121A17]">
 
       <!-- TOGGLE BAR -->
-      <div class="flex items-center p-1 bg-[#EEF5F2] dark:bg-white/5 rounded-2xl mb-6 max-w-sm mx-auto w-full border border-[#D9E7E3] dark:border-white/10">
+      <div class="flex items-center p-1 bg-[#EEF5F2] dark:bg-white/5 rounded-2xl mb-4 sm:mb-6 max-w-sm mx-auto w-full border border-[#D9E7E3] dark:border-white/10">
         <button
           id="tab-btn-login"
           type="button"
-          class="auth-tab flex-1 py-2.5 px-4 text-xs sm:text-sm font-bold rounded-xl transition text-center focus:outline-none"
+          class="auth-tab flex-1 py-2 sm:py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl transition text-center focus:outline-none"
         >
           Sign In
         </button>
         <button
           id="tab-btn-register"
           type="button"
-          class="auth-tab active flex-1 py-2.5 px-4 text-xs sm:text-sm font-bold rounded-xl transition text-center focus:outline-none"
+          class="auth-tab active flex-1 py-2 sm:py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl transition text-center focus:outline-none"
         >
           Create Account
         </button>
@@ -145,7 +145,7 @@ $prefillEmail = trim((string) ($_GET['email'] ?? ''));
       <div class="max-w-md mx-auto w-full">
 
         <!-- HEADER TITLES (DYNAMIC BASED ON ACTIVE TAB) -->
-        <div class="mb-6">
+        <div class="mb-4 sm:mb-6">
           <h1 id="auth-title" class="text-xl sm:text-2xl font-extrabold text-[#082E2A] dark:text-gray-100 tracking-tight">
             Create your account
           </h1>

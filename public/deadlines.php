@@ -58,6 +58,18 @@ requirePageLogin();
     flex-shrink: 0;
   }
 
+  @media (max-width: 640px) {
+    .metric-icon {
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 9px !important;
+    }
+    .metric-icon svg, .metric-icon i {
+      width: 17px !important;
+      height: 17px !important;
+    }
+  }
+
   .deadline-row {
     transition:
       background .15s ease,
@@ -269,16 +281,16 @@ requirePageLogin();
       ></div>
     </header>
 
-    <div class="p-4 sm:p-6 xl:p-8 space-y-6">
+    <div class="p-3 sm:p-6 xl:p-8 space-y-3.5 sm:space-y-6">
 
       <!-- Next Attention Needed Banner -->
       <div id="deadline-attention-banner" class="hidden"></div>
 
       <!-- Page intro -->
-      <section class="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+      <section class="flex flex-col xl:flex-row xl:items-end justify-between gap-3 sm:gap-4">
 
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full xl:w-auto">
-          <div class="flex items-center gap-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 w-full xl:w-auto">
+          <div class="hidden sm:flex items-center gap-2">
             <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
               <i data-lucide="clock-3" class="w-5 h-5"></i>
             </div>
@@ -296,18 +308,18 @@ requirePageLogin();
 
           <a
             href="tasks.php?add_task=1"
-            class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold shadow-sm transition shrink-0"
+            class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold shadow-sm transition shrink-0"
           >
             <i data-lucide="plus" class="w-4 h-4"></i> Add Work
           </a>
         </div>
 
         <!-- Filter controls -->
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="mobile-chip-strip flex items-center gap-1.5 overflow-x-auto w-full xl:w-auto pb-1">
 
           <button
             type="button"
-            class="deadline-filter-btn active border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold"
+            class="deadline-filter-btn active shrink-0 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold"
             data-deadline-view="all"
           >
             All
@@ -315,7 +327,7 @@ requirePageLogin();
 
           <button
             type="button"
-            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            class="deadline-filter-btn shrink-0 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
             data-deadline-view="overdue"
           >
             Overdue
@@ -323,7 +335,7 @@ requirePageLogin();
 
           <button
             type="button"
-            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            class="deadline-filter-btn shrink-0 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
             data-deadline-view="today"
           >
             Due Today
@@ -331,7 +343,7 @@ requirePageLogin();
 
           <button
             type="button"
-            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            class="deadline-filter-btn shrink-0 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
             data-deadline-view="due_soon"
           >
             Due Soon
@@ -339,7 +351,7 @@ requirePageLogin();
 
           <button
             type="button"
-            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            class="deadline-filter-btn shrink-0 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
             data-deadline-view="upcoming"
           >
             Upcoming
@@ -347,7 +359,7 @@ requirePageLogin();
 
           <button
             type="button"
-            class="deadline-filter-btn border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+            class="deadline-filter-btn shrink-0 border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
             data-deadline-view="completed"
           >
             Completed
@@ -355,7 +367,7 @@ requirePageLogin();
 
           <select
             id="deadline-status-filter"
-            class="bg-white dark:bg-[#13191a] border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-semibold outline-none"
+            class="bg-white dark:bg-[#13191a] border border-gray-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none shrink-0"
           >
             <option value="">All Urgency</option>
             <option value="on_track">On Track</option>
@@ -370,7 +382,7 @@ requirePageLogin();
 
       <!-- Statistics -->
       <section
-        class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4"
+        class="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4"
         id="deadline-stat-cards"
       ></section>
 
@@ -418,7 +430,11 @@ requirePageLogin();
 
           </div>
 
-          <div class="overflow-x-auto">
+          <!-- Mobile Card List for < lg screens -->
+          <div id="deadlines-mobile-cards" class="space-y-2.5 p-3 block lg:hidden"></div>
+
+          <!-- Desktop Table for >= lg screens -->
+          <div class="overflow-x-auto hidden lg:block">
 
             <table class="w-full text-sm min-w-[860px] deadline-table">
 

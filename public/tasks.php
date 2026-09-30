@@ -75,8 +75,23 @@ requirePageLogin();
 .dark .task-pagination-btn{background:#151d1a;border-color:rgba(255,255,255,.1);color:#b8cbc5}
 .dark .task-empty-state strong{color:#c5d8d2}
 .dark .task-empty-small{color:#91aaa2}
-@media(max-width:1023px){.tasks-topbar{min-height:72px}}
-@media(max-width:640px){.tasks-content{padding:12px}.tasks-hero{padding:16px}.tasks-hero-icon{width:48px;height:48px;border-radius:14px}.tasks-stat-card{min-height:92px;padding:12px}.tasks-stat-icon{width:42px;height:42px}.task-tab-btn{padding:8px 11px}.task-table-wrap{overflow-x:auto}.task-modal-panel{max-height:94vh}}
+@media(max-width:1023px){.tasks-topbar{min-height:56px !important}}
+@media(max-width:640px){
+  .tasks-content{padding:12px !important}
+  .tasks-hero{padding:12px 14px !important;border-radius:14px !important}
+  .tasks-hero-icon{width:36px !important;height:36px !important;border-radius:10px !important}
+  .tasks-hero-icon svg,.tasks-hero-icon i{width:18px !important;height:18px !important}
+  .tasks-hero h2{font-size:1.15rem !important;line-height:1.25 !important}
+  .tasks-hero p{font-size:0.75rem !important;margin-top:2px !important}
+  .tasks-stat-card{min-height:58px !important;padding:8px 10px !important;border-radius:12px !important}
+  .tasks-stat-icon{width:32px !important;height:32px !important;border-radius:8px !important;flex:0 0 32px !important}
+  .tasks-stat-icon svg,.tasks-stat-icon i{width:16px !important;height:16px !important}
+  .tasks-stat-value{font-size:18px !important;line-height:1.15 !important}
+  .tasks-stat-label{font-size:11px !important}
+  .task-tab-btn{padding:5px 9px !important;font-size:11px !important}
+  .task-table-wrap{overflow-x:auto}
+  .task-modal-panel{max-height:94vh}
+}
 /* =========================================================
    SMART TASK RECOMMENDATION
 ========================================================= */
@@ -277,21 +292,21 @@ requirePageLogin();
       <div id="bell-dropdown" class="hidden absolute right-4 top-16 w-80 max-w-[90vw] bg-white dark:bg-[#171D1B] border border-gray-100 dark:border-white/10 rounded-xl shadow-xl z-30 max-h-96 overflow-y-auto"></div>
     </header>
 
-    <div class="tasks-content p-4 sm:p-6 lg:p-7 space-y-4 sm:space-y-5 mx-auto max-w-full overflow-x-hidden">
-      <section class="tasks-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 px-5 sm:px-7 py-5">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div class="flex items-center gap-4 min-w-0">
-            <div class="tasks-hero-icon"><i data-lucide="clipboard-check" class="w-8 h-8"></i></div>
+    <div class="tasks-content p-3 sm:p-6 lg:p-7 space-y-3.5 sm:space-y-5 mx-auto max-w-full overflow-x-hidden">
+      <section class="tasks-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 p-3.5 sm:px-7 sm:py-5">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
+          <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div class="tasks-hero-icon shrink-0"><i data-lucide="clipboard-check" class="w-6 h-6 sm:w-8 sm:h-8"></i></div>
             <div class="min-w-0">
-              <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">My Work</h2>
-              <p class="text-sm sm:text-base text-[#42675F] dark:text-gray-400 mt-1">Organize, prioritize and complete your academic work.</p>
+              <h2 class="text-xl sm:text-3xl font-bold tracking-tight">My Work</h2>
+              <p class="text-xs sm:text-base text-[#42675F] dark:text-gray-400 mt-0.5 sm:mt-1">Organize, prioritize and complete your academic work.</p>
             </div>
           </div>
           <div class="flex items-center gap-2 sm:gap-3">
             <button id="open-import-task" type="button" class="hidden sm:inline-flex items-center justify-center gap-2 bg-white/75 dark:bg-white/5 border border-[#CFE1DC] dark:border-white/10 text-[#0B5C49] dark:text-emerald-300 rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-white dark:hover:bg-white/10">
               <i data-lucide="upload" class="w-4 h-4"></i> Import Work
             </button>
-            <button id="open-add-task" type="button" class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm">
+            <button id="open-add-task" type="button" class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold shadow-sm">
               <i data-lucide="plus" class="w-4 h-4"></i> Add Work
             </button>
           </div>
@@ -300,7 +315,7 @@ requirePageLogin();
 
       <section id="smart-task-focus-card" class="hidden"></section>
 
-      <section id="task-stat-cards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4"></section>
+      <section id="task-stat-cards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4"></section>
 
       <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_298px] gap-4 items-start">
         <div class="min-w-0 space-y-4">

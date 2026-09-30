@@ -1769,73 +1769,68 @@ function renderMobileTaskCard(task) {
         : 'text-gray-500 dark:text-gray-400';
 
   return `
-    <div class="task-mobile-card p-4 rounded-2xl bg-white dark:bg-[#131a18] border border-gray-200/80 dark:border-white/10 shadow-sm space-y-3" data-task-id="${esc(task.id)}">
-      <!-- Card Top: Course, Type, Priority -->
-      <div class="flex items-center justify-between gap-2">
+    <div class="task-mobile-card p-3 rounded-xl bg-white dark:bg-[#131a18] border border-gray-200/80 dark:border-white/10 shadow-xs space-y-2" data-task-id="${esc(task.id)}">
+      <!-- Card Top: Course, Type, Priority & Urgency Badge -->
+      <div class="flex items-center justify-between gap-1.5">
         <div class="flex items-center gap-1.5 flex-wrap min-w-0">
-          <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 truncate max-w-[140px]">
+          <span class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 truncate max-w-[120px]">
             ${esc(courseCode)}
           </span>
-          <span class="task-type-pill text-[10px]">
+          <span class="task-type-pill text-[9px] px-1.5 py-0.5">
             ${esc(type)}
           </span>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <span class="w-2 h-2 rounded-full ${PRIORITY_DOT[task.priority] || 'bg-gray-400'}"></span>
-          <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">${esc(priority)}</span>
+          <span class="text-[11px] font-semibold text-gray-700 dark:text-gray-300">${esc(priority)}</span>
+          ${!isCompleted && task.due_label ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${deadlineClass}">${esc(task.due_label)}</span>` : ''}
         </div>
       </div>
 
-      <!-- Card Title & Description -->
+      <!-- Card Title & One-line info -->
       <div>
-        <h4 class="font-bold text-sm sm:text-base text-[#183E36] dark:text-gray-100 leading-snug">
+        <h4 class="font-bold text-sm text-[#183E36] dark:text-gray-100 leading-snug truncate">
           ${esc(task.title)}
         </h4>
-        ${task.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">${esc(task.description)}</p>` : ''}
+        ${task.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">${esc(task.description)}</p>` : ''}
       </div>
 
-      <!-- Deadline Countdown -->
-      <div class="flex items-center justify-between text-xs ${deadlineClass}">
-        <span class="flex items-center gap-1.5">
-          <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-          <span>${isCompleted ? 'Finished' : `${dateText} ${timeText ? '· ' + timeText : ''}`}</span>
+      <!-- Deadline & Inline Progress Row -->
+      <div class="flex items-center justify-between text-[11px] gap-2 pt-0.5">
+        <span class="flex items-center gap-1 text-gray-500 dark:text-gray-400 shrink-0">
+          <i data-lucide="clock" class="w-3 h-3"></i>
+          <span>${isCompleted ? 'Finished' : `${dateText}`}</span>
         </span>
-        ${!isCompleted && task.due_label ? `<span class="font-bold">${esc(task.due_label)}</span>` : ''}
-      </div>
-
-      <!-- Progress Bar -->
-      <div class="space-y-1">
-        <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-          <span>Progress</span>
-          <span class="font-bold text-emerald-700 dark:text-emerald-400">${formatProgressPercent(progress)}</span>
-        </div>
-        <div class="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-          <div class="h-full bg-emerald-600 rounded-full transition-all duration-500" data-work-progress-item="task:${esc(task.id)}" style="width:${progress}%"></div>
+        <div class="flex items-center gap-1.5 flex-1 max-w-[150px] justify-end">
+          <div class="w-16 h-1.5 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-600 rounded-full" data-work-progress-item="task:${esc(task.id)}" style="width:${progress}%"></div>
+          </div>
+          <span class="font-bold text-[10px] text-emerald-700 dark:text-emerald-400">${formatProgressPercent(progress)}</span>
         </div>
       </div>
 
-      <!-- Touch Action Buttons (>= 44px) -->
-      <div class="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
+      <!-- Touch Action Buttons -->
+      <div class="flex items-center gap-1.5 pt-1.5 border-t border-gray-100 dark:border-white/5">
         ${isCompleted ? `
-          <button type="button" class="btn-press undo-task-btn flex-1 min-h-[44px] rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center gap-1.5" data-id="${esc(task.id)}" aria-label="Undo completion">
-            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Undo
+          <button type="button" class="btn-press undo-task-btn flex-1 min-h-[38px] rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center gap-1.5" data-id="${esc(task.id)}" aria-label="Undo completion">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Undo
           </button>
         ` : `
-          <button type="button" class="btn-press complete-task-btn min-h-[44px] px-3.5 rounded-xl border border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold flex items-center gap-1.5" data-id="${esc(task.id)}" aria-label="Mark completed">
-            <i data-lucide="check-circle-2" class="w-4 h-4"></i> Complete
+          <button type="button" class="btn-press complete-task-btn min-h-[38px] px-2.5 rounded-lg border border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold flex items-center gap-1" data-id="${esc(task.id)}" aria-label="Mark completed">
+            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Done
           </button>
 
-          <button type="button" class="btn-press timer-task-btn flex-1 min-h-[44px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" data-work-item-type="task" data-work-item-id="${esc(task.id)}" data-work-item-title="${esc(task.title)}" aria-label="Start or pause timer">
-            <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i> Focus
+          <button type="button" class="btn-press timer-task-btn flex-1 min-h-[38px] rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm" data-work-item-type="task" data-work-item-id="${esc(task.id)}" data-work-item-title="${esc(task.title)}" aria-label="Start or pause timer">
+            <i data-lucide="play" class="w-3 h-3 fill-white"></i> Focus
           </button>
         `}
 
-        <button type="button" class="btn-press edit-task-btn min-h-[44px] min-w-[44px] rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Edit task">
-          <i data-lucide="pencil" class="w-4 h-4"></i>
+        <button type="button" class="btn-press edit-task-btn min-h-[38px] min-w-[38px] rounded-lg border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Edit task">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
         </button>
 
-        <button type="button" class="btn-press delete-task-btn min-h-[44px] min-w-[44px] rounded-xl border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Delete task">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        <button type="button" class="btn-press delete-task-btn min-h-[38px] min-w-[38px] rounded-lg border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Delete task">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>

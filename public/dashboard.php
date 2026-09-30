@@ -646,61 +646,144 @@ requirePageLogin();
         @media (max-width: 767px) {
 
             .dashboard-topbar {
-                min-height: 70px;
+                min-height: 54px !important;
+                padding: 8px 12px !important;
             }
 
             .dashboard-content {
-                padding: 16px !important;
+                padding: 12px !important;
             }
 
             .dashboard-hero {
                 min-height: auto;
+                padding: 12px 14px !important;
+                border-radius: 14px !important;
+            }
+
+            .hero-title {
+                font-size: 1.15rem !important;
+                line-height: 1.25 !important;
+            }
+
+            .hero-subtitle {
+                font-size: 0.75rem !important;
+                margin-top: 2px !important;
+            }
+
+            .hero-pill-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 6px !important;
             }
 
             .hero-pill {
-                min-width: 0;
-                flex: 1 1 100%;
+                min-width: 0 !important;
+                flex: none !important;
+                padding: 8px 10px !important;
+                border-radius: 12px !important;
+                gap: 8px !important;
+            }
+
+            .hero-pill-icon {
+                width: 32px !important;
+                height: 32px !important;
+                border-radius: 9px !important;
+                flex: 0 0 32px !important;
+            }
+
+            .hero-pill-icon svg,
+            .hero-pill-icon i {
+                width: 16px !important;
+                height: 16px !important;
+            }
+
+            .hero-pill strong {
+                font-size: 0.75rem !important;
+                line-height: 1.2 !important;
+            }
+
+            .hero-pill small {
+                font-size: 0.65rem !important;
+                display: none !important;
             }
 
             .hero-quote,
             .hero-illustration {
-                display: none;
+                display: none !important;
             }
 
             .stat-card {
-                min-height: 100px;
-                padding: 14px !important;
+                min-height: 60px !important;
+                padding: 8px 10px !important;
+                border-radius: 12px !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 8px !important;
             }
 
             .stat-icon {
-                width: 46px;
-                height: 46px;
-                border-radius: 13px;
+                width: 34px !important;
+                height: 34px !important;
+                border-radius: 9px !important;
+                flex: 0 0 34px !important;
+            }
+
+            .stat-icon svg,
+            .stat-icon i {
+                width: 17px !important;
+                height: 17px !important;
             }
 
             .stat-value {
-                font-size: 23px;
+                font-size: 18px !important;
+                line-height: 1.15 !important;
+            }
+
+            .stat-label {
+                font-size: 11px !important;
+                line-height: 1.1 !important;
+                margin-top: 1px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .stat-trend {
+                display: none !important;
+            }
+
+            .dashboard-card {
+                padding: 12px 14px !important;
+                border-radius: 14px !important;
+            }
+
+            .dashboard-card-header {
+                padding-bottom: 8px !important;
+                margin-bottom: 2px !important;
             }
 
             .chart-container {
-                width: 120px;
-                height: 120px;
+                width: 100px !important;
+                height: 100px !important;
             }
 
             #breakdown-legend {
-                min-width: 120px;
+                min-width: 100px;
+                gap: 4px !important;
+            }
+
+            .schedule-row,
+            .deadline-row {
+                padding-top: 6px !important;
+                padding-bottom: 6px !important;
             }
         }
 
         @media (max-width: 420px) {
             .stat-card {
-                flex-direction: column;
-                align-items: flex-start !important;
-            }
-
-            .stat-icon {
-                width: 42px;
-                height: 42px;
+                flex-direction: row !important;
+                align-items: center !important;
             }
         }
     </style>
@@ -868,31 +951,31 @@ requirePageLogin();
         <!-- =================================================
              MAIN CONTENT
         ================================================= -->
-        <div class="dashboard-content p-4 sm:p-6 lg:p-7 space-y-5">
+        <div class="dashboard-content p-3 sm:p-6 lg:p-7 space-y-3.5 sm:space-y-5">
 
 
             <!-- =================================================
                  HERO
             ================================================= -->
-            <section class="dashboard-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 px-5 sm:px-7 py-5">
+            <section class="dashboard-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 p-3.5 sm:px-7 sm:py-5">
 
-                <div class="hero-content flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+                <div class="hero-content flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-5">
 
                     <div class="min-w-0">
 
                         <h2
-                            class="hero-title text-2xl sm:text-3xl font-bold"
+                            class="hero-title text-xl sm:text-3xl font-bold"
                         >
                             <span id="greeting">Good afternoon</span>,
                             <span id="first-name">…</span>!
                             👋
                         </h2>
 
-                        <p id="hero-subtitle" class="hero-subtitle text-sm mt-1">
+                        <p id="hero-subtitle" class="hero-subtitle text-xs sm:text-sm mt-0.5 sm:mt-1">
                             Keep going! Your consistency today builds your success tomorrow.
                         </p>
 
-                        <div class="mt-5 flex flex-wrap gap-3">
+                        <div class="mt-3 sm:mt-5 hero-pill-grid grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
 
                             <!-- Course -->
                             <a href="courses.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View my courses">
@@ -1133,18 +1216,18 @@ requirePageLogin();
             ================================================= -->
             <div
                 id="stat-cards"
-                class="grid grid-cols-2 xl:grid-cols-4 gap-4"
+                class="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4"
             ></div>
 
 
             <!-- =================================================
                  ROW 1
             ================================================= -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
 
 
                 <!-- Today's Schedule -->
-                <section class="dashboard-card p-5">
+                <section class="dashboard-card p-3.5 sm:p-5">
 
                     <div class="dashboard-card-header">
 
@@ -1175,7 +1258,7 @@ requirePageLogin();
 
 
                 <!-- Upcoming Deadlines -->
-                <section class="dashboard-card p-5">
+                <section class="dashboard-card p-3.5 sm:p-5">
 
                     <div class="dashboard-card-header">
 
@@ -1206,7 +1289,7 @@ requirePageLogin();
 
 
                 <!-- Task Breakdown -->
-                <section class="dashboard-card p-5">
+                <section class="dashboard-card p-3.5 sm:p-5">
 
                     <div class="dashboard-card-header">
 
@@ -1298,11 +1381,11 @@ requirePageLogin();
             <!-- =================================================
                  ROW 2
             ================================================= -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
 
 
                 <!-- Weekly Progress -->
-                <section class="dashboard-card p-5">
+                <section class="dashboard-card p-3.5 sm:p-5">
 
                     <div class="dashboard-card-header">
 
@@ -1332,7 +1415,7 @@ requirePageLogin();
 
 
                 <!-- Workload Overview -->
-                <section class="dashboard-card p-5">
+                <section class="dashboard-card p-3.5 sm:p-5">
 
                     <div class="dashboard-card-header">
 
@@ -1375,7 +1458,7 @@ requirePageLogin();
 
 
                 <!-- Recent Activity -->
-                <section class="dashboard-card p-5">
+                <section class="dashboard-card p-3.5 sm:p-5">
 
                     <div class="dashboard-card-header">
 

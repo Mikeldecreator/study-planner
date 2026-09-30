@@ -366,10 +366,11 @@ function renderKpis(report) {
 
 
   container.innerHTML =
-    cards.map(card => `
+    cards.map((card, idx) => `
 
       <div
         class="report-kpi
+               ${idx === 4 ? 'col-span-2 md:col-span-1' : ''}
                dark:bg-[#131A18]
                dark:border-white/10"
       >
@@ -377,11 +378,11 @@ function renderKpis(report) {
         <div
           class="flex
                  items-center
-                 gap-3.5"
+                 gap-2.5 sm:gap-3.5"
         >
 
           <div
-            class="w-11 h-11
+            class="w-9 h-9 sm:w-11 sm:h-11
                    rounded-xl
                    ${card.bg}
                    ${card.color}
@@ -393,7 +394,7 @@ function renderKpis(report) {
 
             <i
               data-lucide="${card.icon}"
-              class="w-5 h-5"
+              class="w-4 h-4 sm:w-5 sm:h-5"
             ></i>
 
           </div>
@@ -403,17 +404,19 @@ function renderKpis(report) {
           >
 
             <div
-              class="text-[11px]
+              class="text-[10px]
                      sm:text-xs
                      font-semibold
                      text-[#718982]
-                     dark:text-gray-400"
+                     dark:text-gray-400
+                     truncate"
             >
               ${card.label}
             </div>
 
             <div
-              class="text-2xl
+              class="text-lg
+                     sm:text-2xl
                      font-bold
                      text-[#103a32]
                      dark:text-white
@@ -2145,6 +2148,60 @@ function renderRecentReports(report) {
       `
     ).join('');
 
+  const mobileCards =
+    document.getElementById(
+      'recent-reports-mobile-cards'
+    );
+
+  if (mobileCards) {
+    mobileCards.innerHTML =
+      rows.map(
+        row => `
+          <div class="p-3.5 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div
+                class="w-8 h-8 rounded-lg bg-gray-50 dark:bg-white/[0.05] flex items-center justify-center shrink-0"
+              >
+                <i
+                  data-lucide="${row[3]}"
+                  class="w-4 h-4 text-emerald-700 dark:text-emerald-400"
+                ></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-semibold text-[#24483f] dark:text-gray-200 truncate">
+                  ${row[0]}
+                </div>
+                <div class="text-[10px] text-[#68827c] dark:text-gray-400 mt-0.5 truncate">
+                  ${escapeValue(row[1])} • ${escapeValue(row[2])}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                class="report-action-btn inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg px-2.5 py-1.5"
+                data-report-action="view"
+                data-report-name="${escapeValue(row[0])}"
+              >
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                <span>View</span>
+              </button>
+
+              <button
+                type="button"
+                class="report-action-btn w-8 h-8 rounded-lg bg-gray-50 dark:bg-white/[0.05] flex items-center justify-center text-gray-500 dark:text-gray-300"
+                data-report-action="download"
+                data-report-name="${escapeValue(row[0])}"
+                aria-label="Download ${escapeValue(row[0])}"
+              >
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `
+      ).join('');
+  }
 
   refreshLucide();
 }

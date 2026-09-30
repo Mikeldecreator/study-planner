@@ -44,14 +44,14 @@ requirePageLogin();
       <div id="bell-dropdown" class="hidden absolute right-4 top-16 w-80 max-w-[90vw] bg-white dark:bg-[#171D1B] border border-gray-100 dark:border-white/10 rounded-xl shadow-xl z-30 max-h-96 overflow-y-auto"></div>
     </header>
 
-    <div class="courses-content p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1600px] mx-auto">
-      <section class="courses-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 px-6 sm:px-8 py-5 overflow-hidden">
-        <div class="flex items-center justify-between gap-6">
-          <div class="flex items-center gap-5 min-w-0">
-            <div class="courses-hero-icon"><i data-lucide="book-open" class="w-10 h-10"></i></div>
+    <div class="courses-content p-3 sm:p-6 lg:p-7 space-y-3.5 sm:space-y-5 max-w-[1600px] mx-auto">
+      <section class="courses-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 p-3.5 sm:px-8 sm:py-5 overflow-hidden">
+        <div class="flex items-center justify-between gap-4 sm:gap-6">
+          <div class="flex items-center gap-3 sm:gap-5 min-w-0">
+            <div class="courses-hero-icon shrink-0"><i data-lucide="book-open" class="w-6 h-6 sm:w-10 sm:h-10"></i></div>
             <div>
-              <h2 class="text-2xl sm:text-3xl font-bold">My Courses</h2>
-              <p class="text-sm sm:text-base text-[#42675F] dark:text-gray-400 mt-1">Manage, track and stay on top of your academic journey.</p>
+              <h2 class="text-xl sm:text-3xl font-bold">My Courses</h2>
+              <p class="text-xs sm:text-base text-[#42675F] dark:text-gray-400 mt-0.5 sm:mt-1">Manage, track and stay on top of your academic journey.</p>
             </div>
           </div>
           <div class="courses-hero-quote hidden lg:block">
@@ -64,51 +64,51 @@ requirePageLogin();
       </section>
 
       <!-- Semester Academic Context Banner -->
-      <section id="semester-banner" class="hidden rounded-2xl border border-emerald-200 dark:border-emerald-800/40 bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/60 dark:from-[#11241f] dark:via-[#131a18] dark:to-[#10221c] p-4 sm:p-5 shadow-sm transition">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0">
-              <i data-lucide="calendar-check" class="w-5 h-5"></i>
+      <section id="semester-banner" class="hidden rounded-2xl border border-emerald-200 dark:border-emerald-800/40 bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/60 dark:from-[#11241f] dark:via-[#131a18] dark:to-[#10221c] p-3.5 sm:p-5 shadow-sm transition">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div class="flex items-start sm:items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0">
+              <i data-lucide="calendar-check" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <h3 id="semester-banner-title" class="font-bold text-base text-[#082E2A] dark:text-white">Active Semester</h3>
-                <span id="semester-banner-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">Week 1</span>
+                <h3 id="semester-banner-title" class="font-bold text-sm sm:text-base text-[#082E2A] dark:text-white">Active Semester</h3>
+                <span id="semester-banner-badge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">Week 1</span>
               </div>
               <p id="semester-banner-subtitle" class="text-xs text-[#53736D] dark:text-gray-400 mt-0.5">Loading academic calendar information...</p>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <button id="banner-view-calendar-btn" type="button" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-white/10 border border-emerald-300 dark:border-emerald-700/50 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-white/15 transition flex items-center gap-1.5">
+            <button id="banner-view-calendar-btn" type="button" class="px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold rounded-lg bg-white dark:bg-white/10 border border-emerald-300 dark:border-emerald-700/50 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-white/15 transition flex items-center gap-1.5">
               <i data-lucide="calendar" class="w-3.5 h-3.5"></i> View / Edit Calendar
             </button>
           </div>
         </div>
       </section>
 
-      <section id="course-stat-cards" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4"></section>
+      <section id="course-stat-cards" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4"></section>
 
-      <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_385px] gap-4">
+      <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_385px] gap-3.5 sm:gap-4">
         <div class="courses-list-panel">
-          <div class="px-5 py-4 border-b border-[#E7EFED] dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="px-3.5 py-3 sm:px-5 sm:py-4 border-b border-[#E7EFED] dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
             <div>
-              <h3 class="font-bold text-lg flex items-center gap-2"><i data-lucide="book-open" class="w-5 h-5 text-emerald-700"></i> My Courses</h3>
+              <h3 class="font-bold text-base sm:text-lg flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700"></i> My Courses</h3>
               <p class="text-xs text-[#66837D] dark:text-gray-400 mt-0.5">Your registered courses for this semester.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              <button id="open-import-course-form" type="button" class="btn-press bg-white dark:bg-white/5 border border-emerald-300 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5" title="Extract courses from course registration PDF or text">
-                <i data-lucide="file-up" class="w-4 h-4"></i> Upload Course Form
+              <button id="open-import-course-form" type="button" class="btn-press bg-white dark:bg-white/5 border border-emerald-300 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold flex items-center justify-center gap-1.5" title="Extract courses from course registration PDF or text">
+                <i data-lucide="file-up" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Upload Course Form
               </button>
-              <button id="open-curriculum-modal" type="button" class="btn-press bg-white dark:bg-white/5 border border-emerald-300 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1.5" title="Set or view semester academic calendar">
-                <i data-lucide="calendar" class="w-4 h-4"></i> Semester Calendar
+              <button id="open-curriculum-modal" type="button" class="btn-press bg-white dark:bg-white/5 border border-emerald-300 dark:border-emerald-700/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold flex items-center justify-center gap-1.5" title="Set or view semester academic calendar">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Semester Calendar
               </button>
-              <button id="open-add-course" type="button" class="btn-press bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-3.5 py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
-                <i data-lucide="plus" class="w-4 h-4"></i> Add Course
+              <button id="open-add-course" type="button" class="btn-press bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
+                <i data-lucide="plus" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i> Add Course
               </button>
             </div>
           </div>
 
-          <div class="px-5 py-3 border-b border-[#E7EFED] dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div class="px-3.5 py-2.5 sm:px-5 sm:py-3 border-b border-[#E7EFED] dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <div class="relative">
               <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
               <input id="course-search-inline" type="search" placeholder="Search courses..." class="filter-control pl-9">
@@ -123,11 +123,11 @@ requirePageLogin();
             </select>
           </div>
 
-          <div id="course-loading" class="px-5 py-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3">
-            <div class="course-skeleton h-36"></div><div class="course-skeleton h-36"></div><div class="course-skeleton h-36"></div><div class="course-skeleton h-36"></div>
+          <div id="course-loading" class="px-3.5 py-4 sm:px-5 sm:py-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3">
+            <div class="course-skeleton h-28 sm:h-36"></div><div class="course-skeleton h-28 sm:h-36"></div>
           </div>
-          <div id="course-cards" class="px-5 py-5 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3"></div>
-          <div class="px-5 py-3 border-t border-[#E7EFED] dark:border-white/10 flex items-center justify-between gap-3">
+          <div id="course-cards" class="px-3.5 py-3 sm:px-5 sm:py-5 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3"></div>
+          <div class="px-3.5 py-2.5 sm:px-5 sm:py-3 border-t border-[#E7EFED] dark:border-white/10 flex items-center justify-between gap-3">
             <span id="course-count-label" class="text-xs text-[#5C7B74] dark:text-gray-400">Loading courses…</span>
             <div id="course-pagination" class="flex items-center gap-1"></div>
           </div>

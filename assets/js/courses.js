@@ -191,20 +191,33 @@ function renderCourseCards(courses) {
   grid.innerHTML = courses.map(c => {
     const progress = Math.max(0, Math.min(100, Number(c.progress || 0)));
     return `<article class="course-card hover-lift">
-      <div class="flex items-start gap-3">
-        <div class="course-icon" style="background:${safeColor(c.color)}">${esc(c.icon || '📘')}</div>
+      <div class="flex items-start gap-2.5 sm:gap-3">
+        <div class="course-icon shrink-0" style="background:${safeColor(c.color)}">${esc(c.icon || '📘')}</div>
         <div class="min-w-0 flex-1">
-          <div class="flex items-start justify-between gap-2"><div class="min-w-0 flex-1"><h4 class="font-bold text-sm">${esc(c.code)}</h4><p class="text-sm mt-1 break-words">${esc(c.name)}</p><p class="text-xs text-[#63817A] dark:text-gray-400 mt-1">${esc(c.lecturer || 'No lecturer set')}</p></div><span class="credit-pill shrink-0">${esc(c.credits)} Credit${Number(c.credits) === 1 ? '' : 's'}</span></div>
-          <a href="progress.php" class="flex items-center gap-2 mt-4 group" title="View in Progress tracker"><div class="flex-1 h-1.5 bg-[#E7EEEC] dark:bg-white/10 rounded-full overflow-hidden"><div class="h-full rounded-full" data-work-progress-item="course:${esc(c.id)}" style="width:${progress}%;background:${PROGRESS_COLOR(progress)}"></div></div><span class="text-[11px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">${progress}%</span></a>
-          <div class="flex items-center justify-between mt-3 gap-2"><span class="semester-pill">${esc(c.semester || 'Current Semester')}</span><a href="tasks.php?course_id=${esc(c.id)}" class="text-xs text-[#486C64] dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-1 font-semibold" title="View tasks for ${esc(c.code)}"><i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>${Number(c.task_count || 0)} Task${Number(c.task_count || 0) === 1 ? '' : 's'}</a></div>
+          <div class="flex items-center justify-between gap-1.5">
+            <h4 class="font-bold text-sm truncate">${esc(c.code)}</h4>
+            <span class="credit-pill shrink-0">${esc(c.credits)} Cr</span>
+          </div>
+          <p class="text-xs sm:text-sm mt-0.5 font-medium text-gray-800 dark:text-gray-200 truncate" title="${esc(c.name)}">${esc(c.name)}</p>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-[#63817A] dark:text-gray-400">
+            <span class="truncate max-w-[140px] sm:max-w-none">${esc(c.lecturer || 'No lecturer')}</span>
+            <span>•</span>
+            <a href="tasks.php?course_id=${esc(c.id)}" class="hover:text-emerald-700 dark:hover:text-emerald-400 font-semibold shrink-0" title="View tasks">${Number(c.task_count || 0)} task${Number(c.task_count || 0) === 1 ? '' : 's'}</a>
+          </div>
+          <a href="progress.php" class="flex items-center gap-2 mt-2 sm:mt-3 group" title="View in Progress tracker">
+            <div class="flex-1 h-1.5 bg-[#E7EEEC] dark:bg-white/10 rounded-full overflow-hidden">
+              <div class="h-full rounded-full" data-work-progress-item="course:${esc(c.id)}" style="width:${progress}%;background:${PROGRESS_COLOR(progress)}"></div>
+            </div>
+            <span class="text-[10px] sm:text-[11px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 shrink-0">${progress}%</span>
+          </a>
         </div>
       </div>
       <div class="course-card-actions">
-        <a href="tasks.php?course_id=${esc(c.id)}" class="course-action" title="View tasks for ${esc(c.code)}"><i data-lucide="list-todo"></i>Tasks</a>
-        <a href="tasks.php?course_id=${esc(c.id)}&add_task=1" class="course-action" title="Add task for ${esc(c.code)}"><i data-lucide="plus"></i>+ Task</a>
-        <button class="course-action timer-course-btn text-emerald-700 dark:text-emerald-300" data-work-item-type="course" data-work-item-id="${esc(c.id)}" data-work-item-title="${esc(c.code)} — ${esc(c.name)}" data-work-complete="${progress >= 100 ? 'true' : 'false'}"><i data-lucide="timer"></i><span data-work-label>${progress >= 100 ? 'Completed' : 'Start'}</span></button>
-        <button class="course-action edit-course-btn" data-id="${esc(c.id)}"><i data-lucide="pencil"></i>Edit</button>
-        <button class="course-action delete-course-btn danger" data-id="${esc(c.id)}"><i data-lucide="trash-2"></i>Delete</button>
+        <a href="tasks.php?course_id=${esc(c.id)}" class="course-action flex-1 sm:flex-none text-center justify-center font-semibold" title="View tasks for ${esc(c.code)}"><i data-lucide="list-todo"></i><span>Tasks</span></a>
+        <a href="tasks.php?course_id=${esc(c.id)}&add_task=1" class="course-action text-emerald-800 dark:text-emerald-300 font-semibold" title="Add task for ${esc(c.code)}"><i data-lucide="plus"></i><span>+ Task</span></a>
+        <button class="course-action timer-course-btn text-emerald-700 dark:text-emerald-300" data-work-item-type="course" data-work-item-id="${esc(c.id)}" data-work-item-title="${esc(c.code)} — ${esc(c.name)}" data-work-complete="${progress >= 100 ? 'true' : 'false'}" title="Focus on ${esc(c.code)}"><i data-lucide="timer"></i><span>${progress >= 100 ? 'Done' : 'Focus'}</span></button>
+        <button class="course-action edit-course-btn p-1.5" data-id="${esc(c.id)}" title="Edit course" aria-label="Edit course"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+        <button class="course-action delete-course-btn danger p-1.5" data-id="${esc(c.id)}" title="Delete course" aria-label="Delete course"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
       </div>
     </article>`;
   }).join('');

@@ -547,17 +547,17 @@
     const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
     const wrapper = document.createElement('div');
     wrapper.id = msgId;
-    wrapper.className = isUser ? 'flex justify-end' : 'flex items-start gap-3';
+    wrapper.className = isUser ? 'flex justify-end' : 'flex items-start gap-2.5 sm:gap-3';
 
     if (isUser) {
       wrapper.innerHTML =
-        '<div class="max-w-[88%] sm:max-w-[78%] space-y-1">' +
-          '<div class="flex items-center justify-end gap-2 px-1 text-[11px] text-gray-400 dark:text-gray-500">' +
+        '<div class="max-w-[90%] sm:max-w-[78%] space-y-1">' +
+          '<div class="flex items-center justify-end gap-2 px-1 text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500">' +
             '<span>You</span>' +
             '<span>&bull;</span>' +
             '<span>' + escapeHtml(msg.time || formatCurrentTime()) + '</span>' +
           '</div>' +
-          '<div class="bg-emerald-700 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm text-sm leading-relaxed whitespace-pre-wrap break-words">' +
+          '<div class="bg-emerald-700 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-sm text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">' +
             escapeHtml(msg.content) +
           '</div>' +
         '</div>';
@@ -565,12 +565,12 @@
       const formattedHtml = formatMarkdown(msg.content);
       const isError = msg.isError === true;
       const bubbleClass = isError
-        ? 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 rounded-2xl rounded-tl-sm p-4 text-amber-900 dark:text-amber-200 shadow-sm'
-        : 'bg-white dark:bg-[#141C18] border border-gray-200/80 dark:border-white/10 rounded-2xl rounded-tl-sm p-4 sm:p-5 shadow-sm text-gray-800 dark:text-gray-100';
+        ? 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 text-xs sm:text-sm text-amber-900 dark:text-amber-200 shadow-sm'
+        : 'bg-white dark:bg-[#141C18] border border-gray-200/80 dark:border-white/10 rounded-2xl rounded-tl-sm p-3.5 sm:p-5 shadow-sm text-xs sm:text-sm text-gray-800 dark:text-gray-100';
 
       wrapper.innerHTML =
-        '<div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-700 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">' +
-          '<i data-lucide="sparkles" class="w-4 h-4"></i>' +
+        '<div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-tr from-emerald-700 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">' +
+          '<i data-lucide="sparkles" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>' +
         '</div>' +
         '<div class="max-w-[92%] sm:max-w-[85%] space-y-1.5 flex-1 min-w-0">' +
           '<div class="flex items-center justify-between gap-2 px-1">' +

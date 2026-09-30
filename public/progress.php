@@ -96,6 +96,24 @@ requirePageLogin();
     flex-shrink: 0;
   }
 
+  @media (max-width: 640px) {
+    .metric-card {
+      padding: 8px 10px !important;
+      border-radius: 12px !important;
+      gap: 8px !important;
+    }
+    .metric-icon {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 8px !important;
+      flex: 0 0 32px !important;
+    }
+    .metric-icon svg, .metric-icon i {
+      width: 16px !important;
+      height: 16px !important;
+    }
+  }
+
   .range-button {
     transition:
       background .15s ease,
@@ -267,33 +285,33 @@ requirePageLogin();
 
     </header>
 
-    <div class="p-4 sm:p-6 xl:p-8 space-y-5">
+    <div class="p-3 sm:p-6 xl:p-8 space-y-3.5 sm:space-y-5">
 
       <!-- Hero -->
       <section
-        class="progress-hero rounded-2xl border border-emerald-100 dark:border-emerald-500/10 p-5 sm:p-6 xl:p-7 overflow-hidden"
+        class="progress-hero rounded-2xl border border-emerald-100 dark:border-emerald-500/10 p-3.5 sm:p-6 xl:p-7 overflow-hidden"
       >
 
-        <div class="flex flex-col xl:flex-row xl:items-center gap-7">
+        <div class="flex flex-col xl:flex-row xl:items-center gap-4 sm:gap-7">
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2.5 sm:gap-3">
 
             <div
-              class="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0"
+              class="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0"
             >
               <i
                 data-lucide="target"
-                class="w-6 h-6"
+                class="w-5 h-5 sm:w-6 sm:h-6"
               ></i>
             </div>
 
             <div>
 
-              <h2 class="text-xl sm:text-2xl font-bold text-[#073b31] dark:text-white">
+              <h2 class="text-lg sm:text-2xl font-bold text-[#073b31] dark:text-white">
                 Your Academic Progress
               </h2>
 
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1">
                 You're making great progress. Keep it up!
               </p>
 
@@ -301,11 +319,11 @@ requirePageLogin();
 
           </div>
 
-          <div class="flex-1 grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6 items-center">
+          <div class="flex-1 grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 sm:gap-6 items-center">
 
             <!-- Donut -->
             <div
-              class="relative w-40 h-40 mx-auto"
+              class="relative w-28 h-28 sm:w-40 sm:h-40 mx-auto"
             >
 
               <canvas id="overall-donut"></canvas>
@@ -315,13 +333,13 @@ requirePageLogin();
               >
 
                 <div
-                  class="text-3xl font-bold"
+                  class="text-2xl sm:text-3xl font-bold"
                   id="overall-pct"
                 >
                   –
                 </div>
 
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                   Overall Progress
                 </div>
 
@@ -513,79 +531,79 @@ requirePageLogin();
       <!-- Foundation 5: Progress Intelligence Insights -->
       <section
         id="progress-insights-section"
-        class="surface rounded-2xl p-4 sm:p-5"
+        class="surface rounded-2xl p-3.5 sm:p-5"
       >
-        <div class="flex items-center justify-between mb-3.5">
+        <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
-              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
             </div>
             <div>
-              <h3 class="font-bold text-sm text-gray-900 dark:text-gray-100">Academic Progress Intelligence</h3>
-              <p class="text-[11px] text-gray-500 dark:text-gray-400">Contextual evaluation of your current academic standing and momentum.</p>
+              <h3 class="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">Academic Progress Intelligence</h3>
+              <p class="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400">Contextual evaluation of your current academic standing and momentum.</p>
             </div>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="progress-insights-grid">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3" id="progress-insights-grid">
           <!-- Strongest Area -->
-          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+          <div class="p-2.5 sm:p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Strongest Area</span>
+                <span class="text-[10px] sm:text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Strongest Area</span>
                 <i data-lucide="award" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
               </div>
-              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-strongest-label">–</div>
+              <div class="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-strongest-label">–</div>
             </div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-strongest-desc">Analyzing...</div>
+            <div class="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-strongest-desc">Analyzing...</div>
           </div>
 
           <!-- Needs Attention -->
-          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+          <div class="p-2.5 sm:p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Needs Attention</span>
+                <span class="text-[10px] sm:text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Needs Attention</span>
                 <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
               </div>
-              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-attention-label">–</div>
+              <div class="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-attention-label">–</div>
             </div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-attention-desc">Analyzing...</div>
+            <div class="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-attention-desc">Analyzing...</div>
           </div>
 
           <!-- Remaining Workload -->
-          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+          <div class="p-2.5 sm:p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Workload Remaining</span>
+                <span class="text-[10px] sm:text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Workload Remaining</span>
                 <i data-lucide="clock" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
               </div>
-              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-workload-label">–</div>
+              <div class="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-workload-label">–</div>
             </div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-workload-desc">Calculating effort...</div>
+            <div class="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-workload-desc">Calculating effort...</div>
           </div>
 
           <!-- Completion Trend -->
-          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+          <div class="p-2.5 sm:p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Completion Trend</span>
+                <span class="text-[10px] sm:text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Completion Trend</span>
                 <i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
               </div>
-              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-trend-label">–</div>
+              <div class="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-trend-label">–</div>
             </div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-trend-desc">Checking pace...</div>
+            <div class="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-trend-desc">Checking pace...</div>
           </div>
 
           <!-- Study Consistency -->
-          <div class="p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
+          <div class="col-span-2 sm:col-span-1 lg:col-span-1 p-2.5 sm:p-3.5 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-[#e8f0ed] dark:border-white/5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between gap-1 mb-1">
-                <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Study Consistency</span>
+                <span class="text-[10px] sm:text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Study Consistency</span>
                 <i data-lucide="calendar-check" class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400"></i>
               </div>
-              <div class="text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-consistency-label">–</div>
+              <div class="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate" id="insight-consistency-label">–</div>
             </div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-consistency-desc">Evaluating sessions...</div>
+            <div class="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2" id="insight-consistency-desc">Evaluating sessions...</div>
           </div>
         </div>
       </section>
@@ -597,15 +615,15 @@ requirePageLogin();
       >
 
         <!-- Overview -->
-        <div class="surface rounded-2xl p-5 sm:p-6">
+        <div class="surface rounded-2xl p-3.5 sm:p-6">
 
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5">
 
             <div>
 
               <div class="flex items-center gap-2">
 
-                <div class="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+                <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
                   <i
                     data-lucide="chart-no-axes-combined"
                     class="w-4 h-4"
@@ -613,11 +631,11 @@ requirePageLogin();
                 </div>
 
                 <div>
-                  <h3 class="font-bold text-sm">
+                  <h3 class="font-bold text-xs sm:text-sm">
                     Progress Overview
                   </h3>
 
-                  <p class="text-xs text-gray-400 mt-1">
+                  <p class="text-[11px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">
                     Your progress across different areas of your academic journey.
                   </p>
                 </div>
@@ -657,10 +675,10 @@ requirePageLogin();
           </div>
 
           <div
-            class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_210px] gap-6 items-center"
+            class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_210px] gap-4 sm:gap-6 items-center"
           >
 
-            <div class="h-[250px] sm:h-[300px]">
+            <div class="h-[200px] sm:h-[300px]">
               <canvas id="progress-chart"></canvas>
             </div>
 
@@ -783,34 +801,34 @@ requirePageLogin();
 
           <!-- Card header -->
           <div
-            class="px-5 sm:px-6 py-5 border-b border-gray-100 dark:border-white/10"
+            class="px-3.5 sm:px-6 py-3 sm:py-5 border-b border-gray-100 dark:border-white/10"
           >
 
             <div
               class="flex items-center justify-between gap-4"
             >
 
-              <div class="flex items-center gap-3 min-w-0">
+              <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
 
                 <div
-                  class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0"
+                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0"
                 >
                   <i
                     data-lucide="chart-no-axes-combined"
-                    class="w-5 h-5"
+                    class="w-4 h-4 sm:w-5 sm:h-5"
                   ></i>
                 </div>
 
                 <div class="min-w-0">
 
                   <h3
-                    class="font-bold text-sm text-gray-900 dark:text-white"
+                    class="font-bold text-xs sm:text-sm text-gray-900 dark:text-white"
                   >
                     Progress by Course
                   </h3>
 
                   <p
-                    class="text-xs text-gray-400 dark:text-gray-500 mt-1"
+                    class="text-[11px] sm:text-xs text-gray-400 dark:text-gray-500 mt-0.5 sm:mt-1"
                   >
                     Your progress breakdown by course.
                   </p>
@@ -840,12 +858,12 @@ requirePageLogin();
 
           <!-- Footer -->
           <div
-            class="px-5 sm:px-6 py-4 border-t border-gray-100 dark:border-white/10"
+            class="px-3.5 sm:px-6 py-2.5 sm:py-4 border-t border-gray-100 dark:border-white/10"
           >
 
             <a
               href="courses.php"
-              class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 py-2.5 px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
+              class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 py-2 sm:py-2.5 px-3 sm:px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition"
             >
 
               View detailed course analytics
@@ -865,14 +883,14 @@ requirePageLogin();
 
       <!-- Secondary information -->
       <section
-        class="grid grid-cols-1 lg:grid-cols-2 gap-5"
+        class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5"
       >
 
-        <div class="surface rounded-2xl p-5">
+        <div class="surface rounded-2xl p-3.5 sm:p-5">
 
-          <div class="flex items-center gap-2 mb-4">
+          <div class="flex items-center gap-2 mb-3 sm:mb-4">
 
-            <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 flex items-center justify-center">
               <i
                 data-lucide="list-checks"
                 class="w-4 h-4"
@@ -880,11 +898,11 @@ requirePageLogin();
             </div>
 
             <div>
-              <h3 class="font-bold text-sm">
+              <h3 class="font-bold text-xs sm:text-sm">
                 Task Progress
               </h3>
 
-              <p class="text-xs text-gray-400 mt-1">
+              <p class="text-[11px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">
                 Breakdown of your current tasks.
               </p>
             </div>
@@ -904,48 +922,48 @@ requirePageLogin();
               ></div>
             </div>
 
-            <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 text-center">
 
-              <div class="rounded-xl bg-gray-50 dark:bg-white/[.03] p-3">
+              <div class="rounded-xl bg-gray-50 dark:bg-white/[.03] p-2.5 sm:p-3">
 
                 <div
                   id="task-completed-count"
-                  class="font-bold"
+                  class="font-bold text-sm sm:text-base"
                 >
                   –
                 </div>
 
-                <div class="text-[10px] text-gray-400 mt-1">
+                <div class="text-[10px] text-gray-400 mt-0.5 sm:mt-1">
                   Completed
                 </div>
 
               </div>
 
-              <div class="rounded-xl bg-gray-50 dark:bg-white/[.03] p-3">
+              <div class="rounded-xl bg-gray-50 dark:bg-white/[.03] p-2.5 sm:p-3">
 
                 <div
                   id="task-pending-count"
-                  class="font-bold"
+                  class="font-bold text-sm sm:text-base"
                 >
                   –
                 </div>
 
-                <div class="text-[10px] text-gray-400 mt-1">
+                <div class="text-[10px] text-gray-400 mt-0.5 sm:mt-1">
                   Pending
                 </div>
 
               </div>
 
-              <div class="rounded-xl bg-gray-50 dark:bg-white/[.03] p-3">
+              <div class="rounded-xl bg-gray-50 dark:bg-white/[.03] p-2.5 sm:p-3">
 
                 <div
                   id="task-overdue-count"
-                  class="font-bold"
+                  class="font-bold text-sm sm:text-base"
                 >
                   –
                 </div>
 
-                <div class="text-[10px] text-gray-400 mt-1">
+                <div class="text-[10px] text-gray-400 mt-0.5 sm:mt-1">
                   Overdue
                 </div>
 
@@ -957,11 +975,11 @@ requirePageLogin();
 
         </div>
 
-        <div class="surface rounded-2xl p-5">
+        <div class="surface rounded-2xl p-3.5 sm:p-5">
 
-          <div class="flex items-center gap-2 mb-4">
+          <div class="flex items-center gap-2 mb-3 sm:mb-4">
 
-            <div class="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 flex items-center justify-center">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 flex items-center justify-center">
               <i
                 data-lucide="graduation-cap"
                 class="w-4 h-4"

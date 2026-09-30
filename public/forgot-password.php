@@ -20,10 +20,10 @@
               rounded-xl
               shadow-sm
               border border-gray-100 dark:border-white/10
-              p-8">
+              p-5 sm:p-8">
 
     <!-- BRAND -->
-    <div class="flex items-center gap-2 mb-8">
+    <div class="flex items-center gap-2 mb-5 sm:mb-8">
 
       <div class="w-9 h-9 rounded-lg bg-green-800
                   flex items-center justify-center
@@ -52,8 +52,8 @@
 
     </h1>
 
-    <p class="text-sm text-gray-500
-              dark:text-gray-400 mb-6">
+    <p class="text-xs sm:text-sm text-gray-500
+              dark:text-gray-400 mb-4 sm:mb-6">
 
       Enter the email address associated with your account.
       We'll send you a secure password reset link.

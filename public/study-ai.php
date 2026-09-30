@@ -136,152 +136,152 @@ requirePageLogin();
     </header>
 
     <!-- Scrollable Chat Workspace -->
-    <div id="ai-chat-scroll" class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 ai-chat-scroll space-y-6">
-      <div class="max-w-4xl mx-auto w-full space-y-6">
+    <div id="ai-chat-scroll" class="flex-1 overflow-y-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 ai-chat-scroll space-y-4 sm:space-y-6">
+      <div class="max-w-4xl mx-auto w-full space-y-4 sm:space-y-6">
 
         <!-- Welcome / Empty State -->
-        <section id="ai-empty-state" class="py-4 space-y-6">
+        <section id="ai-empty-state" class="py-2 sm:py-4 space-y-4 sm:space-y-6">
           <!-- Hero Card -->
-          <div class="rounded-2xl bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/20 dark:from-[#131B18] dark:via-[#101815] dark:to-[#0D1412] border border-emerald-100/80 dark:border-emerald-900/30 p-6 sm:p-8 shadow-sm">
-            <div class="flex items-start gap-4">
-              <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 shrink-0">
-                <i data-lucide="sparkles" class="w-6 h-6"></i>
+          <div class="rounded-2xl bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/20 dark:from-[#131B18] dark:via-[#101815] dark:to-[#0D1412] border border-emerald-100/80 dark:border-emerald-900/30 p-4 sm:p-8 shadow-sm">
+            <div class="flex items-start gap-3 sm:gap-4">
+              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 shrink-0">
+                <i data-lucide="sparkles" class="w-5 h-5 sm:w-6 sm:h-6"></i>
               </div>
-              <div class="space-y-1">
-                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">How can I help with your studies today?</h2>
-                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
+              <div class="space-y-1 min-w-0">
+                <h2 class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">How can I help with your studies today?</h2>
+                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
                   I'm your Academic Planning AI Assistant. I analyze your current courses, active tasks, upcoming deadlines, and study timetable to provide grounded guidance and actionable study advice.
                 </p>
               </div>
             </div>
 
             <!-- Capabilities Overview -->
-            <div class="mt-6 pt-5 border-t border-emerald-100 dark:border-emerald-900/40 grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div class="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+            <div class="mt-4 sm:mt-6 pt-3.5 sm:pt-5 border-t border-emerald-100 dark:border-emerald-900/40 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                <i data-lucide="check-circle-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0"></i>
                 <span>Today's Priorities</span>
               </div>
-              <div class="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500 shrink-0"></i>
+              <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0"></i>
                 <span>Overdue Task Guidance</span>
               </div>
-              <div class="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                <i data-lucide="clock" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+              <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                <i data-lucide="clock" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0"></i>
                 <span>Upcoming Deadlines</span>
               </div>
-              <div class="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+              <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0"></i>
                 <span>Workload Analysis</span>
               </div>
-              <div class="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                <i data-lucide="calendar" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+              <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0"></i>
                 <span>Weekly Planning</span>
               </div>
-              <div class="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-                <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+              <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0"></i>
                 <span>Grounded &amp; Read-Only</span>
               </div>
             </div>
           </div>
 
           <!-- Suggested Prompt Cards -->
-          <div class="space-y-3">
+          <div class="space-y-2.5 sm:space-y-3">
             <div class="flex items-center gap-2 px-1">
               <i data-lucide="compass" class="w-4 h-4 text-emerald-600"></i>
               <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Suggested Questions</h3>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               <!-- Prompt 1 -->
               <button type="button" data-prompt="What should I study today?"
-                      class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="target" class="w-4 h-4"></i>
+                      class="suggested-prompt-card text-left p-3 sm:p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
+                <div class="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <span class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                    <i data-lucide="target" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What should I study today?</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Get your top priority task &amp; actionable advice.</div>
+                <div class="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What should I study today?</div>
+                <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Get your top priority task &amp; actionable advice.</div>
               </button>
 
               <!-- Prompt 2 -->
               <button type="button" data-prompt="Which course needs the most attention?"
-                      class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                      class="suggested-prompt-card text-left p-3 sm:p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
+                <div class="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <span class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                    <i data-lucide="book-open" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Which course needs attention?</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Identifies course pressure, risk &amp; overdue counts.</div>
+                <div class="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Which course needs attention?</div>
+                <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Identifies course pressure, risk &amp; overdue counts.</div>
               </button>
 
               <!-- Prompt 3 -->
               <button type="button" data-prompt="What deadlines are coming up?"
-                      class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                      class="suggested-prompt-card text-left p-3 sm:p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
+                <div class="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <span class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                    <i data-lucide="calendar-days" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What deadlines are coming up?</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Review upcoming assignments &amp; tests chronologically.</div>
+                <div class="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">What deadlines are coming up?</div>
+                <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Review upcoming assignments &amp; tests chronologically.</div>
               </button>
 
               <!-- Prompt 4 -->
               <button type="button" data-prompt="How much focused study time have I recorded?"
-                      class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="clock" class="w-4 h-4"></i>
+                      class="suggested-prompt-card text-left p-3 sm:p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
+                <div class="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <span class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">How much focused study time?</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Exact focused time logged with the focus timer.</div>
+                <div class="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">How much focused study time?</div>
+                <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Exact focused time logged with the focus timer.</div>
               </button>
 
               <!-- Prompt 5 -->
               <button type="button" data-prompt="Help me plan my study for tomorrow."
-                      class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                      class="suggested-prompt-card text-left p-3 sm:p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
+                <div class="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <span class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Plan study for tomorrow</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Align tomorrow's classes with pending tasks &amp; goals.</div>
+                <div class="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Plan study for tomorrow</div>
+                <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Align tomorrow's classes with pending tasks &amp; goals.</div>
               </button>
 
               <!-- Prompt 6 -->
               <button type="button" data-prompt="Help me plan today's study time"
-                      class="suggested-prompt-card text-left p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
-                <div class="flex items-center justify-between mb-1.5">
-                  <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
-                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                      class="suggested-prompt-card text-left p-3 sm:p-4 rounded-xl bg-white dark:bg-[#131A18] border border-gray-200/80 dark:border-white/10 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all duration-150 group">
+                <div class="flex items-center justify-between mb-1 sm:mb-1.5">
+                  <span class="p-1 sm:p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
                   </span>
                   <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"></i>
                 </div>
-                <div class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Plan today's study time</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Align today's schedule sessions with pending tasks.</div>
+                <div class="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">Plan today's study time</div>
+                <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">Align today's schedule sessions with pending tasks.</div>
               </button>
             </div>
           </div>
         </section>
 
         <!-- Message List Container -->
-        <div id="ai-chat-messages" class="space-y-5"></div>
+        <div id="ai-chat-messages" class="space-y-4 sm:space-y-5"></div>
 
         <!-- Thinking / Loading Indicator -->
-        <div id="ai-loading-indicator" class="hidden flex items-start gap-3">
-          <div class="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <div id="ai-loading-indicator" class="hidden flex items-start gap-2.5 sm:gap-3">
+          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           </div>
-          <div class="bg-white dark:bg-[#141C18] border border-gray-200/80 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2.5">
+          <div class="bg-white dark:bg-[#141C18] border border-gray-200/80 dark:border-white/10 rounded-2xl rounded-tl-sm px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-sm text-xs sm:text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
             <span>Study AI is analyzing your academic records</span>
             <span class="inline-flex gap-1 items-center">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 ai-dot-1"></span>
@@ -294,8 +294,8 @@ requirePageLogin();
       </div>
     </div>
 
-    <!-- Message Composer (Pinned at Bottom) -->
-    <div class="bg-white dark:bg-[#101615] border-t border-gray-200/80 dark:border-white/10 px-4 sm:px-6 lg:px-8 py-3.5 shrink-0 z-10">
+    <!-- Message Composer (Pinned at Bottom, offset for mobile bottom nav) -->
+    <div class="bg-white dark:bg-[#101615] border-t border-gray-200/80 dark:border-white/10 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 shrink-0 z-10 mb-[62px] xl:mb-0">
       <div class="max-w-4xl mx-auto w-full space-y-2">
 
         <!-- Quick Prompt Chips (Visible when conversation has started) -->

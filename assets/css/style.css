@@ -954,5 +954,136 @@ html.dark #mobile-bottom-nav {
   scrollbar-width: none;
 }
 
+/* ==========================================================================
+   FOUNDATION LAYER 3B: Mobile UI Density & Compactness Utilities
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  /* Compact Mobile Hero Banners */
+  .mobile-compact-hero {
+    padding: 0.875rem 1rem !important;
+  }
+  .mobile-compact-hero h1,
+  .mobile-compact-hero h2 {
+    font-size: 1.125rem !important;
+    line-height: 1.35 !important;
+  }
+  .mobile-compact-hero p {
+    font-size: 0.75rem !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Compact 2x2 Metric Grids */
+  .mobile-metric-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+  .mobile-metric-card {
+    padding: 0.625rem 0.75rem !important;
+    min-height: auto !important;
+  }
+  .mobile-metric-card .stat-val {
+    font-size: 1.25rem !important;
+    line-height: 1.2 !important;
+  }
+  .mobile-metric-card .stat-lbl {
+    font-size: 0.6875rem !important;
+  }
+
+  /* Compact Mobile Cards */
+  .mobile-card-compact {
+    padding: 0.75rem 0.875rem !important;
+    border-radius: 0.875rem !important;
+  }
+  
+  /* Compact List Rows */
+  .mobile-list-dense > * {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  /* Compact Form Groups */
+  .mobile-form-compact .form-group,
+  .mobile-form-compact > div:not(:last-child) {
+    margin-bottom: 0.75rem !important;
+  }
+  .mobile-form-compact label {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  .mobile-form-compact input,
+  .mobile-form-compact select,
+  .mobile-form-compact textarea {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  /* Compact Course Cards & Stats */
+  .course-card {
+    min-height: auto !important;
+    padding: 0.75rem 0.875rem !important;
+    border-radius: 0.875rem !important;
+  }
+  .course-icon {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 18px !important;
+  }
+  .course-card-actions {
+    margin-top: 0.625rem !important;
+    padding-top: 0.5rem !important;
+    gap: 0.375rem !important;
+    justify-content: flex-start !important;
+  }
+  .course-action {
+    min-height: 34px !important;
+    padding: 0.35rem 0.6rem !important;
+    font-size: 11px !important;
+  }
+  .course-stat-card {
+    min-height: 60px !important;
+    padding: 0.5rem 0.65rem !important;
+    gap: 0.5rem !important;
+    border-radius: 0.75rem !important;
+  }
+  .course-stat-icon {
+    width: 32px !important;
+    height: 32px !important;
+    flex: 0 0 32px !important;
+    border-radius: 8px !important;
+  }
+  .course-stat-icon i, .course-stat-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .course-stat-value {
+    font-size: 1.15rem !important;
+    line-height: 1.15 !important;
+  }
+  .course-stat-label {
+    font-size: 0.65rem !important;
+  }
+  .course-stat-subtext {
+    display: none !important;
+  }
+}
+
+/* Horizontal Chip Strips without scrollbar */
+.mobile-chip-strip {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  gap: 0.5rem;
+  padding-bottom: 2px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.mobile-chip-strip::-webkit-scrollbar {
+  display: none;
+}
+
 
 

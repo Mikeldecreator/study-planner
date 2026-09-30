@@ -89,33 +89,33 @@ requirePageLogin();
       </div>
     </header>
 
-    <div class="p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1550px] mx-auto">
+    <div class="p-3 sm:p-6 lg:p-7 space-y-3.5 sm:space-y-5 max-w-[1550px] mx-auto">
       
       <!-- HERO: "What should I study now?" / Today's Study Focus -->
-      <section id="todays-focus-section" class="study-card p-5 sm:p-6 bg-gradient-to-br from-[#e8f7f0] via-[#f2faf6] to-[#ffffff] dark:from-[#10271f] dark:via-[#131f1b] dark:to-[#121816] border-emerald-200 dark:border-emerald-800/40 relative overflow-hidden">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
-          <div class="space-y-2 min-w-0 max-w-2xl">
+      <section id="todays-focus-section" class="study-card p-3.5 sm:p-5 bg-gradient-to-br from-[#e8f7f0] via-[#f2faf6] to-[#ffffff] dark:from-[#10271f] dark:via-[#131f1b] dark:to-[#121816] border-emerald-200 dark:border-emerald-800/40 relative overflow-hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-5 relative z-10">
+          <div class="space-y-1.5 sm:space-y-2 min-w-0 max-w-2xl">
             <div class="flex items-center gap-2">
-              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
                 <i data-lucide="sparkles" class="w-3 h-3"></i>
                 Today's Recommended Study Focus
               </span>
               <span id="todays-focus-risk" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"></span>
             </div>
-            <h2 id="todays-focus-title" class="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">
+            <h2 id="todays-focus-title" class="text-lg sm:text-2xl font-black text-gray-900 dark:text-white leading-tight">
               Loading recommendations…
             </h2>
             <p id="todays-focus-reason" class="text-xs sm:text-sm text-[#456860] dark:text-gray-300 leading-relaxed">
               Evaluating course workloads and upcoming deadlines...
             </p>
-            <div id="todays-focus-meta" class="flex flex-wrap gap-2 pt-1 text-xs"></div>
+            <div id="todays-focus-meta" class="flex flex-wrap gap-1.5 sm:gap-2 pt-1 text-xs"></div>
           </div>
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
-            <button id="focus-now-btn" type="button" class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-5 py-3 text-sm font-bold shadow-md shadow-emerald-700/20 transition-all">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+            <button id="focus-now-btn" type="button" class="btn-press inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl px-4 py-2.5 sm:px-5 sm:py-3 text-xs sm:text-sm font-bold shadow-md shadow-emerald-700/20 transition-all">
               <i data-lucide="play" class="w-4 h-4 fill-white"></i>
               <span>Start Focus Session</span>
             </button>
-            <a href="tasks.php" class="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-emerald-200 dark:border-white/10 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-white/60 dark:hover:bg-white/5 transition-colors">
+            <a href="tasks.php" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-emerald-200 dark:border-white/10 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-white/60 dark:hover:bg-white/5 transition-colors">
               <span>View All Tasks</span>
               <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             </a>
@@ -124,15 +124,15 @@ requirePageLogin();
       </section>
 
       <!-- Main Study Workspace Grid -->
-      <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-5 items-start">
+      <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3.5 sm:gap-5 items-start">
         
         <!-- Left Content Column -->
-        <div class="min-w-0 space-y-5">
+        <div class="min-w-0 space-y-3.5 sm:space-y-5">
           
           <!-- Quick Metric Highlights -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <!-- Weekly Goal Progress -->
-            <div class="study-card p-4 flex flex-col justify-between">
+            <div class="study-card p-3 sm:p-4 flex flex-col justify-between">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Weekly Goal</span>
                 <i data-lucide="trophy" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
@@ -214,8 +214,8 @@ requirePageLogin();
           </div>
 
           <!-- Upcoming Study Sessions & Timetable Blocks -->
-          <div class="study-card p-5">
-            <div class="flex items-center justify-between mb-4">
+          <div class="study-card p-3.5 sm:p-5">
+            <div class="flex items-center justify-between mb-3.5">
               <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center">
                   <i data-lucide="calendar-days" class="w-4 h-4"></i>
@@ -237,8 +237,8 @@ requirePageLogin();
         </div>
 
         <!-- Right Aside: Layer 1 Integrated Focus Timer (Prioritized on Mobile) -->
-        <aside class="space-y-4 order-first xl:order-last">
-          <div id="focus-timer-card" class="study-card focus-timer-card p-4 sm:p-5" aria-labelledby="focus-timer-heading">
+        <aside class="space-y-3.5 sm:space-y-4 order-first xl:order-last">
+          <div id="focus-timer-card" class="study-card focus-timer-card p-3.5 sm:p-5" aria-labelledby="focus-timer-heading">
             <div class="flex items-center justify-between mb-3.5">
               <div class="flex items-center gap-2.5">
                 <div id="timer-icon-wrap" class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center transition-all">
