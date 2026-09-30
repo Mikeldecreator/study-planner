@@ -43,7 +43,7 @@ $prefillEmail = trim((string) ($_GET['email'] ?? ''));
     <!-- ======================================================= -->
     <!-- LEFT PANEL: ACADEMIC BRANDING & VALUE PROPOSITION -->
     <!-- ======================================================= -->
-    <div class="lg:col-span-5 bg-gradient-to-br from-[#082E2A] via-[#0B4B42] to-[#041F1C] text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
+    <div class="lg:col-span-5 bg-gradient-to-br from-[#082E2A] via-[#0B4B42] to-[#041F1C] text-white p-5 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
       <!-- Decorative Glow -->
       <div class="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
       <div class="absolute -left-20 -bottom-20 w-64 h-64 rounded-full bg-teal-500/10 blur-3xl pointer-events-none"></div>
@@ -63,8 +63,8 @@ $prefillEmail = trim((string) ($_GET['email'] ?? ''));
         </div>
       </div>
 
-      <!-- Center: Academic Pitch & Feature List -->
-      <div class="relative z-10 my-8 sm:my-10 space-y-6">
+      <!-- Center: Academic Pitch & Feature List (Desktop) -->
+      <div class="relative z-10 my-8 sm:my-10 space-y-6 hidden lg:block">
         <div>
           <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 mb-3">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -109,8 +109,8 @@ $prefillEmail = trim((string) ($_GET['email'] ?? ''));
         </div>
       </div>
 
-      <!-- Bottom: Testimonial & Security Badge -->
-      <div class="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-200/70">
+      <!-- Bottom: Testimonial & Security Badge (Desktop) -->
+      <div class="relative z-10 pt-4 border-t border-white/10 hidden lg:flex items-center justify-between text-[11px] text-emerald-200/70">
         <span class="flex items-center gap-1.5">
           <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
           Secure &bull; Verified Student Data

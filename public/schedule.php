@@ -126,18 +126,18 @@ requirePageLogin();
           <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">My Classes</h2>
           <p class="text-gray-500 dark:text-gray-400 text-sm mt-1.5 max-w-2xl">Your recurring weekly timetable — see your classes and find free study time.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2.5">
-          <button id="open-auto-schedule" type="button" class="focus-ring btn-press bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/60 dark:border-emerald-700/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm">
-            <i data-lucide="sparkles" class="w-4 h-4 text-emerald-700 dark:text-emerald-300"></i> Auto-Schedule Study
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2.5">
+          <button id="open-auto-schedule" type="button" class="focus-ring btn-press bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/60 dark:border-emerald-700/50 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors shadow-sm">
+            <i data-lucide="sparkles" class="w-4 h-4 text-emerald-700 dark:text-emerald-300"></i> Auto-Schedule
           </button>
-          <button id="open-import-timetable" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-            <i data-lucide="upload" class="w-4 h-4"></i> Add My Classes
+          <button id="open-import-timetable" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors">
+            <i data-lucide="upload" class="w-4 h-4"></i> Add Classes
           </button>
-          <button id="open-study-prefs" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-            <i data-lucide="sliders" class="w-4 h-4"></i> When I Like to Study
+          <button id="open-study-prefs" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-colors">
+            <i data-lucide="sliders" class="w-4 h-4"></i> Preferences
           </button>
-          <button id="open-add-session" type="button" class="focus-ring btn-press bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-4 py-2.5 text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-2 shadow-sm transition-colors">
-            <i data-lucide="plus" class="w-4 h-4"></i> Add Class
+          <button id="open-add-session" type="button" class="focus-ring btn-press bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Session
           </button>
         </div>
       </section>
@@ -163,7 +163,7 @@ requirePageLogin();
                   <i data-lucide="chevron-right" class="w-4 h-4"></i>
                 </button>
               </div>
-              <button type="button" id="schedule-today" class="focus-ring hidden sm:inline-flex px-2.5 h-9 items-center rounded-lg border border-gray-200 dark:border-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">Today</button>
+              <button type="button" id="schedule-today" class="focus-ring inline-flex px-2.5 h-9 items-center rounded-lg border border-gray-200 dark:border-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">Today</button>
               <div class="ml-1.5">
                 <div id="schedule-range-label" class="text-sm sm:text-base font-bold">This week</div>
                 <div id="schedule-range-subtitle" class="text-[11px] text-gray-400">Recurring timetable</div>

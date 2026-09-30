@@ -287,9 +287,222 @@
 </aside>
 
 
-<!-- Mobile sidebar backdrop -->
+<!-- Mobile sidebar backdrop (legacy) -->
 <div
     id="sidebar-backdrop"
     class="hidden fixed inset-0 bg-black/50 z-30 xl:hidden"
     aria-hidden="true"
 ></div>
+
+<!-- Mobile Bottom Navigation Bar (Fixed for < xl screens) -->
+<nav
+    id="mobile-bottom-nav"
+    class="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0d1614]/95 backdrop-blur-md border-t border-gray-200/90 dark:border-white/10 px-1 py-1 grid grid-cols-5 items-center w-full max-w-full select-none shadow-[0_-4px_20px_rgba(0,0,0,0.06)] box-border"
+    role="navigation"
+    aria-label="Mobile navigation"
+    style="padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));"
+>
+    <!-- Home -->
+    <a
+        href="dashboard.php"
+        data-mobile-nav="dashboard"
+        class="mobile-nav-btn flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors min-h-[48px] min-w-0"
+        aria-label="Home"
+    >
+        <i data-lucide="home" class="w-5 h-5 mb-0.5 shrink-0"></i>
+        <span class="text-[11px] font-medium leading-none truncate w-full text-center">Home</span>
+    </a>
+
+    <!-- Work (My Work / Tasks) -->
+    <a
+        href="tasks.php"
+        data-mobile-nav="tasks"
+        class="mobile-nav-btn flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors min-h-[48px] min-w-0"
+        aria-label="My Work"
+    >
+        <i data-lucide="check-square" class="w-5 h-5 mb-0.5 shrink-0"></i>
+        <span class="text-[11px] font-medium leading-none truncate w-full text-center">Work</span>
+    </a>
+
+    <!-- Study (Focus Timer) -->
+    <a
+        href="study.php"
+        data-mobile-nav="study"
+        class="mobile-nav-btn flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors min-h-[48px] min-w-0"
+        aria-label="Study & Focus"
+    >
+        <i data-lucide="target" class="w-5 h-5 mb-0.5 shrink-0"></i>
+        <span class="text-[11px] font-medium leading-none truncate w-full text-center">Study</span>
+    </a>
+
+    <!-- Progress (with Reports access) -->
+    <a
+        href="progress.php"
+        data-mobile-nav="progress"
+        class="mobile-nav-btn flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors min-h-[48px] min-w-0"
+        aria-label="Progress"
+    >
+        <i data-lucide="bar-chart-2" class="w-5 h-5 mb-0.5 shrink-0"></i>
+        <span class="text-[11px] font-medium leading-none truncate w-full text-center">Progress</span>
+    </a>
+
+    <!-- More (Drawer trigger) -->
+    <button
+        type="button"
+        id="mobile-more-btn"
+        data-mobile-nav="more"
+        class="mobile-nav-btn relative flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors min-h-[48px] min-w-0"
+        aria-label="More options"
+        aria-haspopup="dialog"
+    >
+        <div class="relative">
+            <i data-lucide="grid" class="w-5 h-5 mb-0.5 shrink-0"></i>
+            <span
+                id="mobile-nav-unread-dot"
+                class="hidden absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-[#0d1614]"
+            ></span>
+        </div>
+        <span class="text-[11px] font-medium leading-none truncate w-full text-center">More</span>
+    </button>
+</nav>
+
+<!-- Mobile "More" Sheet / Drawer (< xl screens) -->
+<div
+    id="mobile-more-sheet"
+    class="hidden fixed inset-0 z-50 xl:hidden flex flex-col justify-end"
+    role="dialog"
+    aria-modal="true"
+    aria-label="More navigation options"
+>
+    <!-- Backdrop overlay -->
+    <div id="mobile-more-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
+
+    <!-- Sheet Panel -->
+    <div class="relative w-full bg-white dark:bg-[#121c19] text-gray-900 dark:text-gray-100 rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl border-t border-emerald-500/20 z-10 transition-transform duration-300 ease-out overflow-hidden"
+         style="padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));">
+        
+        <!-- Drag Handle / Header -->
+        <div class="pt-3 pb-2 px-5 flex items-center justify-between border-b border-gray-100 dark:border-white/10 shrink-0">
+            <div class="w-10 h-1 bg-gray-300 dark:bg-white/20 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3"></div>
+            <div class="flex items-center gap-2.5 pt-2">
+                <div class="w-8 h-8 rounded-full bg-emerald-800 dark:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center overflow-hidden" data-top-avatar>
+                    <span data-user-initial>U</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-sm font-bold text-gray-900 dark:text-white truncate" data-user-name>Student</div>
+                    <div class="text-[11px] text-gray-500 dark:text-gray-400 truncate" data-user-meta>—</div>
+                </div>
+            </div>
+            <button
+                type="button"
+                id="mobile-more-close"
+                class="pt-2 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                aria-label="Close menu"
+            >
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Sheet Grid Destinations -->
+        <div class="p-4 space-y-4 overflow-y-auto flex-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1">
+                Academic Planner
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+                <a href="courses.php" class="mobile-sheet-link flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200/70 dark:border-white/5 transition-all">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white truncate">My Courses</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Classes &amp; Units</div>
+                    </div>
+                </a>
+
+                <a href="schedule.php" class="mobile-sheet-link flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200/70 dark:border-white/5 transition-all">
+                    <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white truncate">My Classes</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Timetable &amp; Days</div>
+                    </div>
+                </a>
+
+                <a href="deadlines.php" class="mobile-sheet-link flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200/70 dark:border-white/5 transition-all">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="clock" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white truncate">Due Soon</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Urgent Deadlines</div>
+                    </div>
+                </a>
+
+                <a href="reports.php" class="mobile-sheet-link flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200/70 dark:border-white/5 transition-all">
+                    <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white truncate">Reports</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Study Analytics</div>
+                    </div>
+                </a>
+
+                <a href="notifications.php" class="mobile-sheet-link flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200/70 dark:border-white/5 transition-all">
+                    <div class="relative w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="bell" class="w-4 h-4"></i>
+                        <span id="mobile-sheet-unread-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white truncate">Notifications</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Alerts &amp; Updates</div>
+                    </div>
+                </a>
+
+                <a href="settings.php" class="mobile-sheet-link flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200/70 dark:border-white/5 transition-all">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-gray-900 dark:text-white truncate">Settings</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Preferences &amp; Goals</div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Contextual Study AI in More Sheet -->
+            <div class="pt-1">
+                <a href="study-ai.php" class="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/20 dark:border-amber-500/30">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-gray-900 dark:text-white">Study AI Assistant</div>
+                            <div class="text-[10px] text-gray-500 dark:text-gray-400">Ask questions about courses and tasks</div>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                </a>
+            </div>
+
+            <!-- Dark Mode Switch & Sign Out -->
+            <div class="pt-3 border-t border-gray-100 dark:border-white/10 flex items-center justify-between gap-3">
+                <label class="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                    <i data-lucide="moon" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+                    <span>Dark Theme</span>
+                    <input type="checkbox" data-dark-toggle class="sr-only peer">
+                    <span class="w-8 h-4 bg-gray-200 dark:bg-white/20 peer-checked:bg-emerald-600 rounded-full relative inline-block transition-colors ml-1">
+                        <span class="w-3 h-3 bg-white rounded-full absolute top-0.5 left-0.5 peer-checked:translate-x-4 transition-transform"></span>
+                    </span>
+                </label>
+
+                <a href="#" id="mobile-logout-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    <span>Sign Out</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

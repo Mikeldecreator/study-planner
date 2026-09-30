@@ -1229,7 +1229,7 @@ requirePageLogin();
                     </div>
 
 
-                    <div class="flex items-center gap-4">
+                    <div class="flex flex-col sm:flex-row items-center gap-4">
 
                         <div class="chart-container">
 

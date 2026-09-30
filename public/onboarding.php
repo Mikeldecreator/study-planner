@@ -92,7 +92,7 @@ $csrf = csrfToken();
   </header>
 
   <!-- Main Wizard Container -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-start">
+  <main class="flex-1 max-w-4xl w-full mx-auto p-3 sm:p-6 lg:p-8 flex flex-col justify-start">
 
     <!-- Progress Indicator -->
     <div class="mb-8">
@@ -105,7 +105,7 @@ $csrf = csrfToken();
     </div>
 
     <!-- Wizard Card -->
-    <div class="bg-white dark:bg-[#141A18] border border-gray-200/80 dark:border-white/10 rounded-2xl shadow-sm p-6 sm:p-8 relative min-h-[460px] flex flex-col">
+    <div class="bg-white dark:bg-[#141A18] border border-gray-200/80 dark:border-white/10 rounded-2xl shadow-sm p-4 sm:p-8 relative min-h-[460px] flex flex-col">
 
       <!-- Alert / Notice Toast -->
       <div id="onboarding-notice" class="hidden mb-6 p-4 rounded-xl text-sm font-medium transition flex items-center justify-between">
@@ -126,7 +126,7 @@ $csrf = csrfToken();
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 mb-3">
             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Step 1 of 7 • Personal Profile
           </div>
-          <h2 class="text-2xl font-bold tracking-tight text-[#082E2A] dark:text-white">Welcome! What should we call you?</h2>
+          <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-[#082E2A] dark:text-white">Welcome! What should we call you?</h2>
           <p class="text-sm text-[#53736D] dark:text-gray-400 mt-1.5 max-w-xl">
             Let's personalize your study planner. Please verify your full name and confirm your student account details.
           </p>

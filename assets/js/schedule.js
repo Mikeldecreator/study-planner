@@ -66,7 +66,7 @@ let distributionChart = null;
 
 /* Current calendar state */
 
-let scheduleView = 'week';
+let scheduleView = (typeof window !== 'undefined' && window.innerWidth < 768) ? 'day' : 'week';
 
 let anchorDate = new Date();
 

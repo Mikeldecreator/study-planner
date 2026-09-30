@@ -236,8 +236,8 @@ requirePageLogin();
 
         </div>
 
-        <!-- Right Aside: Layer 1 Integrated Focus Timer -->
-        <aside class="space-y-4">
+        <!-- Right Aside: Layer 1 Integrated Focus Timer (Prioritized on Mobile) -->
+        <aside class="space-y-4 order-first xl:order-last">
           <div id="focus-timer-card" class="study-card focus-timer-card p-4 sm:p-5" aria-labelledby="focus-timer-heading">
             <div class="flex items-center justify-between mb-3.5">
               <div class="flex items-center gap-2.5">
@@ -313,19 +313,19 @@ requirePageLogin();
             <!-- Controls -->
             <div class="space-y-2 mt-3">
               <div class="grid grid-cols-2 gap-2">
-                <button id="timer-btn-start" type="button" class="btn-press py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all">
+                <button id="timer-btn-start" type="button" class="btn-press py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all min-h-[44px]">
                   <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i>
                   <span>Start Focus</span>
                 </button>
-                <button id="timer-btn-pause" type="button" class="btn-press hidden py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all">
+                <button id="timer-btn-pause" type="button" class="btn-press hidden py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all min-h-[44px]">
                   <i data-lucide="pause" class="w-3.5 h-3.5 fill-white"></i>
                   <span>Pause</span>
                 </button>
-                <button id="timer-btn-resume" type="button" class="btn-press hidden py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all">
+                <button id="timer-btn-resume" type="button" class="btn-press hidden py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all min-h-[44px]">
                   <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i>
                   <span>Resume</span>
                 </button>
-                <button id="timer-btn-stop" type="button" class="btn-press py-2.5 px-3 rounded-xl bg-gray-200 hover:bg-gray-300 dark:bg-white/10 dark:hover:bg-white/15 text-gray-800 dark:text-gray-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all opacity-50 cursor-not-allowed" disabled>
+                <button id="timer-btn-stop" type="button" class="btn-press py-2.5 px-3 rounded-xl bg-gray-200 hover:bg-gray-300 dark:bg-white/10 dark:hover:bg-white/15 text-gray-800 dark:text-gray-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all opacity-50 cursor-not-allowed min-h-[44px]" disabled>
                   <i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i>
                   <span>Stop &amp; Save</span>
                 </button>

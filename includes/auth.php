@@ -138,6 +138,10 @@ function isOnboardingComplete(int $userId, ?PDO $db = null): bool
         return false;
     }
 
+    if (!empty($_SESSION['onboarding_completed'])) {
+        return true;
+    }
+
     try {
         $conn = $db ?? getDb();
         $stmt = $conn->prepare('SELECT onboarding_completed FROM users WHERE id = ?');

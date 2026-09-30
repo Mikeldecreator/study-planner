@@ -1239,7 +1239,21 @@ function renderCompletedTasks(tasks) {
     countBadge.textContent = String(completed.length);
   }
 
+  const mobileCompletedEl = getEl('completed-tasks-mobile-cards');
+
   if (!completed.length) {
+    if (mobileCompletedEl) {
+      mobileCompletedEl.innerHTML = `
+        <div class="py-8 text-center">
+          <div class="task-empty-state">
+            <i data-lucide="archive" class="w-7 h-7 text-gray-400 dark:text-gray-500"></i>
+            <strong class="text-xs">No completed tasks yet</strong>
+            <span class="text-[11px] text-gray-500 dark:text-gray-400">Tasks you finish will be archived here with recorded focus time and progress history.</span>
+          </div>
+        </div>
+      `;
+    }
+
     tbody.innerHTML = `
       <tr>
         <td colspan="7" class="py-10 text-center">
@@ -1352,12 +1366,59 @@ function renderCompletedTasks(tasks) {
     `;
   }).join('');
 
-  tbody.querySelectorAll('.undo-task-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleUndoComplete(btn.dataset.id));
-  });
+  if (mobileCompletedEl) {
+    mobileCompletedEl.innerHTML = completed.map(task => {
+      const totalSec = Number(task.total_focused_seconds || task.focused_seconds || 0);
+      const focusedText = totalSec > 0 ? formatDurationHuman(totalSec) : '0m';
+      const compDate = localDate(task.completed_at || task.updated_at);
+      const compText = compDate
+        ? compDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'Completed';
+      const courseCode = task.course_code || task.course_name || 'General';
 
-  tbody.querySelectorAll('.delete-completed-task-btn').forEach(btn => {
-    btn.addEventListener('click', () => openDeleteCompletedTaskModal(btn.dataset.id));
+      return `
+        <div class="task-mobile-card p-4 rounded-2xl bg-white dark:bg-[#131a18] border border-gray-200/80 dark:border-white/10 shadow-sm space-y-3" data-task-id="${esc(task.id)}">
+          <div class="flex items-center justify-between gap-2">
+            <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+              ${esc(courseCode)}
+            </span>
+            <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Completed
+            </span>
+          </div>
+          <div>
+            <h4 class="font-bold text-sm sm:text-base text-[#183E36] dark:text-gray-100 leading-snug">
+              ${esc(task.title)}
+            </h4>
+          </div>
+          <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-1">
+            <span class="flex items-center gap-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+              ${focusedText} focused
+            </span>
+            <span>${compText}</span>
+          </div>
+          <div class="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
+            <button type="button" class="btn-press undo-task-btn flex-1 min-h-[44px] rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center gap-1.5" data-id="${esc(task.id)}">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Undo completion
+            </button>
+            <button type="button" class="btn-press delete-completed-task-btn min-h-[44px] min-w-[44px] rounded-xl border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Delete completed work">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const completedTargets = [tbody, mobileCompletedEl].filter(Boolean);
+  completedTargets.forEach(target => {
+    target.querySelectorAll('.undo-task-btn').forEach(btn => {
+      btn.addEventListener('click', () => handleUndoComplete(btn.dataset.id));
+    });
+    target.querySelectorAll('.delete-completed-task-btn').forEach(btn => {
+      btn.addEventListener('click', () => openDeleteCompletedTaskModal(btn.dataset.id));
+    });
   });
 
   if (window.lucide) window.lucide.createIcons();
@@ -1684,6 +1745,104 @@ function filteredForPage(
 
 
 /* =========================================================
+   MOBILE TASK CARDS (TOUCH-FRIENDLY)
+========================================================= */
+
+function renderMobileTaskCard(task) {
+  const progress = resolveTaskProgress(task);
+  const d = localDate(task.due_at);
+  const dateText = d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const timeText = d ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+  const priority = capitalizeSafe(task.priority);
+  const rawStatus = task.system_status || task.status;
+  const status = STATUS_LABELS[rawStatus] || capitalizeSafe(rawStatus);
+  const type = TYPE_LABELS[task.type] || task.type || 'Other';
+  const isCompleted = String(rawStatus) === 'completed' || progress >= 100;
+  const courseCode = task.course_code || task.course_name || 'General';
+
+  const deadlineClass = isCompleted
+    ? 'text-gray-400 dark:text-gray-500'
+    : task.urgency === 'overdue'
+      ? 'text-red-600 dark:text-red-400 font-semibold'
+      : task.urgency === 'due_soon'
+        ? 'text-amber-600 dark:text-amber-400 font-semibold'
+        : 'text-gray-500 dark:text-gray-400';
+
+  return `
+    <div class="task-mobile-card p-4 rounded-2xl bg-white dark:bg-[#131a18] border border-gray-200/80 dark:border-white/10 shadow-sm space-y-3" data-task-id="${esc(task.id)}">
+      <!-- Card Top: Course, Type, Priority -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 truncate max-w-[140px]">
+            ${esc(courseCode)}
+          </span>
+          <span class="task-type-pill text-[10px]">
+            ${esc(type)}
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="w-2 h-2 rounded-full ${PRIORITY_DOT[task.priority] || 'bg-gray-400'}"></span>
+          <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">${esc(priority)}</span>
+        </div>
+      </div>
+
+      <!-- Card Title & Description -->
+      <div>
+        <h4 class="font-bold text-sm sm:text-base text-[#183E36] dark:text-gray-100 leading-snug">
+          ${esc(task.title)}
+        </h4>
+        ${task.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">${esc(task.description)}</p>` : ''}
+      </div>
+
+      <!-- Deadline Countdown -->
+      <div class="flex items-center justify-between text-xs ${deadlineClass}">
+        <span class="flex items-center gap-1.5">
+          <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+          <span>${isCompleted ? 'Finished' : `${dateText} ${timeText ? '· ' + timeText : ''}`}</span>
+        </span>
+        ${!isCompleted && task.due_label ? `<span class="font-bold">${esc(task.due_label)}</span>` : ''}
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+          <span>Progress</span>
+          <span class="font-bold text-emerald-700 dark:text-emerald-400">${formatProgressPercent(progress)}</span>
+        </div>
+        <div class="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+          <div class="h-full bg-emerald-600 rounded-full transition-all duration-500" data-work-progress-item="task:${esc(task.id)}" style="width:${progress}%"></div>
+        </div>
+      </div>
+
+      <!-- Touch Action Buttons (>= 44px) -->
+      <div class="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
+        ${isCompleted ? `
+          <button type="button" class="btn-press undo-task-btn flex-1 min-h-[44px] rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center gap-1.5" data-id="${esc(task.id)}" aria-label="Undo completion">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Undo
+          </button>
+        ` : `
+          <button type="button" class="btn-press complete-task-btn min-h-[44px] px-3.5 rounded-xl border border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold flex items-center gap-1.5" data-id="${esc(task.id)}" aria-label="Mark completed">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i> Complete
+          </button>
+
+          <button type="button" class="btn-press timer-task-btn flex-1 min-h-[44px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" data-work-item-type="task" data-work-item-id="${esc(task.id)}" data-work-item-title="${esc(task.title)}" aria-label="Start or pause timer">
+            <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i> Focus
+          </button>
+        `}
+
+        <button type="button" class="btn-press edit-task-btn min-h-[44px] min-w-[44px] rounded-xl border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Edit task">
+          <i data-lucide="pencil" class="w-4 h-4"></i>
+        </button>
+
+        <button type="button" class="btn-press delete-task-btn min-h-[44px] min-w-[44px] rounded-xl border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center justify-center" data-id="${esc(task.id)}" aria-label="Delete task">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================================================
    TABLE
 ========================================================= */
 
@@ -1787,6 +1946,20 @@ function renderTable(tasks) {
           </button>
         `;
       }
+    }
+
+    const mobileCardsEl = getEl('task-mobile-cards');
+    if (mobileCardsEl) {
+      mobileCardsEl.innerHTML = `
+        <div class="py-12 text-center">
+          <div class="task-empty-state">
+            <i data-lucide="${emptyIcon}" class="w-8 h-8 ${isCompletedTab ? 'text-emerald-600' : 'text-gray-400'}"></i>
+            <strong>${emptyTitle}</strong>
+            <span>${emptySub}</span>
+            ${emptyButton}
+          </div>
+        </div>
+      `;
     }
 
     tbody.innerHTML = `
@@ -2283,25 +2456,27 @@ function renderTable(tasks) {
       )
       .join('');
 
+  const mobileCardsEl = getEl('task-mobile-cards');
+  if (mobileCardsEl) {
+    mobileCardsEl.innerHTML = visible.map(task => renderMobileTaskCard(task)).join('');
+  }
 
-  /* Undo / Reopen buttons */
-  tbody
-    .querySelectorAll('.undo-task-btn')
-    .forEach(btn => {
+  const allTaskContainers = [tbody, mobileCardsEl].filter(Boolean);
+
+  /* Action buttons (wired across table rows and mobile cards) */
+  allTaskContainers.forEach(container => {
+    /* Undo / Reopen buttons */
+    container.querySelectorAll('.undo-task-btn').forEach(btn => {
       btn.addEventListener('click', () => handleUndoComplete(btn.dataset.id));
     });
 
-  /* Complete task buttons */
-  tbody
-    .querySelectorAll('.complete-task-btn')
-    .forEach(btn => {
+    /* Complete task buttons */
+    container.querySelectorAll('.complete-task-btn').forEach(btn => {
       btn.addEventListener('click', () => openCompleteTaskConfirmModal(btn.dataset.id));
     });
 
-  /* Timer buttons on rows */
-  tbody
-    .querySelectorAll('.timer-task-btn')
-    .forEach(btn => {
+    /* Timer buttons */
+    container.querySelectorAll('.timer-task-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const taskId = btn.dataset.workItemId || btn.dataset.id;
         if (!taskId) return;
@@ -2320,68 +2495,21 @@ function renderTable(tasks) {
       });
     });
 
-  /* Focus buttons */
+    /* Focus buttons */
+    container.querySelectorAll('.focus-task-btn').forEach(btn => {
+      btn.addEventListener('click', () => selectTaskForTimer(btn.dataset.id, true));
+    });
 
-  tbody
-    .querySelectorAll(
-      '.focus-task-btn'
-    )
-    .forEach(
-      btn => {
+    /* Edit buttons */
+    container.querySelectorAll('.edit-task-btn').forEach(btn => {
+      btn.addEventListener('click', () => openEditTask(btn.dataset.id));
+    });
 
-        btn.addEventListener(
-          'click',
-          () =>
-            selectTaskForTimer(
-              btn.dataset.id,
-              true
-            )
-        );
-
-      }
-    );
-
-
-  /* Edit buttons */
-
-  tbody
-    .querySelectorAll(
-      '.edit-task-btn'
-    )
-    .forEach(
-      btn => {
-
-        btn.addEventListener(
-          'click',
-          () =>
-            openEditTask(
-              btn.dataset.id
-            )
-        );
-
-      }
-    );
-
-
-  /* Delete buttons */
-
-  tbody
-    .querySelectorAll(
-      '.delete-task-btn'
-    )
-    .forEach(
-      btn => {
-
-        btn.addEventListener(
-          'click',
-          () =>
-            deleteTask(
-              btn.dataset.id
-            )
-        );
-
-      }
-    );
+    /* Delete buttons */
+    container.querySelectorAll('.delete-task-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteTask(btn.dataset.id));
+    });
+  });
 
 
   /* Row checkboxes */

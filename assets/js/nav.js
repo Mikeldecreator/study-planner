@@ -6,7 +6,7 @@ window.APP_READY = (async function bootstrap() {
   const sidebarSlot = document.getElementById('sidebar-slot');
 
   if (sidebarSlot) {
-    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v6');
+    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v8');
     if (cachedSidebar) {
       sidebarSlot.outerHTML = cachedSidebar;
       requestAnimationFrame(() => {
@@ -19,7 +19,7 @@ window.APP_READY = (async function bootstrap() {
         const response = await fetch('../assets/partials/sidebar.html');
         if (response.ok) {
           const html = await response.text();
-          sessionStorage.setItem('app_sidebar_html_v6', html);
+          sessionStorage.setItem('app_sidebar_html_v8', html);
           sidebarSlot.outerHTML = html;
           requestAnimationFrame(() => {
             if (window.lucide) {
@@ -210,6 +210,29 @@ function highlightActiveNavLink() {
       );
     }
   });
+
+  // Mobile Bottom Navigation active state
+  let mobileActiveKey = page;
+  if (isFocusUrl || page === 'study') {
+    mobileActiveKey = 'study';
+  } else if (['courses', 'schedule', 'deadlines', 'reports', 'notifications', 'settings', 'study-ai'].includes(page)) {
+    mobileActiveKey = 'more';
+  }
+
+  document.querySelectorAll('[data-mobile-nav]').forEach(btn => {
+    const isCurrent = btn.dataset.mobileNav === mobileActiveKey;
+    if (isCurrent) {
+      btn.classList.remove('text-gray-500', 'dark:text-gray-400');
+      btn.classList.add('text-emerald-700', 'dark:text-emerald-400', 'font-bold');
+      const icon = btn.querySelector('svg, i');
+      if (icon) {
+        icon.classList.add('stroke-[2.5px]');
+      }
+    } else {
+      btn.classList.remove('text-emerald-700', 'dark:text-emerald-400', 'font-bold');
+      btn.classList.add('text-gray-500', 'dark:text-gray-400');
+    }
+  });
 }
 
 function syncDarkModeUI(isDark) {
@@ -306,19 +329,78 @@ function wireMobileDrawer() {
   const openBtn = document.getElementById('hamburger-btn');
   const closeBtn = document.getElementById('sidebar-close-btn');
 
-  const open = () => {
+  // Mobile "More" Sheet elements
+  const moreSheet = document.getElementById('mobile-more-sheet');
+  const moreBackdrop = document.getElementById('mobile-more-backdrop');
+  const moreBtn = document.getElementById('mobile-more-btn');
+  const moreCloseBtn = document.getElementById('mobile-more-close');
+  const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
+
+  const openSidebar = () => {
     sidebar?.classList.remove('-translate-x-full');
     backdrop?.classList.remove('hidden');
   };
 
-  const close = () => {
+  const closeSidebar = () => {
     sidebar?.classList.add('-translate-x-full');
     backdrop?.classList.add('hidden');
   };
 
-  openBtn?.addEventListener('click', open);
-  closeBtn?.addEventListener('click', close);
-  backdrop?.addEventListener('click', close);
+  const openMoreSheet = () => {
+    if (moreSheet) {
+      moreSheet.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    }
+  };
+
+  const closeMoreSheet = () => {
+    if (moreSheet) {
+      moreSheet.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+  };
+
+  openBtn?.addEventListener('click', () => {
+    // If on a phone with bottom nav, open the convenient More sheet; otherwise open sidebar
+    if (window.innerWidth < 1280 && moreSheet) {
+      openMoreSheet();
+    } else {
+      openSidebar();
+    }
+  });
+
+  closeBtn?.addEventListener('click', closeSidebar);
+  backdrop?.addEventListener('click', closeSidebar);
+
+  moreBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openMoreSheet();
+  });
+  moreCloseBtn?.addEventListener('click', closeMoreSheet);
+  moreBackdrop?.addEventListener('click', closeMoreSheet);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeSidebar();
+      closeMoreSheet();
+    }
+  });
+
+  if (mobileLogoutBtn) {
+    mobileLogoutBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await fetch(`${API}/logout.php`, {
+          method: 'POST',
+          credentials: 'same-origin'
+        });
+      } catch (_) {}
+      window.location.href = 'login.php';
+    });
+  }
 }
 
 function escapeHtml(str) {
@@ -358,6 +440,16 @@ function updateBellBadges(unreadCount) {
       bellBadge.classList.remove('flex');
       bellBadge.textContent = '';
     }
+  }
+
+  // Mobile Bottom Nav & More Sheet badges
+  const mobileNavDot = document.getElementById('mobile-nav-unread-dot');
+  if (mobileNavDot) {
+    mobileNavDot.classList.toggle('hidden', unreadCount <= 0);
+  }
+  const mobileSheetBadge = document.getElementById('mobile-sheet-unread-badge');
+  if (mobileSheetBadge) {
+    mobileSheetBadge.classList.toggle('hidden', unreadCount <= 0);
   }
 }
 window.updateBellBadges = updateBellBadges;

@@ -246,11 +246,11 @@ requirePageLogin();
 </style>
 </head>
 <body data-page="tasks" class="tasks-page min-h-screen transition-colors">
-<div class="flex min-h-screen">
+<div class="flex min-h-screen w-full max-w-full overflow-x-hidden">
   <div id="sidebar-slot"></div>
 
-  <main class="flex-1 min-w-0">
-    <header class="tasks-topbar bg-white/95 dark:bg-[#101615]/95 border-b border-gray-100 dark:border-white/10 px-4 sm:px-7 py-4 flex items-center gap-4 sticky top-0 z-20">
+  <main class="flex-1 min-w-0 max-w-full overflow-x-hidden">
+    <header class="tasks-topbar bg-white/95 dark:bg-[#101615]/95 border-b border-gray-100 dark:border-white/10 px-4 sm:px-7 py-4 flex items-center gap-4 sticky top-0 z-20 max-w-full">
       <button id="hamburger-btn" class="lg:hidden text-[#0B4B42] dark:text-gray-200 hover:text-emerald-700 transition-colors" aria-label="Open menu">
         <i data-lucide="menu" class="w-6 h-6"></i>
       </button>
@@ -277,7 +277,7 @@ requirePageLogin();
       <div id="bell-dropdown" class="hidden absolute right-4 top-16 w-80 max-w-[90vw] bg-white dark:bg-[#171D1B] border border-gray-100 dark:border-white/10 rounded-xl shadow-xl z-30 max-h-96 overflow-y-auto"></div>
     </header>
 
-    <div class="tasks-content p-4 sm:p-6 lg:p-7 space-y-4 sm:space-y-5 mx-auto">
+    <div class="tasks-content p-4 sm:p-6 lg:p-7 space-y-4 sm:space-y-5 mx-auto max-w-full overflow-x-hidden">
       <section class="tasks-hero rounded-2xl border border-emerald-100 dark:border-emerald-900/40 px-5 sm:px-7 py-5">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div class="flex items-center gap-4 min-w-0">
@@ -304,7 +304,7 @@ requirePageLogin();
 
       <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_298px] gap-4 items-start">
         <div class="min-w-0 space-y-4">
-          <div id="task-tabs" class="flex gap-1 overflow-x-auto tasks-card p-1.5">
+          <div id="task-tabs" class="flex gap-1 overflow-x-auto tasks-card p-1.5 max-w-full min-w-0 no-scrollbar">
             <button data-tab="all" class="task-tab-btn">All Work <span data-tab-count="all"></span></button>
             <button data-tab="pending" class="task-tab-btn">Pending <span data-tab-count="pending"></span></button>
             <button data-tab="in_progress" class="task-tab-btn">In Progress <span data-tab-count="in_progress"></span></button>
@@ -335,7 +335,11 @@ requirePageLogin();
               </div>
             </div>
 
-            <div class="task-table-wrap overflow-x-auto">
+            <!-- Mobile Touch Task Cards (Active Work) -->
+            <div id="task-mobile-cards" class="p-3 space-y-3 block lg:hidden"></div>
+
+            <!-- Desktop Table View -->
+            <div class="task-table-wrap overflow-x-auto hidden lg:block">
               <table class="w-full text-sm min-w-[940px]">
                 <thead class="bg-[#FBFCFC] dark:bg-white/[0.025]">
                   <tr class="text-left text-[#64807A] dark:text-gray-400 text-[11px] uppercase tracking-wide border-b border-[#E7EFED] dark:border-white/10">
@@ -369,7 +373,11 @@ requirePageLogin();
               </div>
             </div>
 
-            <div class="task-table-wrap overflow-x-auto">
+            <!-- Mobile Completed Task Cards -->
+            <div id="completed-tasks-mobile-cards" class="p-3 space-y-3 block lg:hidden"></div>
+
+            <!-- Desktop Completed Tasks Table -->
+            <div class="task-table-wrap overflow-x-auto hidden lg:block">
               <table class="w-full text-sm min-w-[800px]">
                 <thead class="bg-[#FBFCFC] dark:bg-white/[0.025]">
                   <tr class="text-left text-[#64807A] dark:text-gray-400 text-[11px] uppercase tracking-wide border-b border-[#E7EFED] dark:border-white/10">
