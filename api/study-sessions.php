@@ -349,27 +349,55 @@ switch ($method) {
                 sessionApiJson(['error' => 'Session is already closed.'], 422);
             }
 
+            $customDuration = (isset($body['duration_seconds']) && is_numeric($body['duration_seconds']) && (int) $body['duration_seconds'] > 0)
+                ? (int) $body['duration_seconds']
+                : null;
+
             if ($session['status'] === 'running') {
-                $stmt = $db->prepare(
-                    "UPDATE task_work_sessions
-                     SET ended_at = NOW(),
-                         duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())),
-                         status = 'stopped'
-                     WHERE id = ? AND user_id = ?"
-                );
+                if ($customDuration !== null) {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(),
+                             duration_seconds = ?,
+                             status = 'stopped'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$customDuration, $session['id'], $userId];
+                } else {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(),
+                             duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())),
+                             status = 'stopped'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$session['id'], $userId];
+                }
             } else {
-                $stmt = $db->prepare(
-                    "UPDATE task_work_sessions
-                     SET ended_at = NOW(), status = 'stopped'
-                     WHERE id = ? AND user_id = ?"
-                );
+                if ($customDuration !== null) {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(),
+                             duration_seconds = ?,
+                             status = 'stopped'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$customDuration, $session['id'], $userId];
+                } else {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(), status = 'stopped'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$session['id'], $userId];
+                }
             }
             try {
-                $stmt->execute([$session['id'], $userId]);
+                $stmt->execute($params);
             } catch (PDOException $e) {
                 if (str_contains($e->getMessage(), 'ended_at')) {
                     $db->exec("ALTER TABLE `task_work_sessions` ADD COLUMN `ended_at` DATETIME DEFAULT NULL AFTER `started_at`");
-                    $stmt->execute([$session['id'], $userId]);
+                    $stmt->execute($params);
                 } else {
                     throw $e;
                 }
@@ -454,27 +482,55 @@ switch ($method) {
                 sessionApiJson(['error' => 'Session is already completed.'], 422);
             }
 
+            $customDuration = (isset($body['duration_seconds']) && is_numeric($body['duration_seconds']) && (int) $body['duration_seconds'] > 0)
+                ? (int) $body['duration_seconds']
+                : null;
+
             if ($session['status'] === 'running') {
-                $stmt = $db->prepare(
-                    "UPDATE task_work_sessions
-                     SET ended_at = NOW(),
-                         duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())),
-                         status = 'completed'
-                     WHERE id = ? AND user_id = ?"
-                );
+                if ($customDuration !== null) {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(),
+                             duration_seconds = ?,
+                             status = 'completed'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$customDuration, $session['id'], $userId];
+                } else {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(),
+                             duration_seconds = duration_seconds + GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())),
+                             status = 'completed'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$session['id'], $userId];
+                }
             } else {
-                $stmt = $db->prepare(
-                    "UPDATE task_work_sessions
-                     SET ended_at = NOW(), status = 'completed'
-                     WHERE id = ? AND user_id = ?"
-                );
+                if ($customDuration !== null) {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(),
+                             duration_seconds = ?,
+                             status = 'completed'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$customDuration, $session['id'], $userId];
+                } else {
+                    $stmt = $db->prepare(
+                        "UPDATE task_work_sessions
+                         SET ended_at = NOW(), status = 'completed'
+                         WHERE id = ? AND user_id = ?"
+                    );
+                    $params = [$session['id'], $userId];
+                }
             }
             try {
-                $stmt->execute([$session['id'], $userId]);
+                $stmt->execute($params);
             } catch (PDOException $e) {
                 if (str_contains($e->getMessage(), 'ended_at')) {
                     $db->exec("ALTER TABLE `task_work_sessions` ADD COLUMN `ended_at` DATETIME DEFAULT NULL AFTER `started_at`");
-                    $stmt->execute([$session['id'], $userId]);
+                    $stmt->execute($params);
                 } else {
                     throw $e;
                 }
