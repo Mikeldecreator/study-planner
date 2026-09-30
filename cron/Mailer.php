@@ -405,13 +405,24 @@ function sendReminderEmail(
 function sendVerificationEmail(
     string $toEmail,
     string $toName,
-    string $verifyUrl
+    string $verifyUrl,
+    array &$details = []
 ): bool {
+
+    $details = [
+        'attempted' => false,
+        'http_code' => 0,
+        'message_id' => null,
+        'error_type' => null,
+        'error_message' => null,
+    ];
 
     if (
         !defined('EMAIL_ENABLED') ||
         EMAIL_ENABLED !== true
     ) {
+        $details['error_type'] = 'disabled';
+        $details['error_message'] = 'Email sending is disabled.';
         error_log(
             '[RESEND] Email sending is disabled.'
         );
@@ -423,6 +434,8 @@ function sendVerificationEmail(
         !defined('RESEND_API_KEY') ||
         trim((string) RESEND_API_KEY) === ''
     ) {
+        $details['error_type'] = 'missing_key';
+        $details['error_message'] = 'RESEND_API_KEY is missing.';
         error_log(
             '[RESEND] RESEND_API_KEY is missing.'
         );
@@ -434,6 +447,8 @@ function sendVerificationEmail(
         !defined('MAIL_FROM_EMAIL') ||
         trim((string) MAIL_FROM_EMAIL) === ''
     ) {
+        $details['error_type'] = 'missing_sender';
+        $details['error_message'] = 'MAIL_FROM_EMAIL is missing.';
         error_log(
             '[RESEND] MAIL_FROM_EMAIL is missing.'
         );
@@ -452,6 +467,8 @@ function sendVerificationEmail(
             FILTER_VALIDATE_EMAIL
         )
     ) {
+        $details['error_type'] = 'invalid_recipient';
+        $details['error_message'] = 'Invalid recipient email address.';
         error_log(
             '[RESEND] Invalid recipient email: ' .
             $toEmail
@@ -532,6 +549,8 @@ function sendVerificationEmail(
 
     $ch = curl_init('https://api.resend.com/emails');
     if ($ch === false) {
+        $details['error_type'] = 'curl_init_failed';
+        $details['error_message'] = 'Unable to initialize cURL.';
         error_log('[RESEND] Unable to initialize cURL for verification email.');
         return false;
     }
@@ -549,21 +568,48 @@ function sendVerificationEmail(
         CURLOPT_CONNECTTIMEOUT => 10
     ]);
 
+    $details['attempted'] = true;
     $response = curl_exec($ch);
     $curlError = curl_error($ch);
     $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+    $details['http_code'] = $httpCode;
 
     if ($response === false) {
-        error_log('[RESEND CURL ERROR] ' . $curlError);
+        $details['error_type'] = 'curl_error';
+        $details['error_message'] = $curlError ?: 'Connection failed';
+        error_log(sprintf(
+            '[RESEND VERIFICATION FAILURE] Attempted: YES | Recipient: %s | HTTP: 0 | ErrorType: curl_error | Error: %s',
+            $toEmail,
+            $curlError ?: 'Unknown cURL error'
+        ));
         return false;
     }
+
+    $resJson = json_decode((string) $response, true);
 
     if ($httpCode < 200 || $httpCode >= 300) {
-        error_log('[RESEND ERROR] HTTP ' . $httpCode . ' Response: ' . $response);
+        $errType = is_array($resJson) ? ($resJson['name'] ?? 'http_' . $httpCode) : 'http_' . $httpCode;
+        $errMsg = is_array($resJson) ? ($resJson['message'] ?? 'Provider returned HTTP ' . $httpCode) : 'Provider returned HTTP ' . $httpCode;
+        $details['error_type'] = $errType;
+        $details['error_message'] = $errMsg;
+        error_log(sprintf(
+            '[RESEND VERIFICATION FAILURE] Attempted: YES | Recipient: %s | HTTP: %d | ErrorType: %s | Error: %s',
+            $toEmail,
+            $httpCode,
+            $errType,
+            $errMsg
+        ));
         return false;
     }
 
-    error_log('[RESEND VERIFICATION EMAIL SENT] ' . $toEmail);
+    $msgId = is_array($resJson) ? ($resJson['id'] ?? null) : null;
+    $details['message_id'] = $msgId;
+    error_log(sprintf(
+        '[RESEND VERIFICATION SUCCESS] Attempted: YES | Recipient: %s | HTTP: %d | MessageID: %s',
+        $toEmail,
+        $httpCode,
+        $msgId ?? 'none'
+    ));
     return true;
 }

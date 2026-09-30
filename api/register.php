@@ -245,20 +245,41 @@ try {
         require_once __DIR__ . '/../cron/Mailer.php';
         $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
         $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($rawToken);
+        $mailDetails = [];
         $mailSent = sendVerificationEmail(
             $email,
             (string) ($existingUser['full_name'] ?: $name),
-            $verifyUrl
+            $verifyUrl,
+            $mailDetails
         );
+
+        if (!$mailSent) {
+            $errorMsg = 'An unverified account exists with this email, but we could not deliver the verification email. ';
+            if (!empty($mailDetails['error_message'])) {
+                $errorMsg .= $mailDetails['error_message'] . ' ';
+            }
+            $errorMsg .= 'Please try resending later.';
+
+            registerResponse(
+                [
+                    'ok' => false,
+                    'requires_verification' => true,
+                    'mail_sent' => false,
+                    'email' => $email,
+                    'error' => trim($errorMsg)
+                ],
+                502
+            );
+        }
 
         registerResponse(
             [
                 'ok' => true,
                 'requires_verification' => true,
+                'mail_sent' => true,
                 'message' =>
                     'An unverified account already exists with this email. A fresh verification link has been sent to your inbox.',
-                'email' => $email,
-                'mail_sent' => $mailSent
+                'email' => $email
             ],
             200
         );
@@ -306,8 +327,24 @@ try {
     require_once __DIR__ . '/../cron/Mailer.php';
     $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
     $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($rawToken);
-    $mailSent = sendVerificationEmail($email, $name, $verifyUrl);
+    $mailDetails = [];
+    $mailSent = sendVerificationEmail($email, $name, $verifyUrl, $mailDetails);
 
+    if (!$mailSent) {
+        $errorMsg = 'Account created, but we could not deliver your verification email. ';
+        if (!empty($mailDetails['error_message'])) {
+            $errorMsg .= $mailDetails['error_message'] . ' ';
+        }
+        $errorMsg .= 'Your account remains unverified. Please try resending the verification email.';
+
+        registerResponse([
+            'ok' => false,
+            'requires_verification' => true,
+            'mail_sent' => false,
+            'email' => $email,
+            'error' => trim($errorMsg)
+        ], 502);
+    }
 
     // ========================================================
     // SUCCESS (VERIFICATION PENDING - NEVER EXPOSES TOKENS/URLS)
@@ -316,10 +353,10 @@ try {
     registerResponse([
         'ok' => true,
         'requires_verification' => true,
+        'mail_sent' => true,
         'message' =>
             'Account created! Please check your email to verify your account before signing in.',
-        'email' => $email,
-        'mail_sent' => $mailSent
+        'email' => $email
     ], 200);
 
 

@@ -287,18 +287,19 @@ async function triggerResendVerification(btnElement, statusElement) {
     });
     const data = await getJsonResponse(res);
 
-    if (data.ok) {
+    if (res.ok && data.ok && data.mail_sent !== false) {
       if (statusElement) {
         statusElement.textContent = data.message || 'Verification link sent! Check your inbox.';
         statusElement.className = 'text-xs text-emerald-700 dark:text-emerald-300 font-semibold';
       }
       showSuccess(data.message || 'Verification link sent! Check your inbox.');
     } else {
+      const errText = data.error || 'Could not send verification email.';
       if (statusElement) {
-        statusElement.textContent = data.error || 'Could not send verification email.';
-        statusElement.className = 'text-xs text-red-600 dark:text-red-400';
+        statusElement.textContent = errText;
+        statusElement.className = 'text-xs text-red-600 dark:text-red-400 font-semibold';
       }
-      showError(data.error || 'Could not send verification email.');
+      showError(errText);
     }
   } catch (err) {
     showError(err.message || 'Unable to connect to server.');
@@ -414,7 +415,7 @@ if (registerForm) {
 
       const data = await getJsonResponse(response);
 
-      if (data.requires_verification || (response.ok && data.ok && !data.redirect)) {
+      if (response.ok && data.ok && data.mail_sent !== false && (data.requires_verification || !data.redirect)) {
         showRegistrationPendingState(data.email || email);
         return;
       }
