@@ -8,6 +8,8 @@ requirePageLogin();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Settings — Study Planner</title>
+<meta name="csrf-token" content="<?= htmlspecialchars(csrfToken(), ENT_QUOTES) ?>">
+<script>window.CSRF_TOKEN = <?= json_encode(csrfToken()) ?>;</script>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>

@@ -235,6 +235,8 @@
 
         return (
             window.CSRF_TOKEN ||
+            document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+            (window.CURRENT_USER && window.CURRENT_USER.csrf_token) ||
             ''
         );
 

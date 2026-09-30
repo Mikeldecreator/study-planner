@@ -6004,6 +6004,24 @@ function initializeTasksPage() {
 
 window.addEventListener('work-item-updated', e => { if (e.detail?.type === 'task') loadTasks(); });
 
+function applyInitialUrlParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const searchParam = (urlParams.get('search') || urlParams.get('q') || '').trim();
+  if (searchParam) {
+    const gSearch = document.getElementById('global-search');
+    const mSearch = document.getElementById('task-search');
+    const sSearch = document.getElementById('filter-search-side');
+    if (gSearch && !gSearch.value) gSearch.value = searchParam;
+    if (mSearch && !mSearch.value) mSearch.value = searchParam;
+    if (sSearch && !sSearch.value) sSearch.value = searchParam;
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', applyInitialUrlParams);
+} else {
+  applyInitialUrlParams();
+}
+
 window.APP_READY.then(
   async me => {
 
