@@ -1410,7 +1410,7 @@
     ===================================================== */
 
     async function savePreference(data) {
-
+        const token = csrfToken();
         return fetchJson(
             `${API}/settings.php`,
             {
@@ -1418,7 +1418,9 @@
 
                 headers: {
                     'Content-Type':
-                        'application/json'
+                        'application/json',
+                    'X-CSRF-Token':
+                        token
                 },
 
                 body:
@@ -1427,7 +1429,7 @@
                         ...data,
 
                         csrf_token:
-                            csrfToken()
+                            token
 
                     })
             }
@@ -3222,6 +3224,14 @@ if (editTaglineButton) {
 
             }
 
+            try {
+                const settingsData = await fetchJson(`${API}/settings.php`);
+                if (settingsData && settingsData.user) {
+                    window.CURRENT_USER = Object.assign(window.CURRENT_USER || {}, settingsData.user);
+                }
+            } catch (err) {
+                console.warn('Could not preload fresh settings:', err);
+            }
 
             const user =
                 window.CURRENT_USER;

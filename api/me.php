@@ -86,6 +86,9 @@ echo json_encode([
     'preferred_study_days' =>
         $row['preferred_study_days'] ?? '1,2,3,4,5',
 
+    'notification_preferences' =>
+        $row['notification_preferences'] ?? '{}',
+
     'onboarding_completed' =>
         !empty($row['onboarding_completed']),
 
