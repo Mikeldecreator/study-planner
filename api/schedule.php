@@ -137,9 +137,13 @@ switch ($method) {
             exit;
         }
 
+        $eventDate = !empty($body['event_date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$body['event_date'])
+            ? (string)$body['event_date']
+            : null;
+
         $stmt = $db->prepare(
-            'INSERT INTO schedule_events (user_id, course_id, task_id, title, event_type, day_of_week, start_time, end_time)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO schedule_events (user_id, course_id, task_id, title, event_type, day_of_week, start_time, end_time, source, event_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'manual\', ?)'
         );
         $stmt->execute([
             $userId,
@@ -150,6 +154,7 @@ switch ($method) {
             (int) $body['day_of_week'],
             $body['start_time'],
             $body['end_time'],
+            $eventDate,
         ]);
         $newSchedId = (int) $db->lastInsertId();
         http_response_code(201);
@@ -162,7 +167,9 @@ switch ($method) {
                 'title' => $title,
                 'day_of_week' => (int) $body['day_of_week'],
                 'start_time' => $body['start_time'],
-                'end_time' => $body['end_time']
+                'end_time' => $body['end_time'],
+                'source' => 'manual',
+                'event_date' => $eventDate,
             ]
         ]);
         break;

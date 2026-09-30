@@ -1730,10 +1730,9 @@ function eventBlockHtml(
 
                 <div class="min-w-0">
 
-                    <div class="font-bold truncate">
-                        ${escapeHtml(
-                            ev.title
-                        )}
+                    <div class="font-bold truncate flex items-center gap-1">
+                        <span class="truncate">${escapeHtml(ev.title)}</span>
+                        ${ev.source === 'scheduler' ? `<span class="shrink-0 px-1 py-0.5 rounded bg-white/25 text-white font-extrabold text-[8px] uppercase tracking-wider">Auto</span>` : ''}
                     </div>
 
                     <div class="truncate opacity-90 mt-0.5">
@@ -3869,6 +3868,10 @@ async function loadSchedule() {
             stats.time_distribution
         );
 
+        renderFreePeriodsSection(
+            data.free_periods_today,
+            data.recommended_study_plan
+        );
 
         initLucide();
 
@@ -4423,13 +4426,21 @@ function openEditSession(
         );
 
 
+    const focusLink = document.getElementById('focus-session-link');
+    if (focusLink) {
+        if (event.task_id) {
+            focusLink.href = `study.php?task_id=${event.task_id}`;
+            focusLink.classList.remove('hidden');
+        } else {
+            focusLink.classList.add('hidden');
+        }
+    }
+
     modal.classList.remove(
         'hidden'
     );
 
-
     initLucide();
-
 }
 
 
@@ -4766,6 +4777,220 @@ function renderFreePeriodsSection(freePeriods, recommendations) {
                 sessionForm.day_of_week.value = String(new Date().getDay());
             }
         });
+    });
+}
+
+/* =========================================================
+   AUTO-SCHEDULE STUDY ENGINE (FOUNDATION LAYER 2)
+========================================================= */
+
+function initAutoScheduleModal() {
+    const openBtn = document.getElementById('open-auto-schedule');
+    const modal = document.getElementById('auto-schedule-modal');
+    const closeBtn = document.getElementById('close-auto-schedule');
+    const cancelBtn = document.getElementById('cancel-auto-schedule');
+    const confirmBtn = document.getElementById('confirm-auto-schedule-btn');
+    const clearBtn = document.getElementById('clear-auto-schedule-btn');
+    const loadingEl = document.getElementById('auto-schedule-loading');
+    const emptyEl = document.getElementById('auto-schedule-empty');
+    const contentEl = document.getElementById('auto-schedule-content');
+    const sessionListEl = document.getElementById('auto-schedule-session-list');
+    const headlineEl = document.getElementById('auto-schedule-summary-headline');
+    const subEl = document.getElementById('auto-schedule-summary-sub');
+    const hoursEl = document.getElementById('auto-schedule-total-hours');
+
+    if (!modal) return;
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        loadAutoSchedulePreview();
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    openBtn?.addEventListener('click', openModal);
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    async function loadAutoSchedulePreview() {
+        loadingEl?.classList.remove('hidden');
+        emptyEl?.classList.add('hidden');
+        contentEl?.classList.add('hidden');
+        if (confirmBtn) confirmBtn.disabled = true;
+
+        try {
+            const res = await fetch(`${API}/schedule-generate.php?days=7`, {
+                cache: 'no-store'
+            });
+            const data = await res.json();
+            loadingEl?.classList.add('hidden');
+
+            if (!data.ok || !data.plan) {
+                emptyEl?.classList.remove('hidden');
+                const tEl = document.getElementById('auto-schedule-empty-title');
+                const dEl = document.getElementById('auto-schedule-empty-desc');
+                if (tEl) tEl.textContent = 'Unable to Plan Schedule';
+                if (dEl) dEl.textContent = data.error || 'Could not analyze your academic tasks.';
+                initLucide();
+                return;
+            }
+
+            const plan = data.plan;
+            if (plan.status === 'no_tasks') {
+                emptyEl?.classList.remove('hidden');
+                const tEl = document.getElementById('auto-schedule-empty-title');
+                const dEl = document.getElementById('auto-schedule-empty-desc');
+                if (tEl) tEl.textContent = 'No Pending Tasks';
+                if (dEl) dEl.textContent = plan.message || 'You currently have no incomplete coursework or tasks to schedule.';
+                initLucide();
+                return;
+            }
+
+            if (plan.status === 'no_availability' || !plan.sessions || plan.sessions.length === 0) {
+                emptyEl?.classList.remove('hidden');
+                const tEl = document.getElementById('auto-schedule-empty-title');
+                const dEl = document.getElementById('auto-schedule-empty-desc');
+                if (tEl) tEl.textContent = 'No Available Windows';
+                if (dEl) dEl.textContent = plan.message || 'No free study windows (>= 30 mins) found in your timetable.';
+                initLucide();
+                return;
+            }
+
+            // Populate content
+            contentEl?.classList.remove('hidden');
+            if (confirmBtn) confirmBtn.disabled = false;
+
+            if (headlineEl) {
+                headlineEl.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i> <span>Ready to Schedule (${plan.total_sessions} Sessions)</span>`;
+            }
+            if (subEl) subEl.textContent = plan.summary;
+            if (hoursEl) hoursEl.textContent = `${plan.total_hours}h Study Total`;
+
+            let html = '';
+            plan.sessions.forEach((s) => {
+                const courseCode = s.course_code ? `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 mr-1.5">${escapeHtml(s.course_code)}</span>` : '';
+                html += `
+                    <div class="p-3 rounded-xl border border-gray-200/80 dark:border-white/10 bg-white/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i> ${escapeHtml(s.date_label || s.event_date)}
+                                </span>
+                                <span class="text-gray-300 dark:text-gray-600">·</span>
+                                <span class="text-[11px] text-gray-500 dark:text-gray-400 font-mono">
+                                    ${escapeHtml(s.start_label || s.start_time)} – ${escapeHtml(s.end_label || s.end_time)} (${escapeHtml(s.duration_minutes)}m)
+                                </span>
+                            </div>
+                            <div class="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                                ${courseCode}${escapeHtml(s.task_title || s.title)}
+                            </div>
+                            ${s.reason ? `<div class="text-[10px] text-gray-500 dark:text-gray-400 mt-1 italic">${escapeHtml(s.reason)}</div>` : ''}
+                        </div>
+                        <div class="shrink-0 flex items-center gap-2">
+                            <span class="text-[10px] font-semibold px-2 py-1 rounded-md bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300">
+                                ${escapeHtml(s.duration_hours)} hrs
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (sessionListEl) sessionListEl.innerHTML = html;
+            initLucide();
+
+        } catch (err) {
+            console.error('Auto schedule preview error:', err);
+            loadingEl?.classList.add('hidden');
+            emptyEl?.classList.remove('hidden');
+            const tEl = document.getElementById('auto-schedule-empty-title');
+            const dEl = document.getElementById('auto-schedule-empty-desc');
+            if (tEl) tEl.textContent = 'Error Loading Plan';
+            if (dEl) dEl.textContent = 'A network or server error occurred while calculating your study plan.';
+            initLucide();
+        }
+    }
+
+    confirmBtn?.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Applying Plan...`;
+        initLucide();
+
+        try {
+            const res = await fetch(`${API}/schedule-generate.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'apply',
+                    days: 7,
+                    csrf_token: window.CSRF_TOKEN
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                if (window.showToast) window.showToast(data.message || 'Automated study plan applied!', 'success');
+                closeModal();
+                await loadSchedule();
+            } else {
+                if (window.showToast) window.showToast(data.error || 'Failed to apply plan.', 'error');
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = `<i data-lucide="calendar-plus" class="w-4 h-4"></i> Apply Study Plan`;
+                initLucide();
+            }
+        } catch (err) {
+            console.error('Apply auto schedule error:', err);
+            if (window.showToast) window.showToast('Could not apply study plan.', 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<i data-lucide="calendar-plus" class="w-4 h-4"></i> Apply Study Plan`;
+            initLucide();
+        }
+    });
+
+    clearBtn?.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to clear all automated study sessions? Your manual classes and lectures will not be touched.')) {
+            return;
+        }
+
+        clearBtn.disabled = true;
+        clearBtn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Clearing...`;
+        initLucide();
+
+        try {
+            const res = await fetch(`${API}/schedule-generate.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'clear',
+                    csrf_token: window.CSRF_TOKEN
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                if (window.showToast) window.showToast(data.message || 'Auto-scheduled sessions cleared.', 'info');
+                closeModal();
+                await loadSchedule();
+            } else {
+                if (window.showToast) window.showToast(data.error || 'Failed to clear sessions.', 'error');
+            }
+        } catch (err) {
+            console.error('Clear auto schedule error:', err);
+            if (window.showToast) window.showToast('Could not clear sessions.', 'error');
+        } finally {
+            clearBtn.disabled = false;
+            clearBtn.innerHTML = `<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear Auto-Scheduled`;
+            initLucide();
+        }
     });
 }
 
@@ -5275,14 +5500,17 @@ window.APP_READY.then(
          */
 
         await loadSchedule();
+        initAutoScheduleModal();
         initImportTimetableModal();
         initStudyPreferencesModal();
-
-
 
         initLucide();
 
         const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('auto_schedule') === '1') {
+            document.getElementById('open-auto-schedule')?.click();
+            window.history.replaceState({}, '', 'schedule.php');
+        }
         if (urlParams.get('add') === '1') {
             document.getElementById('open-add-session')?.click();
             const sessionForm = document.getElementById('session-form');

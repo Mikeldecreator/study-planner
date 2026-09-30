@@ -127,6 +127,9 @@ requirePageLogin();
           <p class="text-gray-500 dark:text-gray-400 text-sm mt-1.5 max-w-2xl">Your recurring weekly timetable — see your classes and find free study time.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
+          <button id="open-auto-schedule" type="button" class="focus-ring btn-press bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/60 dark:border-emerald-700/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm">
+            <i data-lucide="sparkles" class="w-4 h-4 text-emerald-700 dark:text-emerald-300"></i> Auto-Schedule Study
+          </button>
           <button id="open-import-timetable" type="button" class="focus-ring btn-press border border-emerald-600/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-xl px-3.5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
             <i data-lucide="upload" class="w-4 h-4"></i> Add My Classes
           </button>
@@ -362,6 +365,9 @@ requirePageLogin();
         <input type="checkbox" name="is_completed" class="w-4 h-4 accent-emerald-600"> Mark as completed
       </label>
       <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
+        <a id="focus-session-link" href="#" class="hidden focus-ring px-3.5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 rounded-lg flex items-center gap-1.5 transition-colors">
+          <i data-lucide="play" class="w-3.5 h-3.5"></i> <span>Focus Now</span>
+        </a>
         <button type="button" id="delete-session" class="hidden mr-auto focus-ring px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">Delete</button>
         <button type="button" id="cancel-session-secondary" class="focus-ring px-4 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg">Cancel</button>
         <button class="focus-ring px-4 py-2.5 text-sm bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors">Save Session</button>
@@ -554,6 +560,82 @@ requirePageLogin();
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Auto-Schedule Study Modal Dialog (Foundation Layer 2) -->
+<div id="auto-schedule-modal" class="hidden fixed inset-0 bg-slate-950/45 dark:bg-black/60 modal-backdrop flex items-center justify-center z-40 p-4" role="dialog" aria-modal="true" aria-labelledby="auto-schedule-modal-title">
+  <div class="modal-scroll bg-white dark:bg-[#141a18] rounded-2xl p-5 sm:p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-white/10 modal-enter">
+    <div class="flex items-start justify-between gap-4 mb-4 pb-3 border-b border-gray-100 dark:border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-lg text-gray-900 dark:text-white" id="auto-schedule-modal-title">Automated Study Plan</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Intelligent, conflict-free study sessions planned around your classes.</p>
+        </div>
+      </div>
+      <button type="button" id="close-auto-schedule" class="focus-ring w-9 h-9 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 flex items-center justify-center" aria-label="Close modal">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="auto-schedule-loading" class="py-12 text-center space-y-3">
+      <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-emerald-600 animate-spin"></i>
+      <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">Analyzing your academic workload & timetable...</p>
+      <p class="text-xs text-gray-400">Finding the best available study windows across the next 7 days.</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="auto-schedule-empty" class="hidden py-8 text-center space-y-3">
+      <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+        <i data-lucide="calendar-x-2" class="w-6 h-6"></i>
+      </div>
+      <h4 class="text-sm font-bold text-gray-900 dark:text-white" id="auto-schedule-empty-title">No Work to Schedule</h4>
+      <p class="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto" id="auto-schedule-empty-desc">You currently have no pending tasks. Add coursework in My Work or create a task to generate study sessions.</p>
+      <div class="pt-2">
+        <a href="tasks.php" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Coursework Task
+        </a>
+      </div>
+    </div>
+
+    <!-- Preview Content -->
+    <div id="auto-schedule-content" class="hidden space-y-4">
+      <!-- Plan Summary Card -->
+      <div class="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/40 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5" id="auto-schedule-summary-headline">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+            <span>Ready to Schedule</span>
+          </div>
+          <p class="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5" id="auto-schedule-summary-sub">5 sessions planned across 4 days (4.5 hours total)</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+          <span class="px-2.5 py-1 rounded-lg bg-white/80 dark:bg-black/40 border border-emerald-200 dark:border-emerald-800/60" id="auto-schedule-total-hours">4.5h Study</span>
+        </div>
+      </div>
+
+      <!-- Scrollable Preview Session List -->
+      <div class="space-y-2 max-h-[340px] overflow-y-auto pr-1" id="auto-schedule-session-list"></div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="flex items-center justify-between pt-4 mt-4 border-t border-gray-100 dark:border-white/10 gap-2">
+      <div>
+        <button type="button" id="clear-auto-schedule-btn" class="text-xs font-semibold text-red-600 dark:text-red-400 hover:underline inline-flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear Auto-Scheduled
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="cancel-auto-schedule" class="focus-ring px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl">Cancel</button>
+        <button type="button" id="confirm-auto-schedule-btn" class="focus-ring px-5 py-2 text-sm bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-1.5">
+          <i data-lucide="calendar-plus" class="w-4 h-4"></i> Apply Study Plan
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 

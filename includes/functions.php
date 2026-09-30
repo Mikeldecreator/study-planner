@@ -3686,6 +3686,9 @@ function getSemesterContext(PDO $db, int $userId): array {
     }
 }
 
+// Foundation Layer 2 — Automated Academic Scheduling Engine
+require_once __DIR__ . '/scheduler.php';
+
 
 
 

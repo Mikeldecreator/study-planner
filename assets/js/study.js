@@ -432,25 +432,52 @@
 
     const list = Array.isArray(sessions) ? sessions : [];
     if (!list.length) {
-      listEl.innerHTML = `<div class="text-xs text-gray-400 py-4 text-center">No scheduled study blocks or classes for today or tomorrow.</div>`;
+      listEl.innerHTML = `
+        <div class="text-xs text-gray-400 py-4 text-center space-y-2">
+          <p>No scheduled study blocks or classes for today or tomorrow.</p>
+          <a href="schedule.php?auto_schedule=1" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px] hover:bg-emerald-100 transition-colors">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> <span>Auto-Schedule Study Plan</span>
+          </a>
+        </div>
+      `;
+      if (window.lucide) window.lucide.createIcons();
       return;
     }
 
     listEl.innerHTML = list.map(ev => {
       const typeLabel = ev.event_type === 'study' ? 'Study Block' : 'Class Lecture';
       const typeBg = ev.event_type === 'study' ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300';
+      const focusBtn = ev.task_id ? `
+        <button type="button" class="btn-focus-session shrink-0 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition-colors flex items-center gap-1" data-task-id="${ev.task_id}">
+          <i data-lucide="play" class="w-3 h-3"></i> <span>Focus</span>
+        </button>
+      ` : '';
+
       return `
-        <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-gray-200/80 dark:border-white/5">
-          <div class="flex items-center gap-3">
-            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${typeBg}">${typeLabel}</span>
-            <div>
-              <div class="text-xs font-bold text-gray-900 dark:text-gray-100">${esc(ev.title)}</div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50/70 dark:bg-white/[0.02] border border-gray-200/80 dark:border-white/5 gap-2">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${typeBg} shrink-0">${typeLabel}</span>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">${esc(ev.title)}</div>
               <div class="text-[10px] text-gray-500 dark:text-gray-400">${esc(ev.course_code || '')} • ${ev.start_time?.slice(0,5)} – ${ev.end_time?.slice(0,5)}</div>
             </div>
           </div>
+          ${focusBtn}
         </div>
       `;
     }).join('');
+
+    listEl.querySelectorAll('.btn-focus-session').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tId = parseInt(btn.dataset.taskId, 10);
+        if (tId) {
+          selectTaskInTimer(tId, true);
+          document.getElementById('focus-timer-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
   }
 
   function populateTaskSelect(tasks) {

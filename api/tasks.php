@@ -1107,6 +1107,17 @@ switch ($method) {
             );
             $stmtNotif->execute([$id, $userId]);
 
+            // Reconcile future scheduler sessions for completed task (Section 19 & Default O)
+            try {
+                $delSched = $db->prepare(
+                    "DELETE FROM schedule_events
+                     WHERE user_id = ? AND task_id = ? AND source = 'scheduler' AND is_completed = 0"
+                );
+                $delSched->execute([$userId, $id]);
+            } catch (Throwable $t) {
+                // Non-blocking
+            }
+
             // Resolve course code for notification
             $notifCourseCode = '';
             $effectiveCid = ownedCourseIdOrNull($db, $body['course_id'] ?? $existing['course_id'], $userId);

@@ -126,11 +126,15 @@ CREATE TABLE IF NOT EXISTS schedule_events (
     is_completed    TINYINT(1) NOT NULL DEFAULT 0,
     progress_percent TINYINT UNSIGNED NOT NULL DEFAULT 0,
     completed_at    DATETIME DEFAULT NULL,
+    source          ENUM('manual','scheduler') NOT NULL DEFAULT 'manual',
+    event_date      DATE DEFAULT NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id)   REFERENCES users(id)   ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
     FOREIGN KEY (task_id)   REFERENCES tasks(id)   ON DELETE SET NULL,
-    INDEX idx_user_day (user_id, day_of_week)
+    INDEX idx_user_day (user_id, day_of_week),
+    INDEX idx_sched_user_source (user_id, source),
+    INDEX idx_sched_user_date (user_id, event_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Work Timers

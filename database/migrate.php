@@ -127,6 +127,8 @@ ensureColumn($db, 'courses', 'completed_at', "DATETIME DEFAULT NULL");
 ensureColumn($db, 'schedule_events', 'is_completed', "TINYINT(1) NOT NULL DEFAULT 0");
 ensureColumn($db, 'schedule_events', 'progress_percent', "TINYINT UNSIGNED NOT NULL DEFAULT 0");
 ensureColumn($db, 'schedule_events', 'completed_at', "DATETIME DEFAULT NULL");
+ensureColumn($db, 'schedule_events', 'source', "ENUM('manual','scheduler') NOT NULL DEFAULT 'manual'");
+ensureColumn($db, 'schedule_events', 'event_date', "DATE DEFAULT NULL");
 
 // Ensure task_work_sessions status ENUM supports focus timer states
 try {
@@ -152,6 +154,8 @@ function ensureIndex(PDO $db, string $table, string $indexName, string $columns)
 
 ensureIndex($db, 'tasks', 'idx_tasks_user_status_due', '`user_id`, `status`, `due_at`');
 ensureIndex($db, 'notifications', 'idx_notif_user_channel_send', '`user_id`, `channel`, `read_at`, `send_at`');
+ensureIndex($db, 'schedule_events', 'idx_sched_user_source', '`user_id`, `source`');
+ensureIndex($db, 'schedule_events', 'idx_sched_user_date', '`user_id`, `event_date`');
 
 // 4. Verify all required application tables exist
 $requiredTables = [
