@@ -3224,35 +3224,23 @@ if (editTaglineButton) {
 
             }
 
+            // Immediately apply cached/boot preferences from APP_READY
+            if (window.CURRENT_USER) {
+                updateProfileDisplay(window.CURRENT_USER);
+                populateProfileForm(window.CURRENT_USER);
+                loadPreferences(window.CURRENT_USER);
+            }
+
             try {
                 const settingsData = await fetchJson(`${API}/settings.php`);
                 if (settingsData && settingsData.user) {
                     window.CURRENT_USER = Object.assign(window.CURRENT_USER || {}, settingsData.user);
+                    updateProfileDisplay(window.CURRENT_USER);
+                    populateProfileForm(window.CURRENT_USER);
+                    loadPreferences(window.CURRENT_USER);
                 }
             } catch (err) {
                 console.warn('Could not preload fresh settings:', err);
-            }
-
-            const user =
-                window.CURRENT_USER;
-
-
-            if (user) {
-
-                updateProfileDisplay(
-                    user
-                );
-
-
-                populateProfileForm(
-                    user
-                );
-
-
-                await loadPreferences(
-                    user
-                );
-
             }
 
 
@@ -3323,6 +3311,7 @@ if (editTaglineButton) {
                 window.lucide.createIcons();
             }
 
+            window.SETTINGS_INITIALIZED = true;
 
         } catch (error) {
 
@@ -3331,6 +3320,8 @@ if (editTaglineButton) {
                 error
             );
 
+        } finally {
+            window.SETTINGS_INITIALIZED = true;
         }
 
     }
