@@ -911,8 +911,8 @@ html.dark #mobile-bottom-nav {
     font-size: 16px !important;
   }
 
-  /* Compact form controls inside tight mobile areas override if intentionally sized */
-  .text-xs input, .text-xs select {
+  /* Compact input controls inside tight mobile areas override if intentionally sized (select remains >= 16px) */
+  .text-xs input {
     font-size: 14px !important;
   }
 }
@@ -1083,6 +1083,80 @@ html.dark #mobile-bottom-nav {
 }
 .mobile-chip-strip::-webkit-scrollbar {
   display: none;
+}
+
+/* =====================================================
+   UNIVERSAL RESPONSIVE SELECT / DROPDOWN CONSTRAINTS
+===================================================== */
+select,
+.filter-control,
+.task-filter-control,
+.form-control,
+.task-form-control {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 768px) {
+  select,
+  .filter-control,
+  .task-filter-control,
+  .form-control,
+  .task-form-control {
+    font-size: 16px !important;
+    min-height: 42px;
+  }
+}
+
+/* =====================================================
+   FIXED STATIC SIDEBAR (TABLET & DESKTOP >= 768px)
+===================================================== */
+@media (min-width: 768px) {
+  #app-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 16rem !important; /* 256px */
+    height: 100vh !important;
+    transform: translateX(0) !important;
+    z-index: 40 !important;
+  }
+
+  .dashboard-main,
+  main {
+    margin-left: 16rem !important; /* 256px */
+    min-width: 0 !important;
+  }
+
+  #sidebar-backdrop {
+    display: none !important;
+  }
+
+  #sidebar-close-btn {
+    display: none !important;
+  }
+
+  #mobile-bottom-nav {
+    display: none !important;
+  }
+
+  #mobile-more-sheet {
+    display: none !important;
+  }
+
+  #hamburger-btn {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-main,
+  main {
+    margin-left: 0 !important;
+  }
 }
 
 

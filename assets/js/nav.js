@@ -6,7 +6,7 @@ window.APP_READY = (async function bootstrap() {
   const sidebarSlot = document.getElementById('sidebar-slot');
 
   if (sidebarSlot) {
-    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v8');
+    const cachedSidebar = sessionStorage.getItem('app_sidebar_html_v9');
     if (cachedSidebar) {
       sidebarSlot.outerHTML = cachedSidebar;
       requestAnimationFrame(() => {
@@ -19,7 +19,7 @@ window.APP_READY = (async function bootstrap() {
         const response = await fetch('../assets/partials/sidebar.html');
         if (response.ok) {
           const html = await response.text();
-          sessionStorage.setItem('app_sidebar_html_v8', html);
+          sessionStorage.setItem('app_sidebar_html_v9', html);
           sidebarSlot.outerHTML = html;
           requestAnimationFrame(() => {
             if (window.lucide) {
@@ -365,7 +365,7 @@ function wireMobileDrawer() {
 
   openBtn?.addEventListener('click', () => {
     // If on a phone with bottom nav, open the convenient More sheet; otherwise open sidebar
-    if (window.innerWidth < 1280 && moreSheet) {
+    if (window.innerWidth < 768 && moreSheet) {
       openMoreSheet();
     } else {
       openSidebar();

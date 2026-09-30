@@ -335,15 +335,15 @@ requirePageLogin();
                   <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                   <input type="search" id="task-search" placeholder="Search tasks..." aria-label="Search tasks" class="task-filter-control pl-10">
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-2">
-                  <select id="filter-course" aria-label="Filter by course" class="task-filter-control min-w-[145px]"><option value="">All Courses</option></select>
-                  <select id="filter-type" aria-label="Filter by type" class="task-filter-control min-w-[120px]">
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-2 min-w-0">
+                  <select id="filter-course" aria-label="Filter by course" class="task-filter-control w-full min-w-0 lg:min-w-[145px]"><option value="">All Courses</option></select>
+                  <select id="filter-type" aria-label="Filter by type" class="task-filter-control w-full min-w-0 lg:min-w-[120px]">
                     <option value="">All Types</option><option value="assignment">Assignment</option><option value="project">Project</option><option value="test">Test</option><option value="exam">Exam</option><option value="research">Research</option><option value="lab_report">Lab Report</option><option value="study_session">Study Session</option><option value="other">Other</option>
                   </select>
-                  <select id="filter-priority" aria-label="Filter by priority" class="task-filter-control min-w-[125px]">
+                  <select id="filter-priority" aria-label="Filter by priority" class="task-filter-control w-full min-w-0 lg:min-w-[125px]">
                     <option value="">All Priorities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
                   </select>
-                  <select id="filter-sort" aria-label="Sort tasks" class="task-filter-control min-w-[130px]">
+                  <select id="filter-sort" aria-label="Sort tasks" class="task-filter-control w-full min-w-0 lg:min-w-[130px]">
                     <option value="smart">Smart Priority</option><option value="due_asc">Due: Soonest</option><option value="due_desc">Due: Furthest</option><option value="priority_desc">Priority: High &rarr; Low</option><option value="progress_asc">Progress: Low &rarr; High</option><option value="progress_desc">Progress: High &rarr; Low</option><option value="title_asc">Title: A &rarr; Z</option>
                   </select>
                 </div>

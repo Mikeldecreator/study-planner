@@ -109,18 +109,18 @@ requirePageLogin();
           </div>
 
           <div class="px-3.5 py-2.5 sm:px-5 sm:py-3 border-b border-[#E7EFED] dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            <div class="relative">
+            <div class="relative min-w-0">
               <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-              <input id="course-search-inline" type="search" placeholder="Search courses..." class="filter-control pl-9">
+              <input id="course-search-inline" type="search" placeholder="Search courses..." class="filter-control pl-9 w-full min-w-0">
             </div>
-            <select id="course-semester" class="filter-control"><option value="">All Semesters</option></select>
-            <select id="course-department" class="filter-control"><option value="">All Departments</option></select>
-            <select id="course-sort" class="filter-control">
+            <div class="min-w-0"><select id="course-semester" class="filter-control w-full min-w-0"><option value="">All Semesters</option></select></div>
+            <div class="min-w-0"><select id="course-department" class="filter-control w-full min-w-0"><option value="">All Departments</option></select></div>
+            <div class="min-w-0"><select id="course-sort" class="filter-control w-full min-w-0">
               <option value="name">Sort by: Name (A-Z)</option>
               <option value="code">Sort by: Code (A-Z)</option>
               <option value="progress">Sort by: Progress</option>
               <option value="credits">Sort by: Credits</option>
-            </select>
+            </select></div>
           </div>
 
           <div id="course-loading" class="px-3.5 py-4 sm:px-5 sm:py-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3">

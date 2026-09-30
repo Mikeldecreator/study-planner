@@ -123,12 +123,21 @@ requirePageLogin();
         }
 
         .hero-pill {
-            min-width: 215px;
-            padding: 11px 16px;
-            border-radius: 16px;
-            background: rgba(255,255,255,.82);
-            border: 1px solid rgba(255,255,255,.95);
-            box-shadow: 0 8px 24px rgba(16, 89, 68, .05);
+            min-width: 0;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: #ffffff;
+            border: 1px solid rgba(0, 143, 82, 0.16);
+            box-shadow: 0 2px 8px rgba(7, 59, 53, 0.05);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+
+        .hero-pill:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(7, 59, 53, 0.09);
+            border-color: rgba(0, 143, 82, 0.35);
         }
 
         .hero-pill-icon {
@@ -602,8 +611,14 @@ requirePageLogin();
         }
 
         html.dark .hero-pill {
-            background: rgba(20,42,36,.82);
-            border-color: rgba(255,255,255,.07);
+            background: rgba(18, 32, 26, 0.95);
+            border-color: rgba(52, 211, 153, 0.22);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+
+        html.dark .hero-pill:hover {
+            border-color: rgba(52, 211, 153, 0.45);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
         }
 
         html.dark .hero-quote {
@@ -673,11 +688,13 @@ requirePageLogin();
             .hero-pill-grid {
                 display: grid !important;
                 grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                gap: 6px !important;
+                gap: 8px !important;
             }
 
             .hero-pill {
                 min-width: 0 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
                 flex: none !important;
                 padding: 8px 10px !important;
                 border-radius: 12px !important;
@@ -975,26 +992,26 @@ requirePageLogin();
                             Keep going! Your consistency today builds your success tomorrow.
                         </p>
 
-                        <div class="mt-3 sm:mt-5 hero-pill-grid grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                        <div class="mt-3 sm:mt-5 hero-pill-grid grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
 
                             <!-- Course -->
-                            <a href="courses.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View my courses">
+                            <a href="courses.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition min-w-0" title="View my courses">
 
-                                <div class="hero-pill-icon">
+                                <div class="hero-pill-icon shrink-0">
                                     <i data-lucide="graduation-cap" class="w-5 h-5"></i>
                                 </div>
 
-                                <div>
+                                <div class="min-w-0 flex-1">
                                     <strong
                                         id="hero-course-name"
-                                        class="block text-sm text-[#073b35] dark:text-white"
+                                        class="block text-sm text-[#073b35] dark:text-white truncate"
                                     >
                                         My Courses
                                     </strong>
 
                                     <small
                                         id="hero-level"
-                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
+                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5 truncate"
                                     >
                                         Manage your courses
                                     </small>
@@ -1004,20 +1021,20 @@ requirePageLogin();
 
 
                             <!-- Next deadline / Due Soon -->
-                            <a href="deadlines.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View due soon">
+                            <a href="deadlines.php" class="hero-pill flex items-center gap-3 hover:opacity-90 transition min-w-0" title="View due soon">
 
-                                <div class="hero-pill-icon">
+                                <div class="hero-pill-icon shrink-0">
                                     <i data-lucide="calendar-check" class="w-5 h-5"></i>
                                 </div>
 
-                                <div>
-                                    <strong class="block text-sm text-[#073b35] dark:text-white">
+                                <div class="min-w-0 flex-1">
+                                    <strong class="block text-sm text-[#073b35] dark:text-white truncate">
                                         Due Soon
                                     </strong>
 
                                     <small
                                         id="hero-next-deadline"
-                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
+                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5 truncate"
                                     >
                                         Stay ahead of your workload
                                     </small>
@@ -1026,20 +1043,20 @@ requirePageLogin();
                             </a>
 
                             <!-- Next class -->
-                            <a href="schedule.php" id="hero-next-class-pill" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View my classes">
+                            <a href="schedule.php" id="hero-next-class-pill" class="hero-pill flex items-center gap-3 hover:opacity-90 transition min-w-0" title="View my classes">
 
-                                <div class="hero-pill-icon">
+                                <div class="hero-pill-icon shrink-0">
                                     <i data-lucide="clock" class="w-5 h-5"></i>
                                 </div>
 
-                                <div>
-                                    <strong class="block text-sm text-[#073b35] dark:text-white">
+                                <div class="min-w-0 flex-1">
+                                    <strong class="block text-sm text-[#073b35] dark:text-white truncate">
                                         Next Class
                                     </strong>
 
                                     <small
                                         id="hero-next-class"
-                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
+                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5 truncate"
                                     >
                                         No classes today
                                     </small>
@@ -1048,23 +1065,23 @@ requirePageLogin();
                             </a>
 
                             <!-- Academic Semester Calendar -->
-                            <a href="courses.php?open_calendar=1" id="hero-semester-pill" class="hero-pill flex items-center gap-3 hover:opacity-90 transition" title="View semester academic calendar">
+                            <a href="courses.php?open_calendar=1" id="hero-semester-pill" class="hero-pill flex items-center gap-3 hover:opacity-90 transition min-w-0" title="View semester academic calendar">
 
-                                <div class="hero-pill-icon">
+                                <div class="hero-pill-icon shrink-0">
                                     <i data-lucide="calendar-range" class="w-5 h-5"></i>
                                 </div>
 
-                                <div>
+                                <div class="min-w-0 flex-1">
                                     <strong
                                         id="hero-semester-week"
-                                        class="block text-sm text-[#073b35] dark:text-white"
+                                        class="block text-sm text-[#073b35] dark:text-white truncate"
                                     >
                                         Semester Calendar
                                     </strong>
 
                                     <small
                                         id="hero-semester-phase"
-                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5"
+                                        class="block text-xs text-[#648099] dark:text-gray-400 mt-0.5 truncate"
                                     >
                                         Set academic dates
                                     </small>
