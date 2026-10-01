@@ -12,7 +12,8 @@ requirePageLogin();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Progress — Study Planner</title>
+<title>Study Planner | Academic Progress</title>
+<?php require_once __DIR__ . '/../includes/head-meta.php'; ?>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>

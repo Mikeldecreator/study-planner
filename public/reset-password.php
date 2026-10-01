@@ -11,7 +11,8 @@ $token = trim($_GET['token'] ?? '');
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Reset Password — Study Planner</title>
+<title>Study Planner | Reset Password</title>
+<?php require_once __DIR__ . '/../includes/head-meta.php'; ?>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../assets/js/theme-init.js"></script>

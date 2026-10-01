@@ -59,7 +59,8 @@ if ($token !== '') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Account Verification — Study Planner</title>
+<title>Study Planner | Verify Email</title>
+<?php require_once __DIR__ . '/../includes/head-meta.php'; ?>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../assets/js/theme-init.js"></script>
 <link rel="stylesheet" href="../assets/css/style.css">

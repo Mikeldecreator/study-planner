@@ -7,7 +7,8 @@ requirePageLogin();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>My Classes — Study Planner</title>
+<title>Study Planner | My Schedule</title>
+<?php require_once __DIR__ . '/../includes/head-meta.php'; ?>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="../assets/js/theme-init.js"></script>

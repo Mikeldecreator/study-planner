@@ -72,11 +72,11 @@ self.addEventListener('push', function (event) {
 
         icon:
             data.icon ||
-            '/study-planner10/study-planner/favicon.ico',
+            '/assets/images/icon-192x192.png',
 
         badge:
             data.badge ||
-            '/study-planner10/study-planner/favicon.ico',
+            '/assets/images/favicon-32x32.png',
 
         tag:
             data.tag ||
@@ -91,7 +91,7 @@ self.addEventListener('push', function (event) {
         data:
             data.data || {
                 url:
-                    '/study-planner10/study-planner/public/notifications.php'
+                    '/notifications.php'
             }
 
     };
@@ -126,7 +126,7 @@ self.addEventListener(
 
         const targetUrl =
             data.url ||
-            '/study-planner10/study-planner/public/notifications.php';
+            '/notifications.php';
 
 
         event.waitUntil(
@@ -143,9 +143,8 @@ self.addEventListener(
                     ) {
 
                         if (
-                            client.url.includes(
-                                '/study-planner10/study-planner/'
-                            )
+                            client.url.includes('/notifications.php') ||
+                            client.url.includes('/dashboard.php')
                         ) {
 
                             return client

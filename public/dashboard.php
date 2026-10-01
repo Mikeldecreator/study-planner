@@ -16,7 +16,8 @@ requirePageLogin();
         content="width=device-width, initial-scale=1"
     >
 
-    <title>Home — Study Planner</title>
+    <title>Study Planner | Dashboard</title>
+    <?php require_once __DIR__ . '/../includes/head-meta.php'; ?>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>

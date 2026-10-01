@@ -7,7 +7,8 @@ requirePageLogin();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Settings — Study Planner</title>
+<title>Study Planner | Settings</title>
+<?php require_once __DIR__ . '/../includes/head-meta.php'; ?>
 <meta name="csrf-token" content="<?= htmlspecialchars(csrfToken(), ENT_QUOTES) ?>">
 <script>window.CSRF_TOKEN = <?= json_encode(csrfToken()) ?>;</script>
 

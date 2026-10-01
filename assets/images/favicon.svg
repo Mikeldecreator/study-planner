@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F2C1E"/>
+      <stop offset="100%" stop-color="#082015"/>
+    </linearGradient>
+    <linearGradient id="mortarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E6F4EA"/>
+    </linearGradient>
+    <linearGradient id="skullGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D1E7DD"/>
+      <stop offset="100%" stop-color="#B2D8C7"/>
+    </linearGradient>
+    <linearGradient id="tasselGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <filter id="subtleShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Base Squircle (Rounded Square with 22% radius for universal app icon & favicon) -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Emerald Rim Border for high contrast in dark browser themes -->
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="#10B981" stroke-opacity="0.3" stroke-width="12"/>
+
+  <!-- Graduation Cap Group with subtle shadow -->
+  <g filter="url(#subtleShadow)">
+    <!-- Skull Cap Base (under the mortarboard diamond) -->
+    <path d="M 156 268 C 156 352 356 352 356 268 C 330 286 182 286 156 268 Z" fill="url(#skullGrad)"/>
+    
+    <!-- Mortarboard Diamond -->
+    <polygon points="256,128 436,220 256,304 76,220" fill="url(#mortarGrad)"/>
+    
+    <!-- Diamond Under-Bevel / Rim for academic depth -->
+    <polyline points="76,220 256,304 436,220 436,228 256,312 76,228" fill="#CBD5E1"/>
+
+    <!-- Center Button -->
+    <ellipse cx="256" cy="220" rx="14" ry="9" fill="#0F2C1E"/>
+    <ellipse cx="256" cy="219" rx="12" ry="7" fill="#F59E0B"/>
+
+    <!-- Tassel Cord: drops from center button across right corner -->
+    <path d="M 256 220 C 340 216 418 238 424 286 L 424 330" fill="none" stroke="url(#tasselGrad)" stroke-width="14" stroke-linecap="round"/>
+    
+    <!-- Tassel Ring / Band -->
+    <rect x="414" y="330" width="20" height="8" rx="3" fill="#D97706"/>
+    
+    <!-- Tassel Brush -->
+    <path d="M 416 338 L 432 338 L 438 388 L 410 388 Z" fill="url(#tasselGrad)"/>
+    <circle cx="424" cy="388" r="14" fill="#F59E0B"/>
+  </g>
+</svg>
