@@ -168,6 +168,9 @@ function switchAuthMode(mode) {
   const regTab = document.getElementById('tab-btn-register');
   const loginForm = document.getElementById('login-form');
   const regForm = document.getElementById('register-form');
+  if (!loginForm && !regForm) {
+    return;
+  }
   const title = document.getElementById('auth-title');
   const subtitle = document.getElementById('auth-subtitle');
   const switchText = document.getElementById('auth-switch-text');
@@ -204,7 +207,7 @@ function switchAuthMode(mode) {
     switchBtn.textContent = isLogin ? "Create account" : "Sign in";
   }
 
-  document.title = isLogin ? 'Sign In • Study Planner' : 'Create Account • Study Planner';
+  document.title = isLogin ? 'Study Planner | Sign In' : 'Study Planner | Create Account';
 
   const url = new URL(window.location);
   if (isLogin) {
@@ -478,14 +481,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Initial mode from URL or body
-  const urlParams = new URLSearchParams(window.location.search);
-  const modeParam = urlParams.get('mode');
-  const bodyMode = document.body.dataset.authMode;
+  if (document.getElementById('login-form') || document.getElementById('register-form')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    const bodyMode = document.body.dataset.authMode;
 
-  if (modeParam === 'register' || bodyMode === 'register') {
-    switchAuthMode('register');
-  } else {
-    switchAuthMode('login');
+    if (modeParam === 'register' || bodyMode === 'register') {
+      switchAuthMode('register');
+    } else {
+      switchAuthMode('login');
+    }
   }
 
   // Pre-fill email if present in URL
