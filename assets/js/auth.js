@@ -481,8 +481,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Initial mode from URL or body
+  const urlParams = new URLSearchParams(window.location.search);
   if (document.getElementById('login-form') || document.getElementById('register-form')) {
-    const urlParams = new URLSearchParams(window.location.search);
     const modeParam = urlParams.get('mode');
     const bodyMode = document.body.dataset.authMode;
 
