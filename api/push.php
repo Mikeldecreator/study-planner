@@ -556,17 +556,27 @@ if (
     $successful = 0;
     $failed = 0;
 
-    foreach ($results as $result) {
+    $deleteExpiredStmt = $pdo->prepare("
+        DELETE FROM browser_push_subscriptions
+        WHERE id = ?
+    ");
 
-        if (
-            !empty($result['success'])
-        ) {
+    foreach ($results as $result) {
+        if (!empty($result['success'])) {
             $successful++;
         } else {
             $failed++;
+            $errorMsg = strtolower((string)($result['error'] ?? ''));
+            if (str_contains($errorMsg, 'http 404') || str_contains($errorMsg, 'http 410')) {
+                foreach ($subscriptions as $sub) {
+                    if ($sub['endpoint'] === ($result['endpoint'] ?? '')) {
+                        $deleteExpiredStmt->execute([(int)$sub['id']]);
+                        break;
+                    }
+                }
+            }
         }
     }
-
 
     jsonResponse(
         $successful > 0,
@@ -586,6 +596,170 @@ if (
                 $results
         ],
         $successful > 0 ? 200 : 500
+    );
+}
+
+
+/* ============================================================
+   CHECK DEADLINES (ON-DEMAND AUDIT & SCHEDULING TRIGGER)
+   ============================================================ */
+
+if (
+    $action === 'check_deadlines' &&
+    ($method === 'GET' || $method === 'POST')
+) {
+    $userStmt = $pdo->prepare("
+        SELECT notifications_enabled, email, full_name
+        FROM users
+        WHERE id = ?
+    ");
+    $userStmt->execute([$userId]);
+    $userRow = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$userRow || empty($userRow['notifications_enabled'])) {
+        jsonResponse(
+            true,
+            [
+                'message' => 'Notifications are disabled for this user.',
+                'tasks_checked' => 0,
+                'push_sent' => 0,
+                'push_skipped' => 0
+            ]
+        );
+    }
+
+    $taskStmt = $pdo->prepare("
+        SELECT
+            t.id AS task_id,
+            t.user_id,
+            t.title,
+            t.due_at,
+            t.status,
+            c.code AS course_code,
+            u.full_name
+        FROM tasks t
+        INNER JOIN users u ON u.id = t.user_id
+        LEFT JOIN courses c ON c.id = t.course_id AND c.user_id = t.user_id
+        WHERE t.user_id = ?
+          AND t.status <> 'completed'
+          AND t.due_at >= NOW()
+        ORDER BY t.due_at ASC, t.id ASC
+    ");
+    $taskStmt->execute([$userId]);
+    $tasks = $taskStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $subStmt = $pdo->prepare("
+        SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
+        FROM browser_push_subscriptions
+        WHERE user_id = ?
+        ORDER BY id DESC
+    ");
+    $subStmt->execute([$userId]);
+    $subscriptions = $subStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $alreadySentStmt = $pdo->prepare("
+        SELECT id FROM push_daily_reminders
+        WHERE user_id = ? AND task_id = ? AND reminder_date = CURDATE()
+        LIMIT 1
+    ");
+
+    $insertDailyStmt = $pdo->prepare("
+        INSERT IGNORE INTO push_daily_reminders (user_id, task_id, reminder_date)
+        VALUES (?, ?, CURDATE())
+    ");
+
+    $deleteExpiredStmt = $pdo->prepare("
+        DELETE FROM browser_push_subscriptions WHERE id = ?
+    ");
+
+    $pushSent = 0;
+    $pushSkipped = 0;
+    $pushExpired = 0;
+    $results = [];
+
+    foreach ($tasks as $task) {
+        $taskId = (int)$task['task_id'];
+
+        $alreadySentStmt->execute([$userId, $taskId]);
+        if ($alreadySentStmt->fetchColumn()) {
+            $pushSkipped++;
+            continue;
+        }
+
+        if (empty($subscriptions)) {
+            $pushSkipped++;
+            continue;
+        }
+
+        $today = new DateTimeImmutable(date('Y-m-d'), new DateTimeZone('Africa/Lagos'));
+        $dueDate = new DateTimeImmutable(date('Y-m-d', strtotime((string)$task['due_at'])), new DateTimeZone('Africa/Lagos'));
+        $daysLeft = (int)$today->diff($dueDate)->format('%r%a');
+
+        if ($daysLeft < 0) {
+            $pushSkipped++;
+            continue;
+        }
+
+        $whenText = $daysLeft === 0 ? 'is due today' : ($daysLeft === 1 ? 'is due tomorrow' : "is due in {$daysLeft} days");
+        $msg = (string)$task['title'] . ' ' . $whenText . '.';
+        if (!empty($task['course_code'])) {
+            $msg .= ' Course: ' . trim((string)$task['course_code']) . '.';
+        }
+
+        $notificationPayload = [
+            'title' => 'Study Planner — Deadline Reminder',
+            'body' => $msg,
+            'tag' => 'deadline-task-' . $taskId,
+            'renotify' => true,
+            'data' => [
+                'url' => APP_URL . '/deadlines.php',
+                'task_id' => $taskId
+            ]
+        ];
+
+        $taskSent = false;
+        foreach ($subscriptions as $sub) {
+            try {
+                $sendRes = webPushSend($sub, $notificationPayload);
+                if (!empty($sendRes['success'])) {
+                    $taskSent = true;
+                    $pushSent++;
+                    $results[] = [
+                        'task_id' => $taskId,
+                        'endpoint' => $sub['endpoint'],
+                        'success' => true
+                    ];
+                }
+            } catch (Throwable $e) {
+                $errLower = strtolower($e->getMessage());
+                if (str_contains($errLower, 'http 404') || str_contains($errLower, 'http 410')) {
+                    $deleteExpiredStmt->execute([(int)$sub['id']]);
+                    $pushExpired++;
+                }
+                $results[] = [
+                    'task_id' => $taskId,
+                    'endpoint' => $sub['endpoint'],
+                    'success' => false,
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+
+        if ($taskSent) {
+            $insertDailyStmt->execute([$userId, $taskId]);
+        }
+    }
+
+    jsonResponse(
+        true,
+        [
+            'message' => "Deadline reminder check completed: {$pushSent} sent, {$pushSkipped} skipped, {$pushExpired} expired removed.",
+            'tasks_checked' => count($tasks),
+            'push_sent' => $pushSent,
+            'push_skipped' => $pushSkipped,
+            'push_expired' => $pushExpired,
+            'results' => $results
+        ]
     );
 }
 
