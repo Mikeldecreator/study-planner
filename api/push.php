@@ -20,7 +20,9 @@ require_once __DIR__ . '/../includes/webpush.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
-if (session_status() === PHP_SESSION_NONE) {
+if (function_exists('initAppSession')) {
+    initAppSession();
+} elseif (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 

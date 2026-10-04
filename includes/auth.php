@@ -2,7 +2,9 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
+if (function_exists('initAppSession')) {
+    initAppSession();
+} elseif (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
@@ -66,14 +68,19 @@ function attemptLogin(string $email, string $password): bool
         return false;
     }
 
-    // Do not log in if email_verified is explicitly 0
-    if (isset($user['email_verified']) && (int) $user['email_verified'] === 0) {
+    // Gate unverified accounts only when email verification is required
+    $requireVerification = defined('REQUIRE_EMAIL_VERIFICATION')
+        ? (bool) REQUIRE_EMAIL_VERIFICATION
+        : false;
+
+    if ($requireVerification && isset($user['email_verified']) && (int) $user['email_verified'] === 0) {
         return false;
     }
 
     session_regenerate_id(true); // prevent session fixation
-    $_SESSION['user_id']   = (int) $user['id'];
-    $_SESSION['user_name'] = $user['full_name'];
+    $_SESSION['user_id']       = (int) $user['id'];
+    $_SESSION['user_name']     = $user['full_name'];
+    $_SESSION['last_activity'] = time();
     ensureUserDataSeeded((int) $user['id']);
     return true;
 }

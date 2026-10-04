@@ -127,6 +127,27 @@ function loginResponse(
 
 
 /* ============================================================
+ * SIMULATE 20-DAY INACTIVITY EXPIRATION (AUDIT / TESTING)
+ * ============================================================ */
+
+if (($_GET['action'] ?? '') === 'simulate_expiry') {
+    if (!empty($_SESSION['user_id'])) {
+        $timeout = defined('AUTH_INACTIVITY_TIMEOUT') ? (int) AUTH_INACTIVITY_TIMEOUT : (20 * 86400);
+        $_SESSION['last_activity'] = time() - ($timeout + 60);
+        loginResponse([
+            'ok' => true,
+            'message' => 'Simulated 20-day inactivity expiration successfully. Next request will require login.'
+        ]);
+    }
+
+    loginResponse([
+        'ok' => false,
+        'error' => 'Not authenticated to simulate expiry.'
+    ], 401);
+}
+
+
+/* ============================================================
  * REQUEST METHOD
  * ============================================================ */
 
@@ -293,8 +314,13 @@ try {
         );
     }
 
-    // Gate unverified accounts
+    // Gate unverified accounts only when email verification is required
+    $requireVerification = defined('REQUIRE_EMAIL_VERIFICATION')
+        ? (bool) REQUIRE_EMAIL_VERIFICATION
+        : false;
+
     if (
+        $requireVerification &&
         isset($user['email_verified']) &&
         (int) $user['email_verified'] === 0
     ) {
@@ -311,9 +337,31 @@ try {
     }
 
     session_regenerate_id(true);
-    $_SESSION['user_id'] = (int) $user['id'];
-    $_SESSION['user_name'] = $user['full_name'];
+    $_SESSION['user_id']       = (int) $user['id'];
+    $_SESSION['user_name']     = $user['full_name'];
+    $_SESSION['last_activity'] = time();
     ensureUserDataSeeded((int) $user['id']);
+
+    // Send persistent cookie header with 20-day expiration
+    $timeout = defined('AUTH_INACTIVITY_TIMEOUT') ? (int) AUTH_INACTIVITY_TIMEOUT : (20 * 86400);
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+    if (!headers_sent()) {
+        setcookie(
+            session_name(),
+            session_id(),
+            [
+                'expires'  => time() + $timeout,
+                'path'     => '/',
+                'domain'   => '',
+                'secure'   => $isSecure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]
+        );
+    }
 
 
     /* ========================================================

@@ -29,6 +29,80 @@ define('AI_TIMEOUT_SECONDS', (int) (getenv('AI_TIMEOUT_SECONDS') ?: 30));
 
 date_default_timezone_set('Africa/Lagos');
 
-if (session_status() === PHP_SESSION_NONE) {
+define('REQUIRE_EMAIL_VERIFICATION', filter_var(getenv('REQUIRE_EMAIL_VERIFICATION') ?: 'false', FILTER_VALIDATE_BOOLEAN));
+define('AUTH_INACTIVITY_TIMEOUT', (int) (getenv('AUTH_INACTIVITY_TIMEOUT') ?: (20 * 86400))); // 20 days = 1,728,000 seconds
+
+function initAppSession(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    $timeout = defined('AUTH_INACTIVITY_TIMEOUT')
+        ? (int) AUTH_INACTIVITY_TIMEOUT
+        : (20 * 86400);
+
+    ini_set('session.gc_maxlifetime', (string) $timeout);
+
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+    session_set_cookie_params([
+        'lifetime' => $timeout,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+
     session_start();
+
+    // Inactivity timeout handling
+    if (!empty($_SESSION['user_id'])) {
+        $now = time();
+        if (isset($_SESSION['last_activity'])) {
+            $inactivity = $now - (int) $_SESSION['last_activity'];
+            if ($inactivity > $timeout) {
+                // Inactivity threshold exceeded (20 days): invalidate session
+                $_SESSION = [];
+                if (ini_get('session.use_cookies') && !headers_sent()) {
+                    $params = session_get_cookie_params();
+                    setcookie(
+                        session_name(),
+                        '',
+                        time() - 42000,
+                        $params['path'],
+                        $params['domain'],
+                        $params['secure'],
+                        $params['httponly']
+                    );
+                }
+                session_destroy();
+                return;
+            }
+        }
+
+        // Active request within the 20-day window: update last_activity
+        $_SESSION['last_activity'] = $now;
+
+        // Refresh the browser's persistent session cookie expiration (sliding 20-day window)
+        if (!headers_sent()) {
+            setcookie(
+                session_name(),
+                session_id(),
+                [
+                    'expires'  => $now + $timeout,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => $isSecure,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]
+            );
+        }
+    }
 }
+
+initAppSession();

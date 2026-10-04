@@ -215,8 +215,12 @@ try {
     $existingUser = $stmt->fetch();
 
     if ($existingUser) {
-        // If already verified, direct to login
-        if (isset($existingUser['email_verified']) && (int) $existingUser['email_verified'] === 1) {
+        $requireVerification = defined('REQUIRE_EMAIL_VERIFICATION')
+            ? (bool) REQUIRE_EMAIL_VERIFICATION
+            : false;
+
+        // If verification is disabled or user is already verified, direct to login
+        if (!$requireVerification || (isset($existingUser['email_verified']) && (int) $existingUser['email_verified'] === 1)) {
             registerResponse(
                 [
                     'ok' => false,
@@ -321,7 +325,70 @@ try {
 
 
     // ========================================================
-    // SEND VERIFICATION EMAIL (CONTAINS RAW TOKEN)
+    // EMAIL VERIFICATION HANDLING (RESPECTS FEATURE FLAG)
+    // ========================================================
+
+    $requireVerification = defined('REQUIRE_EMAIL_VERIFICATION')
+        ? (bool) REQUIRE_EMAIL_VERIFICATION
+        : false;
+
+    $newUserId = (int) ($result['id'] ?? 0);
+
+    if (!$requireVerification) {
+        // PRESENTATION MODE: Immediate Login & Access
+        // Attempt background email delivery non-blockingly if email is enabled
+        if (defined('EMAIL_ENABLED') && EMAIL_ENABLED) {
+            try {
+                require_once __DIR__ . '/../cron/Mailer.php';
+                $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://study-planner-gf2i.onrender.com';
+                $verifyUrl = $baseUrl . '/verify-email.php?token=' . urlencode($rawToken);
+                $mailDetails = [];
+                sendVerificationEmail($email, $name, $verifyUrl, $mailDetails);
+            } catch (Throwable $e) {
+                // Email delivery failure must NOT block registration when verification is not required
+            }
+        }
+
+        // Establish authenticated session with 20-day persistent cookie
+        if ($newUserId > 0) {
+            session_regenerate_id(true);
+            $_SESSION['user_id']       = $newUserId;
+            $_SESSION['user_name']     = $name;
+            $_SESSION['last_activity'] = time();
+            ensureUserDataSeeded($newUserId);
+
+            $timeout = defined('AUTH_INACTIVITY_TIMEOUT') ? (int) AUTH_INACTIVITY_TIMEOUT : (20 * 86400);
+            $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+                || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+            if (!headers_sent()) {
+                setcookie(
+                    session_name(),
+                    session_id(),
+                    [
+                        'expires'  => time() + $timeout,
+                        'path'     => '/',
+                        'domain'   => '',
+                        'secure'   => $isSecure,
+                        'httponly' => true,
+                        'samesite' => 'Lax'
+                    ]
+                );
+            }
+        }
+
+        registerResponse([
+            'ok' => true,
+            'requires_verification' => false,
+            'redirect' => './onboarding.php',
+            'message' => 'Account created successfully! Welcome to Study Planner.',
+            'email' => $email
+        ], 200);
+    }
+
+    // ========================================================
+    // MANDATORY EMAIL VERIFICATION MODE (STRICT / PRODUCTION)
     // ========================================================
 
     require_once __DIR__ . '/../cron/Mailer.php';
