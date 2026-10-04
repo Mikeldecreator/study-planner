@@ -131,6 +131,8 @@ window.APP_READY = (async function bootstrap() {
 
   syncDarkModeUI(me.dark_mode);
 
+  initNotificationPolling();
+
   return me;
 })();
 
@@ -508,6 +510,173 @@ function displayIncomingNotifications(notifications) {
   });
 }
 window.displayIncomingNotifications = displayIncomingNotifications;
+
+/**
+ * Immediate notification dispatch helper for student-initiated API mutations.
+ * Immediately invokes showToast, updates badges, and records popup deduplication
+ * so subsequent polling runs never replay the notification.
+ */
+function dispatchImmediateNotification(notification) {
+  if (!notification || !notification.message) return;
+
+  const notifId = notification.id || null;
+  const eventKey = notification.event_key || null;
+  const seenIdKey = notifId ? ('seen_popup_' + notifId) : null;
+  const seenEventKey = eventKey ? ('seen_popup_key_' + eventKey) : null;
+  const localKey = 'notif_popped_' + (eventKey || ('id_' + notifId));
+
+  // Mark seen immediately across session and local storage so polling never duplicates it
+  if (seenIdKey) sessionStorage.setItem(seenIdKey, '1');
+  if (seenEventKey) sessionStorage.setItem(seenEventKey, '1');
+  localStorage.setItem(localKey, String(Date.now()));
+
+  // Trigger immediate toast
+  if (typeof window.showToast === 'function') {
+    let priority = 'important';
+    if (notification.category === 'overdue' || notification.tone === 'urgent') {
+      priority = 'high';
+    } else if (notification.category === 'completion' || notification.tone === 'success') {
+      priority = 'normal';
+    }
+
+    window.showToast({
+      title: notification.title || 'Notification',
+      message: notification.message || '',
+      type: notification.category || notification.tone || 'info',
+      priority: priority,
+      action: notification.action_label && notification.action_url ? {
+        label: notification.action_label,
+        url: notification.action_url
+      } : null,
+      notifId: notifId,
+      eventKey: eventKey
+    });
+  }
+
+  // Update badges immediately
+  if (typeof notification.unread_count === 'number') {
+    updateBellBadges(notification.unread_count);
+  } else {
+    const currentBadge = document.getElementById('bell-badge');
+    const currentCount = currentBadge && !currentBadge.classList.contains('hidden')
+      ? (parseInt(currentBadge.textContent, 10) || 0)
+      : 0;
+    updateBellBadges(currentCount + 1);
+  }
+
+  // If notifications page or dropdown is active, refresh the feed
+  if (typeof window.refreshNotifications === 'function') {
+    const feedEl = document.getElementById('notification-feed');
+    const bellDropdown = document.getElementById('bell-dropdown');
+    const isDropdownOpen = bellDropdown && !bellDropdown.classList.contains('hidden');
+    if (feedEl || isDropdownOpen) {
+      window.refreshNotifications();
+    }
+  }
+}
+window.dispatchImmediateNotification = dispatchImmediateNotification;
+
+/**
+ * Lightweight real-time polling fallback (5-10s interval when visible).
+ * Does not touch user last active timestamp.
+ */
+function initNotificationPolling() {
+  if (window.__notificationPollTimer) {
+    return;
+  }
+
+  const curPath = window.location.pathname.toLowerCase();
+  const isPublicPage = curPath.endsWith('login.php') ||
+                       curPath.endsWith('register.php') ||
+                       curPath.endsWith('index.php') ||
+                       curPath.endsWith('forgot-password.php') ||
+                       curPath.endsWith('reset-password.php') ||
+                       curPath.endsWith('verify-email.php');
+  if (isPublicPage) {
+    return;
+  }
+
+  let isPolling = false;
+  let lastUnreadCount = null;
+  let lastPollTime = Date.now();
+
+  async function poll() {
+    if (isPolling) return;
+    isPolling = true;
+    lastPollTime = Date.now();
+
+    try {
+      const res = await fetch(`${API}/notification_poll.php`, {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+
+      if (res.status === 401) {
+        if (window.__notificationPollTimer) {
+          clearTimeout(window.__notificationPollTimer);
+          window.__notificationPollTimer = null;
+        }
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.unread_count === 'number') {
+          const newCount = data.unread_count;
+          updateBellBadges(newCount);
+
+          if (lastUnreadCount !== null && newCount !== lastUnreadCount) {
+            if (typeof window.refreshNotifications === 'function') {
+              const feedEl = document.getElementById('notification-feed');
+              const bellDropdown = document.getElementById('bell-dropdown');
+              const isDropdownOpen = bellDropdown && !bellDropdown.classList.contains('hidden');
+              if (feedEl || isDropdownOpen) {
+                window.refreshNotifications();
+              }
+            }
+          }
+          lastUnreadCount = newCount;
+
+          if (Array.isArray(data.latest_notifications) && data.latest_notifications.length > 0) {
+            displayIncomingNotifications(data.latest_notifications);
+          }
+        }
+      }
+    } catch (e) {
+      // Non-blocking network fallback
+    } finally {
+      isPolling = false;
+      scheduleNext();
+    }
+  }
+
+  function scheduleNext() {
+    if (window.__notificationPollTimer) {
+      clearTimeout(window.__notificationPollTimer);
+    }
+    // 8 seconds when page is visible, 60 seconds when backgrounded
+    const delay = document.visibilityState === 'visible' ? 8000 : 60000;
+    window.__notificationPollTimer = setTimeout(poll, delay);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const elapsed = Date.now() - lastPollTime;
+      if (elapsed >= 8000) {
+        poll();
+      } else {
+        scheduleNext();
+      }
+    } else {
+      scheduleNext();
+    }
+  });
+
+  // Start polling cycle
+  scheduleNext();
+}
+window.initNotificationPolling = initNotificationPolling;
 
 /**
  * Polished, non-blocking in-app notification popup / toast engine.

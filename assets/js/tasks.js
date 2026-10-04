@@ -4335,7 +4335,7 @@ function bindModal() {
 
       try {
 
-        await apiJson(
+        const savedRes = await apiJson(
           `${API}/tasks.php`,
           {
 
@@ -4359,24 +4359,26 @@ function bindModal() {
 
         closeModal();
 
-
-        const taskName = payload.title ? payload.title.trim() : 'Work';
-        const course = (Array.isArray(COURSES_CACHE) ? COURSES_CACHE : []).find(c => String(c.id) === String(payload.course_id));
-        const courseLabel = course ? (course.code || course.name) : 'your work';
-        if (isEdit) {
-          toast({
-            title: 'Work edited',
-            message: `"${taskName}" updated.`,
-            type: 'success'
-          });
+        if (savedRes && savedRes.notification && typeof window.dispatchImmediateNotification === 'function') {
+          window.dispatchImmediateNotification(savedRes.notification);
         } else {
-          toast({
-            title: 'Work added',
-            message: `"${taskName}" was added to ${courseLabel}.`,
-            type: 'success'
-          });
+          const taskName = payload.title ? payload.title.trim() : 'Work';
+          const course = (Array.isArray(COURSES_CACHE) ? COURSES_CACHE : []).find(c => String(c.id) === String(payload.course_id));
+          const courseLabel = course ? (course.code || course.name) : 'your work';
+          if (isEdit) {
+            toast({
+              title: 'Work edited',
+              message: `"${taskName}" updated.`,
+              type: 'success'
+            });
+          } else {
+            toast({
+              title: 'Work added',
+              message: `"${taskName}" was added to ${courseLabel}.`,
+              type: 'success'
+            });
+          }
         }
-
 
         await loadTasks();
 
@@ -5147,7 +5149,7 @@ async function executeTaskCompletion(taskId) {
       if (select) select.disabled = false;
     }
 
-    await apiJson(`${API}/tasks.php`, {
+    const compRes = await apiJson(`${API}/tasks.php`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -5158,14 +5160,20 @@ async function executeTaskCompletion(taskId) {
       })
     });
 
-    const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
-    const taskName = matched?.title ? `"${matched.title}"` : 'Work';
-    toast({
-      title: 'Work completed',
-      message: `${taskName} has been marked complete.`,
-      type: 'success'
-    });
     closeCompleteTaskConfirmModal();
+
+    if (compRes && compRes.notification && typeof window.dispatchImmediateNotification === 'function') {
+      window.dispatchImmediateNotification(compRes.notification);
+    } else {
+      const matched = (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
+      const taskName = matched?.title ? `"${matched.title}"` : 'Work';
+      toast({
+        title: 'Work completed',
+        message: `${taskName} has been marked complete.`,
+        type: 'success'
+      });
+    }
+
     await loadTasks();
   } catch (err) {
     console.error('Task completion error:', err);
@@ -5183,7 +5191,7 @@ async function handleUndoComplete(taskId) {
       || (Array.isArray(ALL_TASKS) ? ALL_TASKS : []).find(t => String(t.id) === String(taskId));
     const taskName = matched?.title ? `"${matched.title}"` : 'Work';
 
-    await apiJson(`${API}/tasks.php`, {
+    const undoRes = await apiJson(`${API}/tasks.php`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -5192,11 +5200,17 @@ async function handleUndoComplete(taskId) {
         csrf_token: window.CSRF_TOKEN || ''
       })
     });
-    toast({
-      title: 'Work reopened',
-      message: `${taskName} is back in your active work.`,
-      type: 'info'
-    });
+
+    if (undoRes && undoRes.notification && typeof window.dispatchImmediateNotification === 'function') {
+      window.dispatchImmediateNotification(undoRes.notification);
+    } else {
+      toast({
+        title: 'Work reopened',
+        message: `${taskName} is back in your active work.`,
+        type: 'info'
+      });
+    }
+
     await loadTasks();
   } catch (err) {
     console.error('Task undo error:', err);

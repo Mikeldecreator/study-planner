@@ -161,6 +161,14 @@ try {
 }
 ensureColumn($db, 'task_work_sessions', 'ended_at', "DATETIME DEFAULT NULL AFTER `started_at`");
 
+// Ensure notifications columns
+ensureColumn($db, 'notifications', 'event_key', "VARCHAR(100) DEFAULT NULL AFTER channel");
+ensureColumn($db, 'notifications', 'push_status', "VARCHAR(30) DEFAULT NULL AFTER sent_at");
+
+// Ensure users columns
+ensureColumn($db, 'users', 'last_active_at', "TIMESTAMP NULL DEFAULT NULL AFTER updated_at");
+ensureColumn($db, 'users', 'notification_preferences', "TEXT NULL AFTER notifications_enabled");
+
 // 3. Idempotent Index Additions
 function ensureIndex(PDO $db, string $table, string $indexName, string $columns): void {
     try {
@@ -177,6 +185,8 @@ function ensureIndex(PDO $db, string $table, string $indexName, string $columns)
 ensureIndex($db, 'tasks', 'idx_tasks_user_status_due', '`user_id`, `status`, `due_at`');
 ensureIndex($db, 'users', 'idx_users_email_token', '`email_verification_token`');
 ensureIndex($db, 'notifications', 'idx_notif_user_channel_send', '`user_id`, `channel`, `read_at`, `send_at`');
+ensureIndex($db, 'notifications', 'idx_user_event_key', '`user_id`, `event_key`');
+ensureIndex($db, 'notifications', 'idx_notif_push_status', '`user_id`, `push_status`, `send_at`');
 ensureIndex($db, 'schedule_events', 'idx_sched_user_source', '`user_id`, `source`');
 ensureIndex($db, 'schedule_events', 'idx_sched_user_date', '`user_id`, `event_date`');
 

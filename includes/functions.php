@@ -1547,6 +1547,11 @@ function ensureNotificationSchema(PDO $db): void
             $db->exec("ALTER TABLE notifications ADD COLUMN event_key VARCHAR(100) NULL AFTER channel");
             $db->exec("ALTER TABLE notifications ADD INDEX idx_user_event_key (user_id, event_key)");
         }
+        $pushCols = $db->query("SHOW COLUMNS FROM notifications LIKE 'push_status'")->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($pushCols)) {
+            $db->exec("ALTER TABLE notifications ADD COLUMN push_status VARCHAR(30) NULL DEFAULT NULL AFTER sent_at");
+            $db->exec("ALTER TABLE notifications ADD INDEX idx_notif_push_status (user_id, push_status, send_at)");
+        }
         $userCols = $db->query("SHOW COLUMNS FROM users LIKE 'notification_preferences'")->fetchAll(PDO::FETCH_ASSOC);
         if (empty($userCols)) {
             $db->exec("ALTER TABLE users ADD COLUMN notification_preferences TEXT NULL AFTER notifications_enabled");
@@ -1554,6 +1559,29 @@ function ensureNotificationSchema(PDO $db): void
         $ensured = true;
     } catch (Throwable $e) {
         $ensured = true;
+    }
+}
+
+/**
+ * Fast helper to query current unread in-app notification count for a user.
+ */
+function getUnreadNotificationCount(PDO $db, int $userId): int
+{
+    if ($userId <= 0) {
+        return 0;
+    }
+    try {
+        $stmt = $db->prepare("
+            SELECT COUNT(*) FROM notifications
+            WHERE user_id = ?
+              AND channel = 'in_app'
+              AND send_at <= NOW()
+              AND read_at IS NULL
+        ");
+        $stmt->execute([$userId]);
+        return (int) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
     }
 }
 
@@ -2021,8 +2049,8 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
 
         // ============================================================
         // P2 IMPORTANT: TOMORROW'S DEADLINES (BATCHING / DIGEST)
-        // Between 2h and 24h away. If >= 2 tasks, batch into 1 digest.
-        // Tasks > 24h away NEVER generate individual reminders.
+        // Genuine calendar tomorrow. If >= 2 tasks, batch into 1 digest.
+        // Tasks > 2h away on tomorrow's calendar day.
         // ============================================================
         $stmtTomorrow = $db->prepare(
             "SELECT t.id, t.title, t.due_at, c.code AS course_code
@@ -2031,8 +2059,8 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
              WHERE t.user_id = ? 
                AND t.status != 'completed'
                AND t.due_at IS NOT NULL
+               AND DATE(t.due_at) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
                AND t.due_at > DATE_ADD(NOW(), INTERVAL 2 HOUR)
-               AND t.due_at <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
              ORDER BY t.due_at ASC"
         );
         $stmtTomorrow->execute([$userId]);

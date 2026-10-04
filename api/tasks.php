@@ -795,13 +795,51 @@ switch ($method) {
         ]);
 
         $taskId =
-            $db->lastInsertId();
+            (int)$db->lastInsertId();
 
         logActivity(
             $userId,
             "New task added: '{$title}'",
             'info'
         );
+
+        // Immediate authoritative in-app notification for genuine student creation action
+        $notifCourseCode = '';
+        if ($courseId) {
+            $cStmt = $db->prepare('SELECT code FROM courses WHERE id = ? AND user_id = ?');
+            $cStmt->execute([$courseId, $userId]);
+            $cRow = $cStmt->fetch();
+            if (!empty($cRow['code'])) {
+                $notifCourseCode = $cRow['code'];
+            }
+        }
+        $taskLabel = $notifCourseCode !== '' ? "{$notifCourseCode}: '{$title}'" : "'{$title}'";
+        $dueStr = $dueDate->format('M j, g:i A');
+        $eventKey = "task_created_{$taskId}";
+        $notifMsg = "Task {$taskLabel} added (due {$dueStr}).";
+
+        $insNotif = $db->prepare(
+            "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, push_status)
+             VALUES (?, ?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+        );
+        $insNotif->execute([$userId, $taskId, $eventKey, $notifMsg]);
+        $notifId = (int)$db->lastInsertId();
+
+        $unreadCount = getUnreadNotificationCount($db, $userId);
+
+        $notificationData = decorateNotification([
+            'id' => $notifId,
+            'user_id' => $userId,
+            'task_id' => $taskId,
+            'channel' => 'in_app',
+            'event_key' => $eventKey,
+            'message' => $notifMsg,
+            'send_at' => date('Y-m-d H:i:s'),
+            'read_at' => null,
+            'created_at' => date('Y-m-d H:i:s'),
+            'task_title' => $title
+        ]);
+        $notificationData['unread_count'] = $unreadCount;
 
         taskApiJson([
             'ok' => true,
@@ -813,7 +851,8 @@ switch ($method) {
                 'title' => $title,
                 'status' => $status,
                 'due_at' => $dueDate->format('Y-m-d H:i:s')
-            ]
+            ],
+            'notification' => $notificationData
         ], 201);
 
         break;
@@ -1047,6 +1086,8 @@ switch ($method) {
             $userId
         ]);
 
+        $mutatedNotification = null;
+
         if (
             $newStatus ===
             'completed' &&
@@ -1059,7 +1100,7 @@ switch ($method) {
             );
 
             $stmtNotif = $db->prepare(
-                'UPDATE notifications SET read_at = NOW() WHERE task_id = ? AND user_id = ? AND read_at IS NULL'
+                "UPDATE notifications SET read_at = NOW(), push_status = 'resolved' WHERE task_id = ? AND user_id = ? AND read_at IS NULL"
             );
             $stmtNotif->execute([$id, $userId]);
 
@@ -1096,13 +1137,31 @@ switch ($method) {
 
             $stmtCheck = $db->prepare('SELECT id FROM notifications WHERE user_id = ? AND event_key = ? LIMIT 1');
             $stmtCheck->execute([$userId, $eventKey]);
-            if (!$stmtCheck->fetch()) {
+            $existingNotifId = $stmtCheck->fetchColumn();
+            if (!$existingNotifId) {
                 $stmtIns = $db->prepare(
-                    "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at)
-                     VALUES (?, ?, 'in_app', ?, ?, NOW())"
+                    "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, push_status)
+                     VALUES (?, ?, 'in_app', ?, ?, NOW(), 'in_app_only')"
                 );
                 $stmtIns->execute([$userId, $id, $eventKey, $notifMsg]);
+                $notifId = (int)$db->lastInsertId();
+            } else {
+                $notifId = (int)$existingNotifId;
             }
+
+            $mutatedNotification = decorateNotification([
+                'id' => $notifId,
+                'user_id' => $userId,
+                'task_id' => $id,
+                'channel' => 'in_app',
+                'event_key' => $eventKey,
+                'message' => $notifMsg,
+                'send_at' => date('Y-m-d H:i:s'),
+                'read_at' => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'task_title' => $existing['title']
+            ]);
+            $mutatedNotification['unread_count'] = getUnreadNotificationCount($db, $userId);
         } elseif ($newStatus !== 'completed' && $wasAlreadyCompleted) {
             logActivity(
                 $userId,
@@ -1131,13 +1190,28 @@ switch ($method) {
             $notifMsg = "Your {$taskLabel} has been moved back to active work.";
 
             $stmtIns = $db->prepare(
-                "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at)
-                 VALUES (?, ?, 'in_app', ?, ?, NOW())"
+                "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, push_status)
+                 VALUES (?, ?, 'in_app', ?, ?, NOW(), 'in_app_only')"
             );
             $stmtIns->execute([$userId, $id, $eventKey, $notifMsg]);
+            $notifId = (int)$db->lastInsertId();
+
+            $mutatedNotification = decorateNotification([
+                'id' => $notifId,
+                'user_id' => $userId,
+                'task_id' => $id,
+                'channel' => 'in_app',
+                'event_key' => $eventKey,
+                'message' => $notifMsg,
+                'send_at' => date('Y-m-d H:i:s'),
+                'read_at' => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'task_title' => $existing['title']
+            ]);
+            $mutatedNotification['unread_count'] = getUnreadNotificationCount($db, $userId);
         }
 
-        taskApiJson([
+        $resPayload = [
             'ok' => true,
             'id' => $id,
             'course_id' => $courseId,
@@ -1148,7 +1222,12 @@ switch ($method) {
                 'status' => $newStatus,
                 'progress_percent' => $progress
             ]
-        ], 200);
+        ];
+        if ($mutatedNotification !== null) {
+            $resPayload['notification'] = $mutatedNotification;
+        }
+
+        taskApiJson($resPayload, 200);
 
         break;
 

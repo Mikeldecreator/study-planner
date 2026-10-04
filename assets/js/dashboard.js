@@ -2846,11 +2846,15 @@ function bindAddTask() {
                 closeAddTaskModal();
                 form.reset();
 
-                dashboardShowToast({
-                    title: 'Work added',
-                    message: `"${taskName}" was added to ${courseTarget}.`,
-                    type: 'success'
-                });
+                if (result && result.notification && typeof window.dispatchImmediateNotification === 'function') {
+                    window.dispatchImmediateNotification(result.notification);
+                } else {
+                    dashboardShowToast({
+                        title: 'Work added',
+                        message: `"${taskName}" was added to ${courseTarget}.`,
+                        type: 'success'
+                    });
+                }
 
 
                 /*

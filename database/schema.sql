@@ -128,13 +128,15 @@ CREATE TABLE notifications (
     message     VARCHAR(255) NOT NULL,
     send_at     DATETIME NOT NULL,          -- when it SHOULD fire
     sent_at     DATETIME DEFAULT NULL,      -- when the cron actually sent it
+    push_status VARCHAR(30) DEFAULT NULL,   -- 'sent' | 'skipped_active' | 'no_subscription' | 'in_app_only' | 'resolved' | 'expired'
     read_at     DATETIME DEFAULT NULL,      -- when the user opened/read it (in-app only)
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     INDEX idx_user_unread (user_id, read_at),
     INDEX idx_pending_send (sent_at, send_at),
-    INDEX idx_user_event_key (user_id, event_key)
+    INDEX idx_user_event_key (user_id, event_key),
+    INDEX idx_notif_push_status (user_id, push_status, send_at)
 ) ENGINE=InnoDB;
 
 -- ============================================================

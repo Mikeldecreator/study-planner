@@ -135,6 +135,9 @@ $notificationStmt = $db->query("
         n.event_key,
         n.message,
         n.send_at,
+        n.sent_at,
+        n.read_at,
+        n.push_status,
         u.email,
         u.full_name,
         u.notifications_enabled,
@@ -142,7 +145,7 @@ $notificationStmt = $db->query("
     FROM notifications n
     INNER JOIN users u
         ON u.id = n.user_id
-    WHERE n.sent_at IS NULL
+    WHERE (n.sent_at IS NULL AND (n.push_status IS NULL OR n.push_status = 'skipped_active'))
       AND n.send_at <= NOW()
     ORDER BY n.send_at ASC, n.id ASC
 ");
@@ -156,10 +159,20 @@ $pushSkipped = 0;
 $pushExpired = 0;
 $pushErrors = 0;
 
-$markNotificationStmt = $db->prepare("
+$markSentStmt = $db->prepare("
     UPDATE notifications
-    SET sent_at = NOW()
+    SET sent_at = NOW(), push_status = ?
     WHERE id = ?
+");
+
+$updatePushStatusStmt = $db->prepare("
+    UPDATE notifications
+    SET push_status = ?
+    WHERE id = ?
+");
+
+$taskStatusStmt = $db->prepare("
+    SELECT status FROM tasks WHERE id = ?
 ");
 
 $userPushStmt = $db->prepare("
@@ -196,9 +209,9 @@ foreach ($pendingNotifications as $notification) {
     $taskId = !empty($notification['task_id']) ? (int) $notification['task_id'] : null;
     $channel = (string) $notification['channel'];
 
-    // If notifications disabled for this user, mark sent and skip
+    // If notifications disabled for this user, mark processed and skip
     if (empty($notification['notifications_enabled'])) {
-        $markNotificationStmt->execute([$notifId]);
+        $markSentStmt->execute(['disabled', $notifId]);
         $processedNotifications++;
         continue;
     }
@@ -218,96 +231,132 @@ foreach ($pendingNotifications as $notification) {
             $failedNotifications++;
             continue;
         }
+
+        $markSentStmt->execute(['sent', $notifId]);
+        $processedNotifications++;
+        continue;
     }
 
     /*
      * 2. IN-APP & WEB PUSH DELIVERY
-     *
-     * The notification row is already available to the in-app bell dropdown.
-     * Web Push is delivered ONLY if:
-     * - User has NOT been active in the app within the last 15 minutes.
-     * - The notification is push-eligible (P1 urgent or P2 daily morning summary).
      */
     if ($channel === 'in_app') {
-        $isActive = isUserRecentlyActive($db, $userId, 15);
-
-        if ($isActive) {
-            // User was active in the app within the last 15 minutes: suppress background Web Push!
+        // Rule A: In-app only notification (tomorrow digest, P3 study suggestions, curriculum alerts)
+        if (!isNotificationPushEligible($notification)) {
+            $markSentStmt->execute(['in_app_only', $notifId]);
+            $processedNotifications++;
             $pushSkipped++;
-        } elseif (!isNotificationPushEligible($notification)) {
-            // In-app only notification (digests of tomorrow's deadlines, P3 study suggestions, gaps, etc.)
-            $pushSkipped++;
-        } else {
-            // Check daily push reminder deduplication for task-associated reminders
-            $alreadyReminded = false;
-            if ($taskId !== null) {
-                $checkDailyStmt->execute([$userId, $taskId]);
-                if ($checkDailyStmt->fetchColumn()) {
-                    $alreadyReminded = true;
-                    $pushSkipped++;
-                }
-            }
+            continue;
+        }
 
-            if (!$alreadyReminded) {
-                try {
-                    $userPushStmt->execute([$userId]);
-                    $userSubs = $userPushStmt->fetchAll(PDO::FETCH_ASSOC);
+        // Push-eligible notification: check if task is completed or already read
+        if (!empty($notification['read_at'])) {
+            $markSentStmt->execute(['resolved', $notifId]);
+            $processedNotifications++;
+            continue;
+        }
 
-                    if (!empty($userSubs)) {
-                        $pushTag = $taskId !== null
-                            ? 'deadline-task-' . $taskId
-                            : 'academic-notif-' . $notifId;
-
-                        $pushPayload = [
-                            'title' => 'Study Planner',
-                            'body'  => (string) $notification['message'],
-                            'tag'   => $pushTag,
-                            'renotify' => true,
-                            'data'  => [
-                                'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
-                                'notification_id' => $notifId,
-                                'task_id' => $taskId
-                            ]
-                        ];
-
-                        $taskPushed = false;
-                        foreach ($userSubs as $sub) {
-                            try {
-                                $sendRes = webPushSend($sub, $pushPayload);
-                                if (!empty($sendRes['success'])) {
-                                    $pushSent++;
-                                    $taskPushed = true;
-                                }
-                            } catch (Throwable $pushEx) {
-                                $pushErrors++;
-                                $err = strtolower($pushEx->getMessage());
-                                if (
-                                    str_contains($err, 'http 404') ||
-                                    str_contains($err, 'http 410') ||
-                                    str_contains($err, 'returned http 404') ||
-                                    str_contains($err, 'returned http 410')
-                                ) {
-                                    $deleteDeadSubStmt->execute([(int) $sub['id']]);
-                                    $pushExpired++;
-                                }
-                            }
-                        }
-
-                        if ($taskPushed && $taskId !== null) {
-                            $insertDailyStmt->execute([$userId, $taskId]);
-                        }
-                    } else {
-                        $pushSkipped++;
-                    }
-                } catch (Throwable $subEx) {
-                    error_log('Push delivery error: ' . $subEx->getMessage());
-                }
+        if ($taskId !== null) {
+            $taskStatusStmt->execute([$taskId]);
+            $tStatus = $taskStatusStmt->fetchColumn();
+            if ($tStatus === 'completed') {
+                $markSentStmt->execute(['resolved', $notifId]);
+                $processedNotifications++;
+                continue;
             }
         }
-    }
 
-    $markNotificationStmt->execute([$notifId]);
-    $processedNotifications++;
+        // Rule B: Active user push postponement
+        $isActive = isUserRecentlyActive($db, $userId, 15);
+        if ($isActive) {
+            // User was active in the app within the last 15 minutes: postpone Web Push!
+            // Do NOT mark sent_at; keep push_status = 'skipped_active' for later retry
+            $updatePushStatusStmt->execute(['skipped_active', $notifId]);
+            $pushSkipped++;
+            continue;
+        }
+
+        // User is outside the 15-minute active window: check daily reminder deduplication
+        $alreadyReminded = false;
+        if ($taskId !== null) {
+            $checkDailyStmt->execute([$userId, $taskId]);
+            if ($checkDailyStmt->fetchColumn()) {
+                $alreadyReminded = true;
+                $pushSkipped++;
+                $markSentStmt->execute(['already_reminded_today', $notifId]);
+                $processedNotifications++;
+                continue;
+            }
+        }
+
+        // Check registered browser subscriptions
+        try {
+            $userPushStmt->execute([$userId]);
+            $userSubs = $userPushStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Rule C: No browser subscription registered
+            if (empty($userSubs)) {
+                // Do not fabricate delivery success (sent_at stays NULL); avoid infinite reprocessing
+                $updatePushStatusStmt->execute(['no_subscription', $notifId]);
+                $pushSkipped++;
+                continue;
+            }
+
+            // Subscriptions exist: dispatch Web Push
+            $pushTag = $taskId !== null
+                ? 'deadline-task-' . $taskId
+                : 'academic-notif-' . $notifId;
+
+            $pushPayload = [
+                'title' => 'Study Planner',
+                'body'  => (string) $notification['message'],
+                'tag'   => $pushTag,
+                'renotify' => true,
+                'data'  => [
+                    'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
+                    'notification_id' => $notifId,
+                    'task_id' => $taskId
+                ]
+            ];
+
+            $taskPushed = false;
+            foreach ($userSubs as $sub) {
+                try {
+                    $sendRes = webPushSend($sub, $pushPayload);
+                    if (!empty($sendRes['success'])) {
+                        $pushSent++;
+                        $taskPushed = true;
+                    }
+                } catch (Throwable $pushEx) {
+                    $pushErrors++;
+                    $err = strtolower($pushEx->getMessage());
+                    if (
+                        str_contains($err, 'http 404') ||
+                        str_contains($err, 'http 410') ||
+                        str_contains($err, 'returned http 404') ||
+                        str_contains($err, 'returned http 410')
+                    ) {
+                        $deleteDeadSubStmt->execute([(int) $sub['id']]);
+                        $pushExpired++;
+                    }
+                }
+            }
+
+            // Rule D: Web Push successfully dispatched
+            if ($taskPushed) {
+                if ($taskId !== null) {
+                    $insertDailyStmt->execute([$userId, $taskId]);
+                }
+                $markSentStmt->execute(['sent', $notifId]);
+                $processedNotifications++;
+            } else {
+                $updatePushStatusStmt->execute(['failed', $notifId]);
+                $pushErrors++;
+            }
+        } catch (Throwable $subEx) {
+            error_log('Push delivery error: ' . $subEx->getMessage());
+        }
+    }
 }
 
 /* ============================================================

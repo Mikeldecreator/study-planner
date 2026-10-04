@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     message     VARCHAR(255) NOT NULL,
     send_at     DATETIME NOT NULL,
     sent_at     DATETIME DEFAULT NULL,
+    push_status VARCHAR(30) DEFAULT NULL,
     read_at     DATETIME DEFAULT NULL,
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -195,7 +196,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_user_unread (user_id, read_at),
     INDEX idx_pending_send (sent_at, send_at),
     INDEX idx_notif_user_channel_send (user_id, channel, read_at, send_at),
-    INDEX idx_user_event_key (user_id, event_key)
+    INDEX idx_user_event_key (user_id, event_key),
+    INDEX idx_notif_push_status (user_id, push_status, send_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 11. Activity Log

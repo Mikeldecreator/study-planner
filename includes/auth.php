@@ -9,7 +9,7 @@ if (function_exists('initAppSession')) {
 }
 
 /** Every PHP file is now an API endpoint — always fail with JSON 401, never redirect. */
-function requireLogin(): void
+function requireLogin(bool $touchActive = true): void
 {
     if (empty($_SESSION['user_id'])) {
         http_response_code(401);
@@ -22,7 +22,9 @@ function requireLogin(): void
     // This keeps existing databases usable when schema.sql was imported
     // before the current account was created.
     ensureUserDataSeeded(currentUserId());
-    touchUserLastActive();
+    if ($touchActive) {
+        touchUserLastActive();
+    }
 }
 
 if (!function_exists('currentUserId')) {

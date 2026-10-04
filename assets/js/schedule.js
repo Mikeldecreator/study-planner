@@ -4602,11 +4602,12 @@ form?.addEventListener(
             if (
                 response.ok
             ) {
-
+                const resData = await response.json().catch(() => ({}));
                 closeSessionModal();
 
-
-                if (
+                if (resData && resData.notification && typeof window.dispatchImmediateNotification === 'function') {
+                    window.dispatchImmediateNotification(resData.notification);
+                } else if (
                     window.showToast
                 ) {
 

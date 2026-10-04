@@ -159,6 +159,29 @@ switch ($method) {
             $eventDate,
         ]);
         $newSchedId = (int) $db->lastInsertId();
+
+        $notifMsg = "Schedule: '{$title}' added.";
+        $eventKey = "schedule_event_created_{$newSchedId}";
+        $insNotif = $db->prepare(
+            "INSERT INTO notifications (user_id, channel, event_key, message, send_at, push_status)
+             VALUES (?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+        );
+        $insNotif->execute([$userId, $eventKey, $notifMsg]);
+        $notifId = (int)$db->lastInsertId();
+
+        $unreadCount = getUnreadNotificationCount($db, $userId);
+        $notificationData = decorateNotification([
+            'id' => $notifId,
+            'user_id' => $userId,
+            'channel' => 'in_app',
+            'event_key' => $eventKey,
+            'message' => $notifMsg,
+            'send_at' => date('Y-m-d H:i:s'),
+            'read_at' => null,
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+        $notificationData['unread_count'] = $unreadCount;
+
         http_response_code(201);
         echo json_encode([
             'ok' => true,
@@ -172,7 +195,8 @@ switch ($method) {
                 'end_time' => $body['end_time'],
                 'source' => 'manual',
                 'event_date' => $eventDate,
-            ]
+            ],
+            'notification' => $notificationData
         ]);
         break;
 
@@ -190,13 +214,40 @@ switch ($method) {
             exit;
         }
 
-        // Quick toggle-complete calls only send { id, is_completed } — everything
-        // else falls back to its current column via COALESCE-style defaults handled below.
+        // Quick toggle-complete calls only send { id, is_completed }
         if (array_key_exists('is_completed', $body) && count($body) <= 3) {
             $done = !empty($body['is_completed']) ? 1 : 0;
             $stmt = $db->prepare('UPDATE schedule_events SET is_completed=?, progress_percent=?, completed_at=? WHERE id=? AND user_id=?');
             $stmt->execute([$done, $done ? 100 : 0, $done ? date('Y-m-d H:i:s') : null, $id, $userId]);
-            echo json_encode(['ok' => true]);
+
+            $notifData = null;
+            if ($done) {
+                $eventKey = "schedule_completed_{$id}_" . time();
+                $notifMsg = "Schedule session '{$existing['title']}' completed.";
+                $insNotif = $db->prepare(
+                    "INSERT INTO notifications (user_id, channel, event_key, message, send_at, push_status)
+                     VALUES (?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+                );
+                $insNotif->execute([$userId, $eventKey, $notifMsg]);
+                $notifId = (int)$db->lastInsertId();
+                $notifData = decorateNotification([
+                    'id' => $notifId,
+                    'user_id' => $userId,
+                    'channel' => 'in_app',
+                    'event_key' => $eventKey,
+                    'message' => $notifMsg,
+                    'send_at' => date('Y-m-d H:i:s'),
+                    'read_at' => null,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+                $notifData['unread_count'] = getUnreadNotificationCount($db, $userId);
+            }
+
+            $res = ['ok' => true];
+            if ($notifData) {
+                $res['notification'] = $notifData;
+            }
+            echo json_encode($res);
             exit;
         }
 
