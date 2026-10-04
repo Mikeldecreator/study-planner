@@ -799,53 +799,9 @@ switch ($method) {
 
         logActivity(
             $userId,
-            "New task added: {$title}",
+            "New task added: '{$title}'",
             'info'
         );
-
-        $reminderTime =
-            (clone $dueDate)
-                ->modify(
-                    '-' .
-                    REMINDER_LEAD_HOURS .
-                    ' hours'
-                )
-                ->format(
-                    'Y-m-d H:i:s'
-                );
-
-        $insertNotif =
-            $db->prepare(
-                '
-                INSERT INTO notifications
-                (
-                    user_id,
-                    task_id,
-                    channel,
-                    message,
-                    send_at
-                )
-                VALUES (?, ?, ?, ?, ?)
-                '
-            );
-
-        $insertNotif->execute([
-            $userId,
-            $taskId,
-            'in_app',
-            "\"{$title}\" is due soon",
-            $reminderTime
-        ]);
-
-        if (EMAIL_ENABLED) {
-            $insertNotif->execute([
-                $userId,
-                $taskId,
-                'email',
-                "\"{$title}\" is due soon",
-                $reminderTime
-            ]);
-        }
 
         taskApiJson([
             'ok' => true,

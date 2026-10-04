@@ -1642,6 +1642,55 @@ function academicNotificationExists(PDO $db, int $userId, string $eventKey, ?str
 }
 
 /**
+ * Check whether a notification qualifies for background Web Push delivery.
+ * Push is strictly reserved for:
+ * - P1: Overdue tasks
+ * - P1: Urgent deadlines <= 2 hours away
+ * - P1: Classes starting in <= 30 minutes
+ * - P2: Daily morning academic summary (>= 08:00)
+ * All other events (digests of tomorrow's deadlines, P3 study suggestions, gaps, etc.) are in-app only.
+ */
+function isNotificationPushEligible(array $notification): bool
+{
+    $eventKey = (string) ($notification['event_key'] ?? '');
+    $msg = (string) ($notification['message'] ?? '');
+
+    // P1: Overdue tasks
+    if (str_starts_with($eventKey, 'task_') && str_contains($eventKey, '_overdue')) {
+        return true;
+    }
+    if (stripos($msg, 'overdue task') !== false) {
+        return true;
+    }
+
+    // P1: Urgent deadlines <= 2 hours away
+    if (str_starts_with($eventKey, 'task_') && str_contains($eventKey, '_urgent_2h')) {
+        return true;
+    }
+    if (stripos($msg, 'urgent deadline') !== false) {
+        return true;
+    }
+
+    // P1: Classes starting in <= 30 minutes
+    if (str_starts_with($eventKey, 'class_') && str_contains($eventKey, '_30m')) {
+        return true;
+    }
+    if (stripos($msg, 'class reminder (30m)') !== false) {
+        return true;
+    }
+
+    // P2: Daily morning academic summary
+    if (str_starts_with($eventKey, 'daily_summary')) {
+        return true;
+    }
+    if (stripos($msg, 'daily academic summary') !== false) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Decorate a notification record with appropriate icon category, visual tone, human-readable title, and action_url.
  */
 function decorateNotification(array $notification): array
@@ -1732,6 +1781,12 @@ function decorateNotification(array $notification): array
         $title = 'Study session missed';
         $actionUrl = 'schedule.php';
         $actionLabel = 'View Schedule';
+    } elseif (stripos($msg, 'daily academic summary') !== false || stripos($msg, 'daily summary') !== false) {
+        $category = 'summary';
+        $tone = 'info';
+        $title = 'Daily Summary';
+        $actionUrl = 'dashboard.php';
+        $actionLabel = 'View Dashboard';
     } elseif (stripos($msg, 'goal') !== false) {
         $category = 'goal';
         $tone = stripos($msg, 'achieved') !== false ? 'success' : 'info';
@@ -1775,6 +1830,7 @@ function notificationExists(PDO $db, int $userId, ?int $taskId, string $pattern,
 /**
  * Generate academic timetable, deadline, curriculum, and smart study reminders.
  * Strictly deduplicates using event_key to ensure repeat runs never create duplicates.
+ * Follows smart academic priority: P1 Urgent, P2 Important, P3 Low-Priority Passive.
  */
 function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
 {
@@ -1783,6 +1839,7 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
     $now = time();
     $todayStr = date('Y-m-d');
     $todayDow = (int)date('w'); // 0=Sun..6=Sat
+    $currentHour = (int)date('H');
     $totalGenerated = 0;
 
     $usersToProcess = [];
@@ -1810,9 +1867,105 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
         }
 
         $prefs = getUserNotificationPreferences($db, $userId);
+        $hasP1orP2 = false;
 
-        // 1. TIMETABLE CLASS REMINDERS (1h, 30m, 10m before class start)
-        $stmt = $db->prepare(
+        // ============================================================
+        // P1 URGENT: OVERDUE TASKS (due_at in past, status != 'completed')
+        // ============================================================
+        $stmtOverdue = $db->prepare(
+            "SELECT t.id, t.title, t.due_at, t.status, c.code AS course_code
+             FROM tasks t
+             LEFT JOIN courses c ON c.id = t.course_id
+             WHERE t.user_id = ? 
+               AND t.status != 'completed'
+               AND t.due_at IS NOT NULL
+               AND t.due_at < NOW()
+             ORDER BY t.due_at ASC"
+        );
+        $stmtOverdue->execute([$userId]);
+        $overdueTasks = $stmtOverdue->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($overdueTasks)) {
+            $hasP1orP2 = true;
+            foreach ($overdueTasks as $task) {
+                $taskId = (int)$task['id'];
+                $dueTs = strtotime($task['due_at']);
+                $taskTitle = $task['title'];
+                $dueFormatted = date('M j, g:i A', $dueTs);
+
+                // Overdue notice: max 1 per day per overdue task
+                $overdueKey = "task_{$taskId}_overdue_{$todayStr}";
+                if ($prefs['deadline_overdue'] && !academicNotificationExists($db, $userId, $overdueKey, "%Overdue Task: '{$taskTitle}'%")) {
+                    $msg = "Overdue Task: '{$taskTitle}' was due on {$dueFormatted}. Prioritize or update its status.";
+                    $insertStmt->execute([$userId, $taskId, $overdueKey, $msg]);
+                    $totalGenerated++;
+                }
+
+                // Auto-resolve older deadline reminders for this task so "due soon" is not shown alongside "overdue"
+                try {
+                    $resolveStmt = $db->prepare(
+                        "UPDATE notifications 
+                         SET read_at = NOW() 
+                         WHERE user_id = ? 
+                           AND task_id = ? 
+                           AND read_at IS NULL 
+                           AND (event_key LIKE 'task_%_24h' OR event_key LIKE 'task_%_urgent_2h' OR event_key LIKE 'task_%_2h' OR event_key LIKE 'task_%_tomorrow%')"
+                    );
+                    $resolveStmt->execute([$userId, $taskId]);
+                } catch (Throwable $e) {}
+
+                // Genuine Academic Activity Log: log once per overdue task crossing
+                try {
+                    $actCheck = $db->prepare("SELECT id FROM activity_log WHERE user_id = ? AND message = ? LIMIT 1");
+                    $overdueActMsg = "Task overdue: '{$taskTitle}'";
+                    $actCheck->execute([$userId, $overdueActMsg]);
+                    if (!$actCheck->fetchColumn()) {
+                        logActivity($userId, $overdueActMsg, 'warning');
+                    }
+                } catch (Throwable $e) {}
+            }
+        }
+
+        // ============================================================
+        // P1 URGENT: DEADLINES <= 2 HOURS AWAY
+        // ============================================================
+        $stmtUrgent = $db->prepare(
+            "SELECT t.id, t.title, t.due_at, t.status, c.code AS course_code
+             FROM tasks t
+             LEFT JOIN courses c ON c.id = t.course_id
+             WHERE t.user_id = ? 
+               AND t.status != 'completed'
+               AND t.due_at IS NOT NULL
+               AND t.due_at >= NOW()
+               AND t.due_at <= DATE_ADD(NOW(), INTERVAL 2 HOUR)
+             ORDER BY t.due_at ASC"
+        );
+        $stmtUrgent->execute([$userId]);
+        $urgentTasks = $stmtUrgent->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($urgentTasks)) {
+            $hasP1orP2 = true;
+            foreach ($urgentTasks as $task) {
+                $taskId = (int)$task['id'];
+                $dueTs = strtotime($task['due_at']);
+                $diffMins = max(1, (int)round(($dueTs - $now) / 60));
+                $taskTitle = $task['title'];
+                $dueFormatted = date('g:i A', $dueTs);
+
+                $urgentKey = "task_{$taskId}_urgent_2h";
+                if ($prefs['deadline_2h'] && !academicNotificationExists($db, $userId, $urgentKey, "%Urgent Deadline: '{$taskTitle}'%")) {
+                    $timeStr = ($diffMins <= 60) ? "due in {$diffMins} minutes" : "due in ~2 hours";
+                    $msg = "Urgent Deadline: '{$taskTitle}' is {$timeStr} ({$dueFormatted})! Finalize and submit.";
+                    $insertStmt->execute([$userId, $taskId, $urgentKey, $msg]);
+                    $totalGenerated++;
+                }
+            }
+        }
+
+        // ============================================================
+        // P1 URGENT & TIMETABLE: CLASS REMINDERS (1h, 30m, 10m)
+        // ============================================================
+        $stmtClasses = $db->prepare(
             "SELECT se.id, se.course_id, se.title, se.start_time, se.end_time,
                     c.code AS course_code, c.name AS course_name
              FROM schedule_events se
@@ -1822,18 +1975,19 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                AND se.day_of_week = ?
              ORDER BY se.start_time ASC"
         );
-        $stmt->execute([$userId, $todayDow]);
-        $todaysClasses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmtClasses->execute([$userId, $todayDow]);
+        $todaysClasses = $stmtClasses->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($todaysClasses as $cls) {
-            $classStartTime = $cls['start_time']; // e.g. 09:00:00
+            $classStartTime = $cls['start_time'];
             $classStartTs = strtotime("{$todayStr} {$classStartTime}");
             $diffMins = ($classStartTs - $now) / 60.0;
             $courseLabel = !empty($cls['course_code']) ? $cls['course_code'] : $cls['title'];
             $fmtTime = date('g:i A', $classStartTs);
 
-            // 1 Hour Before: within 31 to 60 minutes of start
-            if ($prefs['class_1h'] && $diffMins <= 60 && $diffMins >= 31) {
+            // 1 Hour Before (31 to 60 mins)
+            if ($prefs['class_1h'] && $diffMins <= 60 && $diffMins > 30) {
+                $hasP1orP2 = true;
                 $key = "class_{$cls['id']}_{$todayStr}_1h";
                 if (!academicNotificationExists($db, $userId, $key, "%Class Reminder (1h): '{$courseLabel}'%")) {
                     $msg = "Class Reminder (1h): '{$courseLabel}' starts in 1 hour at {$fmtTime}. Check your lecture materials.";
@@ -1842,8 +1996,9 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                 }
             }
 
-            // 30 Minutes Before: within 11 to 30 minutes of start
-            if ($prefs['class_30m'] && $diffMins <= 30 && $diffMins >= 11) {
+            // 30 Minutes Before (11 to 30 mins) - P1
+            if ($prefs['class_30m'] && $diffMins <= 30 && $diffMins > 10) {
+                $hasP1orP2 = true;
                 $key = "class_{$cls['id']}_{$todayStr}_30m";
                 if (!academicNotificationExists($db, $userId, $key, "%Class Reminder (30m): '{$courseLabel}'%")) {
                     $msg = "Class Reminder (30m): '{$courseLabel}' starts in 30 minutes at {$fmtTime}.";
@@ -1852,8 +2007,9 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                 }
             }
 
-            // 10 Minutes Before: within 0 to 10 minutes of start
+            // 10 Minutes Before (0 to 10 mins) - P1 (in-app focus)
             if ($prefs['class_10m'] && $diffMins <= 10 && $diffMins >= 0) {
+                $hasP1orP2 = true;
                 $key = "class_{$cls['id']}_{$todayStr}_10m";
                 if (!academicNotificationExists($db, $userId, $key, "%Class Reminder (10m): '{$courseLabel}'%")) {
                     $msg = "Class Reminder (10m): '{$courseLabel}' starts in 10 minutes at {$fmtTime}! Head to class now.";
@@ -1863,67 +2019,104 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
             }
         }
 
-        // 2. DEADLINE REMINDERS (24h, 2h, and Overdue notices)
-        $stmt = $db->prepare(
-            "SELECT t.id, t.title, t.due_at, t.status, c.code AS course_code
+        // ============================================================
+        // P2 IMPORTANT: TOMORROW'S DEADLINES (BATCHING / DIGEST)
+        // Between 2h and 24h away. If >= 2 tasks, batch into 1 digest.
+        // Tasks > 24h away NEVER generate individual reminders.
+        // ============================================================
+        $stmtTomorrow = $db->prepare(
+            "SELECT t.id, t.title, t.due_at, c.code AS course_code
              FROM tasks t
              LEFT JOIN courses c ON c.id = t.course_id
              WHERE t.user_id = ? 
                AND t.status != 'completed'
-               AND t.due_at IS NOT NULL"
+               AND t.due_at IS NOT NULL
+               AND t.due_at > DATE_ADD(NOW(), INTERVAL 2 HOUR)
+               AND t.due_at <= DATE_ADD(NOW(), INTERVAL 24 HOUR)
+             ORDER BY t.due_at ASC"
         );
-        $stmt->execute([$userId]);
-        $uncompletedTasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmtTomorrow->execute([$userId]);
+        $tomorrowTasks = $stmtTomorrow->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($uncompletedTasks as $task) {
-            $taskId = (int)$task['id'];
-            $dueTs = strtotime($task['due_at']);
-            $diffHours = ($dueTs - $now) / 3600.0;
-            $taskTitle = $task['title'];
-            $dueFormatted = date('M j, g:i A', $dueTs);
-
-            // 24h Before (between 2 and 24 hours away)
-            if ($prefs['deadline_24h'] && $diffHours <= 24 && $diffHours > 2) {
-                $key = "task_{$taskId}_24h";
-                if (!academicNotificationExists($db, $userId, $key, "%Deadline Reminder (24h): '{$taskTitle}'%")) {
-                    $msg = "Deadline Reminder (24h): '{$taskTitle}' is due tomorrow on {$dueFormatted}.";
-                    $insertStmt->execute([$userId, $taskId, $key, $msg]);
+        if (!empty($tomorrowTasks) && $prefs['deadline_24h']) {
+            $hasP1orP2 = true;
+            $countTomorrow = count($tomorrowTasks);
+            if ($countTomorrow >= 2) {
+                // Batch digest: never generate separate alerts for these tasks
+                $batchKey = "tasks_due_tomorrow_{$todayStr}";
+                if (!academicNotificationExists($db, $userId, $batchKey)) {
+                    $titles = array_map(fn($t) => "'" . $t['title'] . "'", array_slice($tomorrowTasks, 0, 3));
+                    $titlesStr = implode(', ', $titles);
+                    if ($countTomorrow > 3) {
+                        $titlesStr .= " and " . ($countTomorrow - 3) . " more";
+                    }
+                    $msg = "{$countTomorrow} tasks need attention tomorrow: {$titlesStr}. Plan your study time.";
+                    $insertStmt->execute([$userId, null, $batchKey, $msg]);
                     $totalGenerated++;
                 }
-            }
-
-            // 2h Before (between 0 and 2 hours away)
-            if ($prefs['deadline_2h'] && $diffHours <= 2 && $diffHours > 0) {
-                $key = "task_{$taskId}_2h";
-                if (!academicNotificationExists($db, $userId, $key, "%Urgent Deadline (2h): '{$taskTitle}'%")) {
-                    $msg = "Urgent Deadline (2h): '{$taskTitle}' is due in 2 hours ({$dueFormatted})! Finalize and submit.";
-                    $insertStmt->execute([$userId, $taskId, $key, $msg]);
-                    $totalGenerated++;
-                }
-            }
-
-            // Overdue Notice (due_at in past, within last 7 days)
-            if ($prefs['deadline_overdue'] && $diffHours < 0 && $diffHours >= -168) {
-                $key = "task_{$taskId}_overdue";
-                if (!academicNotificationExists($db, $userId, $key, "%Overdue Task: '{$taskTitle}'%")) {
-                    $msg = "Overdue Task: '{$taskTitle}' was due on {$dueFormatted}. Prioritize or update its status.";
-                    $insertStmt->execute([$userId, $taskId, $key, $msg]);
+            } else {
+                // Exactly 1 task due tomorrow
+                $t = $tomorrowTasks[0];
+                $taskId = (int)$t['id'];
+                $singleKey = "task_{$taskId}_tomorrow_{$todayStr}";
+                if (!academicNotificationExists($db, $userId, $singleKey, "%Deadline Reminder: '{$t['title']}'%")) {
+                    $dueFormatted = date('M j, g:i A', strtotime($t['due_at']));
+                    $msg = "Deadline Reminder: '{$t['title']}' is due tomorrow on {$dueFormatted}.";
+                    $insertStmt->execute([$userId, $taskId, $singleKey, $msg]);
                     $totalGenerated++;
                 }
             }
         }
 
-        // 3. CURRICULUM & ACADEMIC CALENDAR NOTIFICATIONS
+        // ============================================================
+        // P2 IMPORTANT: DAILY MORNING ACADEMIC SUMMARY (>= 08:00)
+        // ============================================================
+        if ($currentHour >= 8) {
+            $dailySummaryKey = "daily_summary_{$todayStr}";
+            if (!academicNotificationExists($db, $userId, $dailySummaryKey)) {
+                $todayClassCount = count($todaysClasses);
+
+                $stmtDueToday = $db->prepare(
+                    "SELECT COUNT(*) FROM tasks 
+                     WHERE user_id = ? 
+                       AND status != 'completed' 
+                       AND due_at >= ? AND due_at <= ?"
+                );
+                $stmtDueToday->execute([$userId, "{$todayStr} 00:00:00", "{$todayStr} 23:59:59"]);
+                $tasksDueTodayCount = (int)$stmtDueToday->fetchColumn();
+
+                if ($todayClassCount > 0 || $tasksDueTodayCount > 0) {
+                    $classPart = $todayClassCount === 1 ? "1 class" : "{$todayClassCount} classes";
+                    $taskPart = $tasksDueTodayCount === 1 ? "1 task" : "{$tasksDueTodayCount} tasks";
+
+                    if ($todayClassCount > 0 && $tasksDueTodayCount > 0) {
+                        $summaryMsg = "Daily Academic Summary: You have {$classPart} and {$taskPart} due today. Have a productive day!";
+                    } elseif ($todayClassCount > 0) {
+                        $summaryMsg = "Daily Academic Summary: You have {$classPart} scheduled today. Have a productive day!";
+                    } else {
+                        $summaryMsg = "Daily Academic Summary: You have {$taskPart} due today. Stay ahead of your deadlines!";
+                    }
+
+                    $insertStmt->execute([$userId, null, $dailySummaryKey, $summaryMsg]);
+                    $totalGenerated++;
+                    $hasP1orP2 = true;
+                }
+            }
+        }
+
+        // ============================================================
+        // P2 IMPORTANT: CURRICULUM & ACADEMIC CALENDAR NOTIFICATIONS
+        // ============================================================
         if ($prefs['curriculum_alerts']) {
-            $stmt = $db->prepare(
+            $stmtCurr = $db->prepare(
                 "SELECT cw.id, cw.week_number, cw.label, cw.week_type, cw.start_date, cw.end_date, s.name AS semester_name
                  FROM curriculum_weeks cw
                  INNER JOIN semesters s ON s.id = cw.semester_id
                  WHERE cw.user_id = ? AND s.is_current = 1
                  ORDER BY cw.start_date ASC"
             );
-            $stmt->execute([$userId]);
-            $curriculumWeeks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmtCurr->execute([$userId]);
+            $curriculumWeeks = $stmtCurr->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($curriculumWeeks as $week) {
                 $weekId = (int)$week['id'];
@@ -1939,79 +2132,99 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                         $msg = "Academic Calendar: Week {$week['week_number']} ({$week['label']} - {$weekTypeLabel}) starts today.";
                         $insertStmt->execute([$userId, null, $key, $msg]);
                         $totalGenerated++;
+                        $hasP1orP2 = true;
                     }
                 }
 
-                // Examination Week upcoming in 1 to 7 days
-                if ($week['week_type'] === 'exam' && $daysUntilStart > 0 && $daysUntilStart <= 7) {
-                    $key = "curr_exam_upcoming_{$weekId}";
+                // Examination Week within 1 to 2 days
+                if ($week['week_type'] === 'exam' && $daysUntilStart > 0 && $daysUntilStart <= 2) {
+                    $key = "exam_week_{$weekId}";
                     if (!academicNotificationExists($db, $userId, $key)) {
                         $fmtStartDate = date('l, M j', $startTs);
                         $msg = "Examination Alert: Exam Week begins in {$daysUntilStart} day(s) on {$fmtStartDate}. Review your study timetable.";
                         $insertStmt->execute([$userId, null, $key, $msg]);
                         $totalGenerated++;
+                        $hasP1orP2 = true;
                     }
                 }
 
-                // Revision Week upcoming in 1 to 7 days
-                if ($week['week_type'] === 'revision' && $daysUntilStart > 0 && $daysUntilStart <= 7) {
+                // Revision Week within 1 to 2 days
+                if ($week['week_type'] === 'revision' && $daysUntilStart > 0 && $daysUntilStart <= 2) {
                     $key = "curr_rev_upcoming_{$weekId}";
                     if (!academicNotificationExists($db, $userId, $key)) {
                         $fmtStartDate = date('l, M j', $startTs);
                         $msg = "Revision Week Alert: Revision Week starts in {$daysUntilStart} day(s) on {$fmtStartDate}. Consolidate coursework and practice problems.";
                         $insertStmt->execute([$userId, null, $key, $msg]);
                         $totalGenerated++;
+                        $hasP1orP2 = true;
                     }
                 }
             }
         }
 
-        // 4. SMART STUDY PLANNING: FREE GAPS BETWEEN CLASSES
-        if ($prefs['study_gap_suggestions'] && count($todaysClasses) >= 2) {
-            for ($i = 0; $i < count($todaysClasses) - 1; $i++) {
-                $c1 = $todaysClasses[$i];
-                $c2 = $todaysClasses[$i + 1];
-                $end1Ts = strtotime("{$todayStr} {$c1['end_time']}");
-                $start2Ts = strtotime("{$todayStr} {$c2['start_time']}");
-                $gapHours = ($start2Ts - $end1Ts) / 3600.0;
+        // ============================================================
+        // P3 LOW PRIORITY / PASSIVE: STUDY SUGGESTIONS & GAPS
+        // Max 1 per user per day. Evaluated ONLY when NO P1/P2 events exist.
+        // ============================================================
+        if (!$hasP1orP2) {
+            $stmtUnreadP1P2 = $db->prepare(
+                "SELECT COUNT(*) FROM notifications 
+                 WHERE user_id = ? 
+                   AND read_at IS NULL 
+                   AND (event_key LIKE 'task_%_overdue%' OR event_key LIKE 'task_%_urgent_2h' OR event_key LIKE 'class_%' OR event_key LIKE 'tasks_due_tomorrow%' OR event_key LIKE 'task_%_tomorrow%' OR event_key LIKE 'daily_summary%' OR event_key LIKE 'exam_week%')"
+            );
+            $stmtUnreadP1P2->execute([$userId]);
+            if ((int)$stmtUnreadP1P2->fetchColumn() > 0) {
+                $hasP1orP2 = true;
+            }
+        }
 
-                // If gap is >= 2 hours and hasn't passed yet
-                if ($gapHours >= 2.0 && $now < $start2Ts) {
-                    $gapKey = "gap_{$c1['id']}_{$c2['id']}_{$todayStr}";
-                    if (!academicNotificationExists($db, $userId, $gapKey)) {
-                        $code1 = !empty($c1['course_code']) ? $c1['course_code'] : $c1['title'];
-                        $code2 = !empty($c2['course_code']) ? $c2['course_code'] : $c2['title'];
-                        $roundedGap = round($gapHours, 1);
-                        $msg = "Study Opportunity: You have a {$roundedGap}h free block between {$code1} and {$code2}. Good window for focused study.";
-                        $insertStmt->execute([$userId, null, $gapKey, $msg]);
+        if (!$hasP1orP2 && ($prefs['study_gap_suggestions'] || ($prefs['study_suggestions'] ?? true))) {
+            $p3Key = "p3_suggestion_{$todayStr}";
+            if (!academicNotificationExists($db, $userId, $p3Key)) {
+                $p3Generated = false;
+
+                // Option A: Free study gap between classes today (>= 2 hours)
+                if ($prefs['study_gap_suggestions'] && count($todaysClasses) >= 2) {
+                    for ($i = 0; $i < count($todaysClasses) - 1; $i++) {
+                        $c1 = $todaysClasses[$i];
+                        $c2 = $todaysClasses[$i + 1];
+                        $end1Ts = strtotime("{$todayStr} {$c1['end_time']}");
+                        $start2Ts = strtotime("{$todayStr} {$c2['start_time']}");
+                        $gapHours = ($start2Ts - $end1Ts) / 3600.0;
+
+                        if ($gapHours >= 2.0 && $now < $start2Ts) {
+                            $code1 = !empty($c1['course_code']) ? $c1['course_code'] : $c1['title'];
+                            $code2 = !empty($c2['course_code']) ? $c2['course_code'] : $c2['title'];
+                            $roundedGap = round($gapHours, 1);
+                            $msg = "Study Opportunity: You have a {$roundedGap}h free block between {$code1} and {$code2}. Good window for focused study.";
+                            $insertStmt->execute([$userId, null, $p3Key, $msg]);
+                            $totalGenerated++;
+                            $p3Generated = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Option B: Gentle study suggestion for upcoming task
+                if (!$p3Generated && ($prefs['study_suggestions'] ?? true)) {
+                    $stmtNext = $db->prepare(
+                        "SELECT t.id, t.title, t.due_at, c.code AS course_code
+                         FROM tasks t
+                         LEFT JOIN courses c ON c.id = t.course_id
+                         WHERE t.user_id = ? AND t.status != 'completed'
+                         ORDER BY t.due_at ASC, t.id ASC
+                         LIMIT 1"
+                    );
+                    $stmtNext->execute([$userId]);
+                    $nextTask = $stmtNext->fetch(PDO::FETCH_ASSOC);
+                    if ($nextTask) {
+                        $topTaskId = (int)$nextTask['id'];
+                        $topTitle = $nextTask['title'];
+                        $msg = "Study Suggestion: Consider spending time on '{$topTitle}' when you have an open study window.";
+                        $insertStmt->execute([$userId, $topTaskId, $p3Key, $msg]);
                         $totalGenerated++;
                     }
-                }
-            }
-        }
-
-        // 5. ACADEMIC INTELLIGENCE: STUDY SUGGESTION FOR TOP ATTENTION-NEEDING TASK
-        if ($prefs['study_suggestions'] ?? true) {
-            $stmt = $db->prepare(
-                "SELECT t.id, t.title, t.due_at, t.duration_hours, c.code AS course_code
-                 FROM tasks t
-                 LEFT JOIN courses c ON c.id = t.course_id
-                 WHERE t.user_id = ? AND t.status != 'completed'
-                 ORDER BY (CASE WHEN t.due_at IS NOT NULL AND t.due_at < NOW() THEN 0
-                                WHEN t.due_at IS NOT NULL THEN 1 ELSE 2 END),
-                          t.due_at ASC, t.id ASC
-                 LIMIT 1"
-            );
-            $stmt->execute([$userId]);
-            $topTask = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($topTask) {
-                $topTaskId = (int)$topTask['id'];
-                $topTitle = $topTask['title'];
-                $suggKey = "study_sugg_{$topTaskId}_{$todayStr}";
-                if (!academicNotificationExists($db, $userId, $suggKey, "%Study suggestion: '{$topTitle}'%")) {
-                    $suggMsg = "Study suggestion: '{$topTitle}' may need your attention.";
-                    $insertStmt->execute([$userId, $topTaskId, $suggKey, $suggMsg]);
-                    $totalGenerated++;
                 }
             }
         }
@@ -2024,8 +2237,8 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
 }
 
 /**
- * Generate smart contextual notifications while enforcing strict duplicate prevention
- * and respecting user notification preferences.
+ * Generate smart contextual notifications by delegating to the unified
+ * generateAcademicReminders decision engine.
  */
 function syncContextualNotifications(PDO $db, int $userId): array
 {
@@ -2034,103 +2247,7 @@ function syncContextualNotifications(PDO $db, int $userId): array
         return ['status' => 'disabled', 'generated' => 0];
     }
 
-    $generated = 0;
-
-    // Generate academic timetable, deadline, curriculum, and smart study reminders
-    $academicRes = generateAcademicReminders($db, $userId);
-    $generated += (int)($academicRes['generated'] ?? 0);
-
-    $insertStmt = $db->prepare(
-        "INSERT INTO notifications (user_id, task_id, channel, message, send_at) 
-         VALUES (?, ?, 'in_app', ?, NOW())"
-    );
-
-    // 1. High academic risk alerts
-    $stmt = $db->prepare(
-        "SELECT id, code, name, credits, grade_point FROM courses WHERE user_id = ?"
-    );
-    $stmt->execute([$userId]);
-    $courses = $stmt->fetchAll();
-
-    foreach ($courses as $c) {
-        $risk = courseRiskScore($c['grade_point'] !== null ? (float)$c['grade_point'] : null, (int)$c['credits']);
-        if ($risk >= 60) {
-            // Check if course has unfinished tasks
-            $stmtPending = $db->prepare(
-                "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND course_id = ? AND status != 'completed'"
-            );
-            $stmtPending->execute([$userId, $c['id']]);
-            $pendingCount = (int)$stmtPending->fetchColumn();
-
-            if ($pendingCount > 0) {
-                $riskLabel = $risk >= 80 ? 'Critical Risk' : 'High Risk';
-                $code = $c['code'];
-                if (!notificationExists($db, $userId, null, "%Academic Alert: {$code}%", 48)) {
-                    $insertStmt->execute([
-                        $userId,
-                        null,
-                        "Academic Alert: {$code} is at {$riskLabel} ({$risk}/100) with {$pendingCount} pending task(s).",
-                    ]);
-                    $generated++;
-                }
-            }
-        }
-    }
-
-    // 4. Missed study sessions (weekly recurring sessions in schedule_events)
-    $todayDow = (int)date('w'); // 0=Sun..6=Sat
-    $currentTime = date('H:i:s');
-
-    $stmt = $db->prepare(
-        "SELECT id, title, day_of_week, end_time FROM schedule_events 
-         WHERE user_id = ? AND event_type = 'study' AND is_completed = 0"
-    );
-    $stmt->execute([$userId]);
-    $studySessions = $stmt->fetchAll();
-
-    foreach ($studySessions as $ss) {
-        $sessionDow = (int)$ss['day_of_week'];
-        $isPast = ($sessionDow < $todayDow) || ($sessionDow === $todayDow && $ss['end_time'] < $currentTime);
-        if ($isPast) {
-            $sessionTitle = $ss['title'];
-            if (!notificationExists($db, $userId, null, "%Missed Study Session: '{$sessionTitle}'%", 48)) {
-                $insertStmt->execute([
-                    $userId,
-                    null,
-                    "Missed Study Session: '{$sessionTitle}' was scheduled earlier this week and remains uncompleted.",
-                ]);
-                $generated++;
-            }
-        }
-    }
-
-    // 5. Study goal progress
-    $weeklyGoal = (float)($user['weekly_goal_hours'] ?? 0);
-    if ($weeklyGoal > 0) {
-        $loggedHours = getUserCompletedStudyHours($db, $userId);
-
-        if ($loggedHours >= $weeklyGoal) {
-            if (!notificationExists($db, $userId, null, '%Goal Achieved: You reached your weekly study goal%', 72)) {
-                $insertStmt->execute([
-                    $userId,
-                    null,
-                    "Goal Achieved: You reached your weekly study goal of {$weeklyGoal}h ({$loggedHours}h completed)!",
-                ]);
-                $generated++;
-            }
-        } elseif ($todayDow >= 4 && $loggedHours < ($weeklyGoal * 0.5) && (!empty($courses) || !empty($studySessions))) {
-            if (!notificationExists($db, $userId, null, '%Study Goal Reminder: You have logged%', 72)) {
-                $insertStmt->execute([
-                    $userId,
-                    null,
-                    "Study Goal Reminder: You have logged {$loggedHours}h of your {$weeklyGoal}h weekly study goal.",
-                ]);
-                $generated++;
-            }
-        }
-    }
-
-    return ['status' => 'ok', 'generated' => $generated];
+    return generateAcademicReminders($db, $userId);
 }
 
 /**

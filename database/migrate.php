@@ -112,6 +112,18 @@ ensureColumn($db, 'users', 'current_semester', "VARCHAR(50) DEFAULT NULL");
 ensureColumn($db, 'users', 'email_verified', "TINYINT(1) NOT NULL DEFAULT 0");
 ensureColumn($db, 'users', 'email_verification_token', "VARCHAR(100) DEFAULT NULL");
 ensureColumn($db, 'users', 'email_verification_expires_at', "DATETIME DEFAULT NULL");
+ensureColumn($db, 'users', 'last_active_at', "DATETIME DEFAULT NULL AFTER `current_semester`");
+
+// Ensure notifications columns and indexes
+ensureColumn($db, 'notifications', 'event_key', "VARCHAR(100) NULL AFTER `channel`");
+try {
+    $idxCheck = $db->query("SHOW INDEX FROM `notifications` WHERE Key_name = 'idx_user_event_key'");
+    if ($idxCheck->rowCount() === 0) {
+        $db->exec("ALTER TABLE `notifications` ADD INDEX idx_user_event_key (user_id, event_key)");
+    }
+} catch (Throwable $e) {
+    // Non-blocking
+}
 
 // Initialize pre-existing accounts that clearly predate onboarding and already have usable academic data
 try {

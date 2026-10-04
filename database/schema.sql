@@ -20,6 +20,7 @@ CREATE TABLE users (
     weekly_goal_hours DECIMAL(5,2) NOT NULL DEFAULT 15.00,
     notifications_enabled TINYINT(1) NOT NULL DEFAULT 1,   -- Settings > Preferences > Notifications toggle
     week_start_day  TINYINT(1)   NOT NULL DEFAULT 1,       -- Settings > Preferences > Week Starts (0=Sunday, 1=Monday)
+    last_active_at  DATETIME     DEFAULT NULL,
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -123,6 +124,7 @@ CREATE TABLE notifications (
     user_id     INT NOT NULL,
     task_id     INT DEFAULT NULL,
     channel     ENUM('in_app','email') NOT NULL DEFAULT 'in_app',
+    event_key   VARCHAR(100) DEFAULT NULL,
     message     VARCHAR(255) NOT NULL,
     send_at     DATETIME NOT NULL,          -- when it SHOULD fire
     sent_at     DATETIME DEFAULT NULL,      -- when the cron actually sent it
@@ -131,7 +133,8 @@ CREATE TABLE notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     INDEX idx_user_unread (user_id, read_at),
-    INDEX idx_pending_send (sent_at, send_at)
+    INDEX idx_pending_send (sent_at, send_at),
+    INDEX idx_user_event_key (user_id, event_key)
 ) ENGINE=InnoDB;
 
 -- ============================================================

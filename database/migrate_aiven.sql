@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     onboarding_step TINYINT UNSIGNED NOT NULL DEFAULT 1,
     academic_session VARCHAR(50) DEFAULT NULL,
     current_semester VARCHAR(50) DEFAULT NULL,
+    last_active_at   DATETIME     DEFAULT NULL,
     email_verified   TINYINT(1)   NOT NULL DEFAULT 0,
     email_verification_token VARCHAR(100) DEFAULT NULL,
     email_verification_expires_at DATETIME DEFAULT NULL,
@@ -183,6 +184,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     user_id     INT NOT NULL,
     task_id     INT DEFAULT NULL,
     channel     ENUM('in_app','email','push') NOT NULL DEFAULT 'in_app',
+    event_key   VARCHAR(100) DEFAULT NULL,
     message     VARCHAR(255) NOT NULL,
     send_at     DATETIME NOT NULL,
     sent_at     DATETIME DEFAULT NULL,
@@ -192,7 +194,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     INDEX idx_user_unread (user_id, read_at),
     INDEX idx_pending_send (sent_at, send_at),
-    INDEX idx_notif_user_channel_send (user_id, channel, read_at, send_at)
+    INDEX idx_notif_user_channel_send (user_id, channel, read_at, send_at),
+    INDEX idx_user_event_key (user_id, event_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 11. Activity Log

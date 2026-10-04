@@ -22,6 +22,7 @@ function requireLogin(): void
     // This keeps existing databases usable when schema.sql was imported
     // before the current account was created.
     ensureUserDataSeeded(currentUserId());
+    touchUserLastActive();
 }
 
 function currentUserId(): int
@@ -186,12 +187,63 @@ function requirePageLogin(): void
         exit;
     }
 
+    touchUserLastActive(null, (int) $_SESSION['user_id']);
+
     $currentScript = basename($_SERVER['PHP_SELF'] ?? '');
     if ($currentScript !== 'onboarding.php' && $currentScript !== 'logout.php') {
         if (!isOnboardingComplete((int) $_SESSION['user_id'])) {
             header('Location: onboarding.php');
             exit;
         }
+    }
+}
+
+/**
+ * Throttled update of user's last_active_at timestamp (at most once every 60 seconds).
+ */
+function touchUserLastActive(?PDO $db = null, ?int $userId = null): void
+{
+    $uid = $userId ?? currentUserId();
+    if ($uid <= 0) {
+        return;
+    }
+
+    $now = time();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $lastTouched = (int) ($_SESSION['last_active_touched_' . $uid] ?? 0);
+        if (($now - $lastTouched) < 60) {
+            return;
+        }
+    }
+
+    try {
+        $conn = $db ?? getDb();
+        $stmt = $conn->prepare('UPDATE users SET last_active_at = NOW() WHERE id = ?');
+        $stmt->execute([$uid]);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['last_active_touched_' . $uid] = $now;
+        }
+    } catch (Throwable $e) {
+        // Fail silently
+    }
+}
+
+/**
+ * Check if the user was active within the given number of minutes (default: 15).
+ */
+function isUserRecentlyActive(?PDO $db = null, int $userId = 0, int $minutes = 15): bool
+{
+    if ($userId <= 0) {
+        return false;
+    }
+
+    try {
+        $conn = $db ?? getDb();
+        $stmt = $conn->prepare('SELECT (last_active_at IS NOT NULL AND last_active_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)) AS is_active FROM users WHERE id = ?');
+        $stmt->execute([$minutes, $userId]);
+        return (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
     }
 }
 

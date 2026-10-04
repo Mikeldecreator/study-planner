@@ -28,6 +28,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/Mailer.php';
 require_once __DIR__ . '/../includes/webpush.php';
 
@@ -119,18 +121,24 @@ $db->exec("
 
 
 /* ============================================================
-   PROCESS NORMAL NOTIFICATIONS
+   PROCESS PENDING NOTIFICATIONS & SMART DELIVERY
    ============================================================ */
+
+ensureNotificationSchema($db);
 
 $notificationStmt = $db->query("
     SELECT
         n.id,
         n.user_id,
+        n.task_id,
         n.channel,
+        n.event_key,
         n.message,
         n.send_at,
         u.email,
-        u.full_name
+        u.full_name,
+        u.notifications_enabled,
+        u.last_active_at
     FROM notifications n
     INNER JOIN users u
         ON u.id = n.user_id
@@ -139,15 +147,14 @@ $notificationStmt = $db->query("
     ORDER BY n.send_at ASC, n.id ASC
 ");
 
-$pendingNotifications = $notificationStmt->fetchAll();
+$pendingNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $processedNotifications = 0;
 $failedNotifications = 0;
-
-
-/* ============================================================
-   PROCESS EMAIL / IN-APP
-   ============================================================ */
+$pushSent = 0;
+$pushSkipped = 0;
+$pushExpired = 0;
+$pushErrors = 0;
 
 $markNotificationStmt = $db->prepare("
     UPDATE notifications
@@ -155,16 +162,51 @@ $markNotificationStmt = $db->prepare("
     WHERE id = ?
 ");
 
+$userPushStmt = $db->prepare("
+    SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
+    FROM browser_push_subscriptions
+    WHERE user_id = ?
+    ORDER BY id DESC
+");
+
+$deleteDeadSubStmt = $db->prepare("
+    DELETE FROM browser_push_subscriptions
+    WHERE id = ?
+");
+
+$checkDailyStmt = $db->prepare("
+    SELECT id
+    FROM push_daily_reminders
+    WHERE user_id = ?
+      AND task_id = ?
+      AND reminder_date = CURDATE()
+    LIMIT 1
+");
+
+$insertDailyStmt = $db->prepare("
+    INSERT IGNORE INTO push_daily_reminders
+        (user_id, task_id, reminder_date)
+    VALUES
+        (?, ?, CURDATE())
+");
 
 foreach ($pendingNotifications as $notification) {
-
+    $userId = (int) $notification['user_id'];
+    $notifId = (int) $notification['id'];
+    $taskId = !empty($notification['task_id']) ? (int) $notification['task_id'] : null;
     $channel = (string) $notification['channel'];
 
+    // If notifications disabled for this user, mark sent and skip
+    if (empty($notification['notifications_enabled'])) {
+        $markNotificationStmt->execute([$notifId]);
+        $processedNotifications++;
+        continue;
+    }
+
     /*
-     * EMAIL
+     * 1. EMAIL DELIVERY
      */
     if ($channel === 'email') {
-
         $emailOk = sendReminderEmail(
             (string) $notification['email'],
             (string) $notification['full_name'],
@@ -179,433 +221,94 @@ foreach ($pendingNotifications as $notification) {
     }
 
     /*
-     * IN-APP
+     * 2. IN-APP & WEB PUSH DELIVERY
      *
-     * The notification already exists in the database and is
-     * available to the bell/notifications page.
-     * Also deliver real-time Web Push to any subscribed devices.
+     * The notification row is already available to the in-app bell dropdown.
+     * Web Push is delivered ONLY if:
+     * - User has NOT been active in the app within the last 15 minutes.
+     * - The notification is push-eligible (P1 urgent or P2 daily morning summary).
      */
     if ($channel === 'in_app') {
-        try {
-            $userPushStmt = $db->prepare("
-                SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
-                FROM browser_push_subscriptions
-                WHERE user_id = ?
-                ORDER BY id DESC
-            ");
-            $userPushStmt->execute([(int) $notification['user_id']]);
-            $userSubs = $userPushStmt->fetchAll();
+        $isActive = isUserRecentlyActive($db, $userId, 15);
 
-            if (!empty($userSubs)) {
-                $deleteDeadSubStmt = $db->prepare("
-                    DELETE FROM browser_push_subscriptions
-                    WHERE id = ?
-                ");
-
-                foreach ($userSubs as $sub) {
-                    try {
-                        webPushSend(
-                            $sub,
-                            [
-                                'title' => 'Study Planner — Reminder',
-                                'body' => (string) $notification['message'],
-                                'tag' => 'academic-reminder-' . (int) $notification['id'],
-                                'renotify' => true,
-                                'data' => [
-                                    'url' => APP_URL . '/notifications.php',
-                                    'notification_id' => (int) $notification['id']
-                                ]
-                            ]
-                        );
-                    } catch (Throwable $pushEx) {
-                        $err = strtolower($pushEx->getMessage());
-                        if (
-                            str_contains($err, 'http 404') ||
-                            str_contains($err, 'http 410') ||
-                            str_contains($err, 'returned http 404') ||
-                            str_contains($err, 'returned http 410')
-                        ) {
-                            $deleteDeadSubStmt->execute([(int) $sub['id']]);
-                        }
-                    }
+        if ($isActive) {
+            // User was active in the app within the last 15 minutes: suppress background Web Push!
+            $pushSkipped++;
+        } elseif (!isNotificationPushEligible($notification)) {
+            // In-app only notification (digests of tomorrow's deadlines, P3 study suggestions, gaps, etc.)
+            $pushSkipped++;
+        } else {
+            // Check daily push reminder deduplication for task-associated reminders
+            $alreadyReminded = false;
+            if ($taskId !== null) {
+                $checkDailyStmt->execute([$userId, $taskId]);
+                if ($checkDailyStmt->fetchColumn()) {
+                    $alreadyReminded = true;
+                    $pushSkipped++;
                 }
             }
-        } catch (Throwable $subEx) {
-            // Push delivery failure shouldn't prevent in-app notification from marking sent
-            error_log('In-app push delivery error: ' . $subEx->getMessage());
+
+            if (!$alreadyReminded) {
+                try {
+                    $userPushStmt->execute([$userId]);
+                    $userSubs = $userPushStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    if (!empty($userSubs)) {
+                        $pushTag = $taskId !== null
+                            ? 'deadline-task-' . $taskId
+                            : 'academic-notif-' . $notifId;
+
+                        $pushPayload = [
+                            'title' => 'Study Planner',
+                            'body'  => (string) $notification['message'],
+                            'tag'   => $pushTag,
+                            'renotify' => true,
+                            'data'  => [
+                                'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
+                                'notification_id' => $notifId,
+                                'task_id' => $taskId
+                            ]
+                        ];
+
+                        $taskPushed = false;
+                        foreach ($userSubs as $sub) {
+                            try {
+                                $sendRes = webPushSend($sub, $pushPayload);
+                                if (!empty($sendRes['success'])) {
+                                    $pushSent++;
+                                    $taskPushed = true;
+                                }
+                            } catch (Throwable $pushEx) {
+                                $pushErrors++;
+                                $err = strtolower($pushEx->getMessage());
+                                if (
+                                    str_contains($err, 'http 404') ||
+                                    str_contains($err, 'http 410') ||
+                                    str_contains($err, 'returned http 404') ||
+                                    str_contains($err, 'returned http 410')
+                                ) {
+                                    $deleteDeadSubStmt->execute([(int) $sub['id']]);
+                                    $pushExpired++;
+                                }
+                            }
+                        }
+
+                        if ($taskPushed && $taskId !== null) {
+                            $insertDailyStmt->execute([$userId, $taskId]);
+                        }
+                    } else {
+                        $pushSkipped++;
+                    }
+                } catch (Throwable $subEx) {
+                    error_log('Push delivery error: ' . $subEx->getMessage());
+                }
+            }
         }
     }
 
-    $markNotificationStmt->execute([
-        (int) $notification['id']
-    ]);
-
+    $markNotificationStmt->execute([$notifId]);
     $processedNotifications++;
 }
-
-
-/* ============================================================
-   BROWSER PUSH REMINDERS
-   ============================================================ */
-
-$pushProcessed = 0;
-$pushSent = 0;
-$pushSkipped = 0;
-$pushExpired = 0;
-$pushErrors = 0;
-
-
-try {
-
-    /*
-     * Daily reminder hour.
-     *
-     * Default = 08:00 Lagos time.
-     *
-     * Task Scheduler can run every 15 minutes, but a reminder
-     * will only be created after this hour.
-     */
-    $dailyPushHour = defined('DAILY_PUSH_REMINDER_HOUR')
-        ? (int) DAILY_PUSH_REMINDER_HOUR
-        : 8;
-
-
-    $currentHour = (int) date('G');
-
-
-    if ($currentHour >= $dailyPushHour) {
-
-        /*
-         * Get unfinished tasks whose deadline has not passed.
-         */
-        $taskStmt = $db->query("
-            SELECT
-                t.id AS task_id,
-                t.user_id,
-                t.title,
-                t.due_at,
-                t.status,
-
-                c.code AS course_code,
-
-                u.full_name
-
-            FROM tasks t
-
-            INNER JOIN users u
-                ON u.id = t.user_id
-
-            LEFT JOIN courses c
-                ON c.id = t.course_id
-                AND c.user_id = t.user_id
-
-            WHERE t.status <> 'completed'
-
-              AND t.due_at >= NOW()
-
-              AND u.notifications_enabled = 1
-
-            ORDER BY
-                t.due_at ASC,
-                t.id ASC
-        ");
-
-        $tasks = $taskStmt->fetchAll();
-
-
-        /*
-         * Prepared statements used repeatedly.
-         */
-
-        $alreadySentStmt = $db->prepare("
-            SELECT id
-            FROM push_daily_reminders
-            WHERE user_id = ?
-              AND task_id = ?
-              AND reminder_date = CURDATE()
-            LIMIT 1
-        ");
-
-
-        $insertDailyStmt = $db->prepare("
-            INSERT IGNORE INTO push_daily_reminders
-                (
-                    user_id,
-                    task_id,
-                    reminder_date
-                )
-            VALUES
-                (
-                    ?,
-                    ?,
-                    CURDATE()
-                )
-        ");
-
-
-        $subscriptionStmt = $db->prepare("
-            SELECT
-                id,
-                endpoint,
-                p256dh,
-                auth,
-                content_encoding,
-                expiration_time
-
-            FROM browser_push_subscriptions
-
-            WHERE user_id = ?
-
-            ORDER BY id DESC
-        ");
-
-
-        $deleteSubscriptionStmt = $db->prepare("
-            DELETE FROM browser_push_subscriptions
-            WHERE id = ?
-        ");
-
-
-        /*
-         * Process every unfinished task.
-         */
-
-        foreach ($tasks as $task) {
-
-            $taskId = (int) $task['task_id'];
-            $userId = (int) $task['user_id'];
-
-
-            /*
-             * Prevent duplicate reminders on the same day.
-             */
-
-            $alreadySentStmt->execute([
-                $userId,
-                $taskId
-            ]);
-
-
-            if ($alreadySentStmt->fetchColumn()) {
-                $pushSkipped++;
-                continue;
-            }
-
-
-            /*
-             * Calculate days remaining.
-             */
-
-            $today = new DateTimeImmutable(
-                date('Y-m-d'),
-                new DateTimeZone('Africa/Lagos')
-            );
-
-
-            $dueDate = new DateTimeImmutable(
-                date('Y-m-d', strtotime((string) $task['due_at'])),
-                new DateTimeZone('Africa/Lagos')
-            );
-
-
-            $daysLeft = (int) $today
-                ->diff($dueDate)
-                ->format('%r%a');
-
-
-            /*
-             * Safety check.
-             */
-            if ($daysLeft < 0) {
-                $pushSkipped++;
-                continue;
-            }
-
-
-            /*
-             * Build reminder wording.
-             */
-
-            if ($daysLeft === 0) {
-
-                $whenText = 'is due today';
-
-            } elseif ($daysLeft === 1) {
-
-                $whenText = 'is due tomorrow';
-
-            } else {
-
-                $whenText =
-                    'is due in ' .
-                    $daysLeft .
-                    ' days';
-            }
-
-
-            $message =
-                (string) $task['title'] .
-                ' ' .
-                $whenText .
-                '.';
-
-
-            if (
-                isset($task['course_code']) &&
-                trim((string) $task['course_code']) !== ''
-            ) {
-
-                $message .=
-                    ' Course: ' .
-                    trim((string) $task['course_code']) .
-                    '.';
-            }
-
-
-            /*
-             * Get all browser subscriptions for this user.
-             */
-
-            $subscriptionStmt->execute([
-                $userId
-            ]);
-
-            $subscriptions =
-                $subscriptionStmt->fetchAll();
-
-
-            /*
-             * No browser subscription.
-             */
-
-            if (!$subscriptions) {
-                $pushSkipped++;
-                continue;
-            }
-
-
-            $successForTask = false;
-
-
-            /*
-             * Send to every registered browser.
-             */
-
-            foreach ($subscriptions as $subscription) {
-
-                try {
-
-                    $result = webPushSend(
-                        $subscription,
-                        [
-                            'title' =>
-                                'Study Planner — Deadline Reminder',
-
-                            'body' =>
-                                $message,
-
-                            'tag' =>
-                                'deadline-task-' .
-                                $taskId,
-
-                            'renotify' =>
-                                true,
-
-                            'data' => [
-                                'url' =>
-                                    APP_URL .
-                                    '/deadlines.php',
-
-                                'task_id' =>
-                                    $taskId
-                            ]
-                        ]
-                    );
-
-
-                    if (
-                        isset($result['success']) &&
-                        $result['success'] === true
-                    ) {
-
-                        $successForTask = true;
-                        $pushSent++;
-                    }
-
-
-                } catch (Throwable $pushError) {
-
-                    $pushErrors++;
-
-
-                    /*
-                     * A 404 or 410 normally means the push
-                     * subscription is no longer valid.
-                     */
-                    $errorMessage =
-                        strtolower(
-                            $pushError->getMessage()
-                        );
-
-
-                    if (
-                        str_contains(
-                            $errorMessage,
-                            'http 404'
-                        ) ||
-                        str_contains(
-                            $errorMessage,
-                            'http 410'
-                        ) ||
-                        str_contains(
-                            $errorMessage,
-                            'returned http 404'
-                        ) ||
-                        str_contains(
-                            $errorMessage,
-                            'returned http 410'
-                        )
-                    ) {
-
-                        $deleteSubscriptionStmt->execute([
-                            (int) $subscription['id']
-                        ]);
-
-                        $pushExpired++;
-                    }
-
-
-                    error_log(
-                        'Study Planner push error: ' .
-                        $pushError->getMessage()
-                    );
-                }
-            }
-
-
-            /*
-             * Only mark the task as reminded after at least
-             * one browser accepted the push.
-             */
-
-            if ($successForTask) {
-
-                $insertDailyStmt->execute([
-                    $userId,
-                    $taskId
-                ]);
-            }
-        }
-    }
-
-} catch (Throwable $pushFatalError) {
-
-    error_log(
-        'Study Planner browser reminder fatal error: ' .
-        $pushFatalError->getMessage()
-    );
-}
-
 
 /* ============================================================
    OUTPUT

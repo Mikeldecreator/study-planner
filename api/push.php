@@ -16,6 +16,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/webpush.php';
 
 header('Content-Type: application/json; charset=UTF-8');
@@ -651,6 +653,10 @@ if (
     $action === 'check_deadlines' &&
     ($method === 'GET' || $method === 'POST')
 ) {
+    if ($userId <= 0) {
+        jsonResponse(false, ['message' => 'Not authenticated.'], 401);
+    }
+
     $userStmt = $pdo->prepare("
         SELECT notifications_enabled, email, full_name
         FROM users
@@ -664,32 +670,27 @@ if (
             true,
             [
                 'message' => 'Notifications are disabled for this user.',
-                'tasks_checked' => 0,
+                'notifications_checked' => 0,
                 'push_sent' => 0,
                 'push_skipped' => 0
             ]
         );
     }
 
-    $taskStmt = $pdo->prepare("
-        SELECT
-            t.id AS task_id,
-            t.user_id,
-            t.title,
-            t.due_at,
-            t.status,
-            c.code AS course_code,
-            u.full_name
-        FROM tasks t
-        INNER JOIN users u ON u.id = t.user_id
-        LEFT JOIN courses c ON c.id = t.course_id AND c.user_id = t.user_id
-        WHERE t.user_id = ?
-          AND t.status <> 'completed'
-          AND t.due_at >= NOW()
-        ORDER BY t.due_at ASC, t.id ASC
+    // Run unified decision engine to produce prioritized, deduplicated notifications
+    generateAcademicReminders($pdo, $userId);
+
+    // Query pending notifications for this user
+    $notifStmt = $pdo->prepare("
+        SELECT id, user_id, task_id, channel, event_key, message, send_at
+        FROM notifications
+        WHERE user_id = ?
+          AND sent_at IS NULL
+          AND send_at <= NOW()
+        ORDER BY send_at ASC, id ASC
     ");
-    $taskStmt->execute([$userId]);
-    $tasks = $taskStmt->fetchAll(PDO::FETCH_ASSOC);
+    $notifStmt->execute([$userId]);
+    $pending = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $subStmt = $pdo->prepare("
         SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
@@ -715,89 +716,96 @@ if (
         DELETE FROM browser_push_subscriptions WHERE id = ?
     ");
 
+    $markSentStmt = $pdo->prepare("
+        UPDATE notifications SET sent_at = NOW() WHERE id = ?
+    ");
+
     $pushSent = 0;
     $pushSkipped = 0;
     $pushExpired = 0;
     $results = [];
 
-    foreach ($tasks as $task) {
-        $taskId = (int)$task['task_id'];
+    $ignoreSuppression = !empty($_REQUEST['ignore_suppression']) || !empty($_REQUEST['force']);
+    $isActive = !$ignoreSuppression && isUserRecentlyActive($pdo, $userId, 15);
 
-        $alreadySentStmt->execute([$userId, $taskId]);
-        if ($alreadySentStmt->fetchColumn()) {
+    foreach ($pending as $notification) {
+        $notifId = (int)$notification['id'];
+        $taskId = !empty($notification['task_id']) ? (int)$notification['task_id'] : null;
+
+        if ($isActive) {
+            // User active within 15m: suppress background push, keep in-app
             $pushSkipped++;
-            continue;
-        }
-
-        if (empty($subscriptions)) {
+        } elseif (!isNotificationPushEligible($notification)) {
+            // In-app only (e.g. tomorrow digest, P3 suggestions)
             $pushSkipped++;
-            continue;
-        }
-
-        $today = new DateTimeImmutable(date('Y-m-d'), new DateTimeZone('Africa/Lagos'));
-        $dueDate = new DateTimeImmutable(date('Y-m-d', strtotime((string)$task['due_at'])), new DateTimeZone('Africa/Lagos'));
-        $daysLeft = (int)$today->diff($dueDate)->format('%r%a');
-
-        if ($daysLeft < 0) {
-            $pushSkipped++;
-            continue;
-        }
-
-        $whenText = $daysLeft === 0 ? 'is due today' : ($daysLeft === 1 ? 'is due tomorrow' : "is due in {$daysLeft} days");
-        $msg = (string)$task['title'] . ' ' . $whenText . '.';
-        if (!empty($task['course_code'])) {
-            $msg .= ' Course: ' . trim((string)$task['course_code']) . '.';
-        }
-
-        $notificationPayload = [
-            'title' => 'Study Planner — Deadline Reminder',
-            'body' => $msg,
-            'tag' => 'deadline-task-' . $taskId,
-            'renotify' => true,
-            'data' => [
-                'url' => APP_URL . '/deadlines.php',
-                'task_id' => $taskId
-            ]
-        ];
-
-        $taskSent = false;
-        foreach ($subscriptions as $sub) {
-            try {
-                $sendRes = webPushSend($sub, $notificationPayload);
-                if (!empty($sendRes['success'])) {
-                    $taskSent = true;
-                    $pushSent++;
-                    $results[] = [
-                        'task_id' => $taskId,
-                        'endpoint' => $sub['endpoint'],
-                        'success' => true
-                    ];
+        } else {
+            $alreadyReminded = false;
+            if ($taskId !== null) {
+                $alreadySentStmt->execute([$userId, $taskId]);
+                if ($alreadySentStmt->fetchColumn()) {
+                    $alreadyReminded = true;
+                    $pushSkipped++;
                 }
-            } catch (Throwable $e) {
-                $errLower = strtolower($e->getMessage());
-                if (str_contains($errLower, 'http 404') || str_contains($errLower, 'http 410')) {
-                    $deleteExpiredStmt->execute([(int)$sub['id']]);
-                    $pushExpired++;
-                }
-                $results[] = [
-                    'task_id' => $taskId,
-                    'endpoint' => $sub['endpoint'],
-                    'success' => false,
-                    'error' => $e->getMessage()
+            }
+
+            if (!$alreadyReminded && !empty($subscriptions)) {
+                $pushTag = $taskId !== null ? 'deadline-task-' . $taskId : 'academic-notif-' . $notifId;
+                $notificationPayload = [
+                    'title' => 'Study Planner',
+                    'body'  => (string)$notification['message'],
+                    'tag'   => $pushTag,
+                    'renotify' => true,
+                    'data'  => [
+                        'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
+                        'notification_id' => $notifId,
+                        'task_id' => $taskId
+                    ]
                 ];
+
+                $taskSent = false;
+                foreach ($subscriptions as $sub) {
+                    try {
+                        $sendRes = webPushSend($sub, $notificationPayload);
+                        if (!empty($sendRes['success'])) {
+                            $taskSent = true;
+                            $pushSent++;
+                            $results[] = [
+                                'task_id' => $taskId,
+                                'notification_id' => $notifId,
+                                'endpoint' => $sub['endpoint'],
+                                'success' => true
+                            ];
+                        }
+                    } catch (Throwable $e) {
+                        $errLower = strtolower($e->getMessage());
+                        if (str_contains($errLower, 'http 404') || str_contains($errLower, 'http 410')) {
+                            $deleteExpiredStmt->execute([(int)$sub['id']]);
+                            $pushExpired++;
+                        }
+                        $results[] = [
+                            'task_id' => $taskId,
+                            'notification_id' => $notifId,
+                            'endpoint' => $sub['endpoint'],
+                            'success' => false,
+                            'error' => $e->getMessage()
+                        ];
+                    }
+                }
+
+                if ($taskSent && $taskId !== null) {
+                    $insertDailyStmt->execute([$userId, $taskId]);
+                }
             }
         }
 
-        if ($taskSent) {
-            $insertDailyStmt->execute([$userId, $taskId]);
-        }
+        $markSentStmt->execute([$notifId]);
     }
 
     jsonResponse(
         true,
         [
             'message' => "Deadline reminder check completed: {$pushSent} sent, {$pushSkipped} skipped, {$pushExpired} expired removed.",
-            'tasks_checked' => count($tasks),
+            'notifications_checked' => count($pending),
             'push_sent' => $pushSent,
             'push_skipped' => $pushSkipped,
             'push_expired' => $pushExpired,
