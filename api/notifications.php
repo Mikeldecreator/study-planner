@@ -22,7 +22,7 @@ if ($method === 'GET') {
 
     // Fetch notifications whose send_at has arrived
     $stmt = $db->prepare(
-        "SELECT n.id, n.user_id, n.task_id, n.channel, n.event_key, n.message, n.send_at, n.read_at, n.created_at,
+        "SELECT n.id, n.user_id, n.task_id, n.channel, n.event_key, n.message, n.send_at, n.sent_at, n.push_status, n.read_at, n.created_at,
                 t.title AS task_title
          FROM notifications n
          LEFT JOIN tasks t ON t.id = n.task_id AND t.user_id = n.user_id
