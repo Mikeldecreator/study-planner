@@ -127,23 +127,6 @@ if ($action === 'vapid_public_key') {
 
 
 /* ============================================================
-   LOGIN REQUIRED FOR EVERYTHING ELSE
-   ============================================================ */
-
-$userId = currentUserId();
-
-if ($userId <= 0) {
-    jsonResponse(
-        false,
-        [
-            'message' => 'You must be logged in.'
-        ],
-        401
-    );
-}
-
-
-/* ============================================================
    DATABASE TABLE CHECK
    ============================================================ */
 
@@ -180,9 +163,6 @@ function ensurePushTableExists(PDO $pdo): void
 
 /*
  * Create the table automatically.
- *
- * If your users table has a different primary-key structure,
- * we will adjust this after checking your current database.
  */
 $pdo = getPDO();
 
@@ -202,43 +182,11 @@ try {
     );
 }
 
-
-/* ============================================================
-   STATUS
-   ============================================================ */
-
-if ($action === 'status') {
-
-    $stmt = $pdo->prepare("
-        SELECT
-            id,
-            endpoint,
-            content_encoding,
-            expiration_time,
-            created_at,
-            updated_at
-        FROM browser_push_subscriptions
-        WHERE user_id = ?
-        ORDER BY id DESC
-    ");
-
-    $stmt->execute([$userId]);
-
-    $subscriptions = $stmt->fetchAll();
-
-    jsonResponse(
-        true,
-        [
-            'enabled' => count($subscriptions) > 0,
-            'count'   => count($subscriptions),
-            'subscriptions' => $subscriptions
-        ]
-    );
-}
+$userId = currentUserId();
 
 
 /* ============================================================
-   SUBSCRIBE
+   SUBSCRIBE (HANDLES USER SESSIONS AND SW BACKGROUND ROTATIONS)
    ============================================================ */
 
 if (
@@ -275,6 +223,37 @@ if (
         );
     }
 
+    $oldEndpoint = trim((string) ($payload['old_endpoint'] ?? ''));
+
+    /*
+     * If user is not logged in via session (e.g. background Service Worker
+     * pushsubscriptionchange event firing while tab is closed),
+     * verify if old_endpoint matches an existing subscription in the database.
+     */
+    if ($userId <= 0 && $oldEndpoint !== '') {
+        $oldHash = hash('sha256', $oldEndpoint);
+        $findOldStmt = $pdo->prepare("
+            SELECT user_id
+            FROM browser_push_subscriptions
+            WHERE endpoint_hash = ?
+            LIMIT 1
+        ");
+        $findOldStmt->execute([$oldHash]);
+        $verifiedUserId = (int) $findOldStmt->fetchColumn();
+        if ($verifiedUserId > 0) {
+            $userId = $verifiedUserId;
+        }
+    }
+
+    if ($userId <= 0) {
+        jsonResponse(
+            false,
+            [
+                'message' => 'You must be logged in.'
+            ],
+            401
+        );
+    }
 
     $endpoint = trim(
         (string) ($payload['endpoint'] ?? '')
@@ -372,6 +351,19 @@ if (
 
 
     /*
+     * If old_endpoint is specified and differs from new endpoint,
+     * atomically remove the old subscription so we don't retain dead endpoints.
+     */
+    if ($oldEndpoint !== '' && $oldEndpoint !== $endpoint) {
+        $delOldStmt = $pdo->prepare("
+            DELETE FROM browser_push_subscriptions
+            WHERE endpoint_hash = ?
+        ");
+        $delOldStmt->execute([hash('sha256', $oldEndpoint)]);
+    }
+
+
+    /*
      * Insert or update.
      */
 
@@ -419,6 +411,55 @@ if (
         true,
         [
             'message' => 'Browser push subscription saved.'
+        ]
+    );
+}
+
+
+/* ============================================================
+   LOGIN REQUIRED FOR ALL REMAINING ACTIONS
+   ============================================================ */
+
+if ($userId <= 0) {
+    jsonResponse(
+        false,
+        [
+            'message' => 'You must be logged in.'
+        ],
+        401
+    );
+}
+
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+if ($action === 'status') {
+
+    $stmt = $pdo->prepare("
+        SELECT
+            id,
+            endpoint,
+            content_encoding,
+            expiration_time,
+            created_at,
+            updated_at
+        FROM browser_push_subscriptions
+        WHERE user_id = ?
+        ORDER BY id DESC
+    ");
+
+    $stmt->execute([$userId]);
+
+    $subscriptions = $stmt->fetchAll();
+
+    jsonResponse(
+        true,
+        [
+            'enabled' => count($subscriptions) > 0,
+            'count'   => count($subscriptions),
+            'subscriptions' => $subscriptions
         ]
     );
 }

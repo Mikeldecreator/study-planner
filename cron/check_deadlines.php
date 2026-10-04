@@ -183,7 +183,59 @@ foreach ($pendingNotifications as $notification) {
      *
      * The notification already exists in the database and is
      * available to the bell/notifications page.
+     * Also deliver real-time Web Push to any subscribed devices.
      */
+    if ($channel === 'in_app') {
+        try {
+            $userPushStmt = $db->prepare("
+                SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
+                FROM browser_push_subscriptions
+                WHERE user_id = ?
+                ORDER BY id DESC
+            ");
+            $userPushStmt->execute([(int) $notification['user_id']]);
+            $userSubs = $userPushStmt->fetchAll();
+
+            if (!empty($userSubs)) {
+                $deleteDeadSubStmt = $db->prepare("
+                    DELETE FROM browser_push_subscriptions
+                    WHERE id = ?
+                ");
+
+                foreach ($userSubs as $sub) {
+                    try {
+                        webPushSend(
+                            $sub,
+                            [
+                                'title' => 'Study Planner — Reminder',
+                                'body' => (string) $notification['message'],
+                                'tag' => 'academic-reminder-' . (int) $notification['id'],
+                                'renotify' => true,
+                                'data' => [
+                                    'url' => APP_URL . '/notifications.php',
+                                    'notification_id' => (int) $notification['id']
+                                ]
+                            ]
+                        );
+                    } catch (Throwable $pushEx) {
+                        $err = strtolower($pushEx->getMessage());
+                        if (
+                            str_contains($err, 'http 404') ||
+                            str_contains($err, 'http 410') ||
+                            str_contains($err, 'returned http 404') ||
+                            str_contains($err, 'returned http 410')
+                        ) {
+                            $deleteDeadSubStmt->execute([(int) $sub['id']]);
+                        }
+                    }
+                }
+            }
+        } catch (Throwable $subEx) {
+            // Push delivery failure shouldn't prevent in-app notification from marking sent
+            error_log('In-app push delivery error: ' . $subEx->getMessage());
+        }
+    }
+
     $markNotificationStmt->execute([
         (int) $notification['id']
     ]);

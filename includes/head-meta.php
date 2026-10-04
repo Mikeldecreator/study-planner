@@ -1,5 +1,8 @@
 <?php
 // Centralized PWA, Favicon, and Mobile Head Metadata for Study Planner
+$pushScriptSrc = (isset($_SERVER['REQUEST_URI']) && str_contains($_SERVER['REQUEST_URI'], '/public/'))
+    ? '../assets/js/browser-push.js'
+    : '/assets/js/browser-push.js';
 ?>
 <!-- Favicons & App Icons -->
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -18,3 +21,6 @@
 <meta name="apple-mobile-web-app-title" content="Study Planner">
 <meta name="application-name" content="Study Planner">
 <meta name="mobile-web-app-capable" content="yes">
+
+<!-- Push Notification & Service Worker Lifecycle -->
+<script defer src="<?= htmlspecialchars($pushScriptSrc, ENT_QUOTES, 'UTF-8') ?>"></script>

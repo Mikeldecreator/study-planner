@@ -8,6 +8,35 @@
 
 
 /* =========================================================
+   HELPERS FOR BACKGROUND SUBSCRIPTION RENEWAL
+   ========================================================= */
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; i++) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+function getPushApiUrl(action) {
+    const loc = self.location.pathname;
+    let base = '/api/push.php';
+    if (loc.includes('/public/')) {
+        base = loc.substring(0, loc.indexOf('/public/')) + '/api/push.php';
+    }
+    const url = new URL(base, self.location.origin);
+    if (action) {
+        url.searchParams.set('action', action);
+    }
+    return url.toString();
+}
+
+
+/* =========================================================
    INSTALL
    ========================================================= */
 
@@ -104,6 +133,68 @@ self.addEventListener('push', function (event) {
             options
         )
 
+    );
+
+});
+
+
+/* =========================================================
+   PUSH SUBSCRIPTION CHANGE (LIFECYCLE ROTATION / SELF-HEAL)
+   ========================================================= */
+
+self.addEventListener('pushsubscriptionchange', function (event) {
+
+    event.waitUntil(
+        (async function () {
+            try {
+                const oldEndpoint = event.oldSubscription ? event.oldSubscription.endpoint : null;
+                let newSubscription = event.newSubscription;
+
+                if (!newSubscription) {
+                    const keyUrl = getPushApiUrl('vapid_public_key');
+                    const keyRes = await fetch(keyUrl, { cache: 'no-store' });
+                    if (!keyRes.ok) {
+                        return;
+                    }
+
+                    const keyData = await keyRes.json().catch(() => ({}));
+                    if (!keyData || !keyData.public_key) {
+                        return;
+                    }
+
+                    const applicationServerKey = urlBase64ToUint8Array(keyData.public_key);
+                    newSubscription = await self.registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: applicationServerKey
+                    });
+                }
+
+                if (!newSubscription) {
+                    return;
+                }
+
+                const subJson = newSubscription.toJSON();
+                const saveUrl = getPushApiUrl('subscribe');
+
+                await fetch(saveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        endpoint: subJson.endpoint,
+                        p256dh: subJson.keys?.p256dh || '',
+                        auth: subJson.keys?.auth || '',
+                        content_encoding: subJson.contentEncoding || 'aes128gcm',
+                        expiration_time: subJson.expirationTime || null,
+                        old_endpoint: oldEndpoint
+                    })
+                });
+            } catch (err) {
+                // Silently tolerate background rotation errors
+            }
+        })()
     );
 
 });
