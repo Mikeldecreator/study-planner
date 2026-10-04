@@ -25,9 +25,11 @@ function requireLogin(): void
     touchUserLastActive();
 }
 
-function currentUserId(): int
-{
-    return (int) ($_SESSION['user_id'] ?? 0);
+if (!function_exists('currentUserId')) {
+    function currentUserId(): int
+    {
+        return (int) ($_SESSION['user_id'] ?? 0);
+    }
 }
 
 /** Generate (or reuse) a CSRF token for this session. */

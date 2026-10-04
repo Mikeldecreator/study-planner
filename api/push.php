@@ -66,25 +66,26 @@ function getPDO(): PDO
    CURRENT USER
    ============================================================ */
 
-function currentUserId(): int
-{
-    $possibleKeys = [
-        'user_id',
-        'id',
-        'uid'
-    ];
+if (!function_exists('currentUserId')) {
+    function currentUserId(): int
+    {
+        $possibleKeys = [
+            'user_id',
+            'id',
+            'uid'
+        ];
 
-    foreach ($possibleKeys as $key) {
-
-        if (
-            isset($_SESSION[$key]) &&
-            is_numeric($_SESSION[$key])
-        ) {
-            return (int) $_SESSION[$key];
+        foreach ($possibleKeys as $key) {
+            if (
+                isset($_SESSION[$key]) &&
+                is_numeric($_SESSION[$key])
+            ) {
+                return (int) $_SESSION[$key];
+            }
         }
-    }
 
-    return 0;
+        return 0;
+    }
 }
 
 
