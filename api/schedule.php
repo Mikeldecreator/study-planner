@@ -177,15 +177,19 @@ switch ($method) {
             'event_key' => $eventKey,
             'message' => $notifMsg,
             'send_at' => date('Y-m-d H:i:s'),
+            'push_status' => 'in_app_only',
             'read_at' => null,
             'created_at' => date('Y-m-d H:i:s')
         ]);
+        $notificationData['push_status'] = 'in_app_only';
         $notificationData['unread_count'] = $unreadCount;
 
         http_response_code(201);
         echo json_encode([
             'ok' => true,
             'id' => $newSchedId,
+            'unread_count' => $unreadCount,
+            'notification' => $notificationData,
             'event' => [
                 'id' => $newSchedId,
                 'course_id' => ownedCourseIdOrNull($db, $body['course_id'] ?? null, $userId),
@@ -237,15 +241,18 @@ switch ($method) {
                     'event_key' => $eventKey,
                     'message' => $notifMsg,
                     'send_at' => date('Y-m-d H:i:s'),
+                    'push_status' => 'in_app_only',
                     'read_at' => null,
                     'created_at' => date('Y-m-d H:i:s')
                 ]);
+                $notifData['push_status'] = 'in_app_only';
                 $notifData['unread_count'] = getUnreadNotificationCount($db, $userId);
             }
 
             $res = ['ok' => true];
             if ($notifData) {
                 $res['notification'] = $notifData;
+                $res['unread_count'] = $notifData['unread_count'] ?? 0;
             }
             echo json_encode($res);
             exit;

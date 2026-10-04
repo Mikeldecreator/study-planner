@@ -835,10 +835,12 @@ switch ($method) {
             'event_key' => $eventKey,
             'message' => $notifMsg,
             'send_at' => date('Y-m-d H:i:s'),
+            'push_status' => 'in_app_only',
             'read_at' => null,
             'created_at' => date('Y-m-d H:i:s'),
             'task_title' => $title
         ]);
+        $notificationData['push_status'] = 'in_app_only';
         $notificationData['unread_count'] = $unreadCount;
 
         taskApiJson([
@@ -852,6 +854,7 @@ switch ($method) {
                 'status' => $status,
                 'due_at' => $dueDate->format('Y-m-d H:i:s')
             ],
+            'unread_count' => $unreadCount,
             'notification' => $notificationData
         ], 201);
 
@@ -1157,10 +1160,12 @@ switch ($method) {
                 'event_key' => $eventKey,
                 'message' => $notifMsg,
                 'send_at' => date('Y-m-d H:i:s'),
+                'push_status' => 'in_app_only',
                 'read_at' => null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'task_title' => $existing['title']
             ]);
+            $mutatedNotification['push_status'] = 'in_app_only';
             $mutatedNotification['unread_count'] = getUnreadNotificationCount($db, $userId);
         } elseif ($newStatus !== 'completed' && $wasAlreadyCompleted) {
             logActivity(
@@ -1204,10 +1209,12 @@ switch ($method) {
                 'event_key' => $eventKey,
                 'message' => $notifMsg,
                 'send_at' => date('Y-m-d H:i:s'),
+                'push_status' => 'in_app_only',
                 'read_at' => null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'task_title' => $existing['title']
             ]);
+            $mutatedNotification['push_status'] = 'in_app_only';
             $mutatedNotification['unread_count'] = getUnreadNotificationCount($db, $userId);
         }
 
@@ -1225,6 +1232,7 @@ switch ($method) {
         ];
         if ($mutatedNotification !== null) {
             $resPayload['notification'] = $mutatedNotification;
+            $resPayload['unread_count'] = $mutatedNotification['unread_count'] ?? 0;
         }
 
         taskApiJson($resPayload, 200);
