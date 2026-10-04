@@ -18,9 +18,9 @@ define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: base64_decode('cmVfZkd3WHpC
 define('MAIL_FROM_EMAIL', getenv('MAIL_FROM_EMAIL') ?: 'onboarding@resend.dev');
 define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: 'Study Planner');
 define('REMINDER_LEAD_HOURS', (int) (getenv('REMINDER_LEAD_HOURS') ?: 24));
-define('VAPID_PUBLIC_KEY', getenv('VAPID_PUBLIC_KEY') ?: '');
-define('VAPID_PRIVATE_KEY', getenv('VAPID_PRIVATE_KEY') ?: '');
-define('VAPID_SUBJECT', getenv('VAPID_SUBJECT') ?: 'mailto:you@example.com');
+define('VAPID_PUBLIC_KEY', getenv('VAPID_PUBLIC_KEY') ?: 'BLOstxYftiUsR368iaZU_OFW2VI4ACfBKH2RHSP52VKPeJk7UhHhO4yS6TS1urPbiKFxbhNqAGR6Ir3DkE6lhYk');
+define('VAPID_PRIVATE_KEY', getenv('VAPID_PRIVATE_KEY') ?: 'rO8ORNk93bYqz_Et3p_j-jH3Hi7ogvnz5JjTv85bTAg');
+define('VAPID_SUBJECT', getenv('VAPID_SUBJECT') ?: 'mailto:admin@study-planner-gf2i.onrender.com');
 
 define('AI_PROVIDER', getenv('AI_PROVIDER') ?: 'gemini');
 define('AI_API_KEY', getenv('AI_API_KEY') ?: (getenv('GEMINI_API_KEY') ?: (getenv('GOOGLE_API_KEY') ?: (getenv('GOOGLE_AI_API_KEY') ?: (getenv('OPENAI_API_KEY') ?: '')))));

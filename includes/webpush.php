@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 $opensslConfigCandidates = [
     'C:\\xampp\\php\\extras\\ssl\\openssl.cnf',
+    'C:\\xampp\\php\\extras\\openssl\\openssl.cnf',
     'C:\\xampp\\apache\\conf\\openssl.cnf',
     'C:\\xampp\\apache\\bin\\openssl.cnf',
     '/etc/ssl/openssl.cnf',
@@ -1011,7 +1012,7 @@ function webPushSend(
                 $notification['data']
                 ?? [
                     'url' =>
-                        '/study-planner/public/notifications.php'
+                        '/notifications.php'
                 ],
         ],
         JSON_UNESCAPED_SLASHES

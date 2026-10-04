@@ -21,6 +21,7 @@ fi
 (
     while true; do
         php /var/www/html/cron/notification_scheduler.php >/dev/null 2>&1 || true
+        php /var/www/html/cron/check_deadlines.php >/dev/null 2>&1 || true
         sleep 300
     done
 ) &
