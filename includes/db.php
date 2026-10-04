@@ -51,6 +51,12 @@ function getDb(): PDO
 
         try {
             $pdo = new PDO($dsn, $user, $pass, $options);
+            try {
+                $tzOffset = date('P');
+                $pdo->exec("SET time_zone = '{$tzOffset}'");
+            } catch (Throwable $tzEx) {
+                // Non-blocking fallback if time_zone table or privilege restricted
+            }
         } catch (PDOException $e) {
             error_log(sprintf(
                 'Database connection failed for host %s:%d, database %s: %s',
