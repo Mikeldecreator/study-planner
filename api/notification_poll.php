@@ -57,6 +57,7 @@ try {
               AND n.channel = 'in_app'
               AND n.send_at <= NOW()
               AND n.read_at IS NULL
+              AND n.send_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
             ORDER BY n.send_at DESC, n.id DESC
             LIMIT 5
         ");

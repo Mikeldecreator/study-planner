@@ -163,8 +163,8 @@ switch ($method) {
         $notifMsg = "Schedule: '{$title}' added.";
         $eventKey = "schedule_event_created_{$newSchedId}";
         $insNotif = $db->prepare(
-            "INSERT INTO notifications (user_id, channel, event_key, message, send_at, push_status)
-             VALUES (?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+            "INSERT INTO notifications (user_id, channel, event_key, message, send_at, sent_at, push_status)
+             VALUES (?, 'in_app', ?, ?, NOW(), NOW(), 'in_app_only')"
         );
         $insNotif->execute([$userId, $eventKey, $notifMsg]);
         $notifId = (int)$db->lastInsertId();
@@ -229,8 +229,8 @@ switch ($method) {
                 $eventKey = "schedule_completed_{$id}_" . time();
                 $notifMsg = "Schedule session '{$existing['title']}' completed.";
                 $insNotif = $db->prepare(
-                    "INSERT INTO notifications (user_id, channel, event_key, message, send_at, push_status)
-                     VALUES (?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+                    "INSERT INTO notifications (user_id, channel, event_key, message, send_at, sent_at, push_status)
+                     VALUES (?, 'in_app', ?, ?, NOW(), NOW(), 'in_app_only')"
                 );
                 $insNotif->execute([$userId, $eventKey, $notifMsg]);
                 $notifId = (int)$db->lastInsertId();

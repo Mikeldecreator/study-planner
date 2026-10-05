@@ -32,6 +32,9 @@
     const enableButton =
         document.getElementById('browser-push-enable');
 
+    const testButton =
+        document.getElementById('browser-push-test');
+
     const pushStatus =
         document.getElementById('browser-push-status');
 
@@ -2938,99 +2941,64 @@ if (editTaglineButton) {
 
 
         if (!status.supported) {
-
             setPushStatus(
                 'Browser push notifications are not supported here.'
             );
-
-
-            if (enableButton) {
-
-                enableButton.disabled =
-                    true;
-
-                enableButton.textContent =
-                    'Not supported';
-
+            if (testButton) {
+                testButton.classList.add('hidden');
             }
-
-
+            if (enableButton) {
+                enableButton.disabled = true;
+                enableButton.textContent = 'Not supported';
+            }
             return;
-
         }
 
-
-        if (
-            status.permission ===
-            'denied'
-        ) {
-
+        if (status.permission === 'denied') {
             setPushStatus(
                 'Notifications are blocked. Allow them in your browser site settings.'
             );
-
-
-            if (enableButton) {
-
-                enableButton.disabled =
-                    false;
-
-                enableButton.textContent =
-                    'Enable';
-
+            if (testButton) {
+                testButton.classList.add('hidden');
             }
-
-
+            if (enableButton) {
+                enableButton.disabled = false;
+                enableButton.textContent = 'Enable';
+            }
             return;
-
         }
-
 
         if (status.subscribed) {
-
+            const count = status.serverCount || 1;
             setPushStatus(
-                'Enabled — this browser can receive Study Planner reminders.'
+                count > 1
+                    ? `Enabled — ${count} devices registered for your account.`
+                    : 'Enabled — this browser can receive Study Planner reminders.'
             );
-
-
-            if (enableButton) {
-
-                enableButton.disabled =
-                    true;
-
-                enableButton.textContent =
-                    'Enabled';
-
+            if (testButton) {
+                testButton.classList.remove('hidden');
             }
-
-
+            if (enableButton) {
+                enableButton.disabled = true;
+                enableButton.textContent = 'Enabled';
+            }
             return;
-
         }
 
+        if (testButton) {
+            testButton.classList.add('hidden');
+        }
 
         setPushStatus(
-
-            status.permission ===
-            'granted'
-
-                ? 'Browser permission is allowed, but Study Planner push is not enabled yet.'
-
+            status.permission === 'granted'
+                ? 'Browser permission is allowed, but device is not registered yet.'
                 : 'Click Enable to allow daily deadline reminders.'
-
         );
 
-
         if (enableButton) {
-
-            enableButton.disabled =
-                false;
-
-            enableButton.textContent =
-                'Enable';
-
+            enableButton.disabled = false;
+            enableButton.textContent = 'Enable';
         }
-
     }
 
 
@@ -3203,6 +3171,40 @@ if (editTaglineButton) {
             }
         );
 
+    }
+
+    if (testButton) {
+        testButton.addEventListener(
+            'click',
+            async function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (!window.StudyPlannerPush) {
+                    showToast('Browser notification module is unavailable.', 'error');
+                    return;
+                }
+
+                testButton.disabled = true;
+                testButton.textContent = 'Sending…';
+
+                try {
+                    const result = await window.StudyPlannerPush.test();
+                    showToast(
+                        result.message || 'Test notification sent to your devices.',
+                        'success'
+                    );
+                } catch (error) {
+                    showToast(
+                        error.message || 'Could not send test notification.',
+                        'error'
+                    );
+                } finally {
+                    testButton.disabled = false;
+                    testButton.textContent = 'Send Test Notification';
+                }
+            }
+        );
     }
 
 

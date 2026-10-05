@@ -970,6 +970,11 @@ function webPushSend(
      * Encrypt notification JSON.
      */
 
+    $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+    $iconUrl = !empty($notification['icon']) ? (string)$notification['icon'] : ($baseUrl . '/assets/images/icon-192x192.png');
+    $badgeUrl = !empty($notification['badge']) ? (string)$notification['badge'] : ($baseUrl . '/assets/images/favicon-32x32.png');
+    $tagStr = !empty($notification['tag']) ? (string)$notification['tag'] : 'study-planner-reminder';
+
     $payload = json_encode(
         [
             'title' =>
@@ -984,23 +989,13 @@ function webPushSend(
                     ?? 'You have a new study reminder.'
                 ),
 
-            'icon' =>
-                (string) (
-                    $notification['icon']
-                    ?? ''
-                ),
+            'icon' => $iconUrl,
 
-            'badge' =>
-                (string) (
-                    $notification['badge']
-                    ?? ''
-                ),
+            'badge' => $badgeUrl,
 
-            'tag' =>
-                (string) (
-                    $notification['tag']
-                    ?? 'study-planner'
-                ),
+            'tag' => $tagStr,
+
+            'vibrate' => [200, 100, 200],
 
             'renotify' =>
                 (bool) (
@@ -1018,13 +1013,11 @@ function webPushSend(
         JSON_UNESCAPED_SLASHES
     );
 
-
     if ($payload === false) {
         throw new RuntimeException(
             'Unable to encode notification.'
         );
     }
-
 
     $encrypted =
         webPushEncryptPayload(
@@ -1032,7 +1025,6 @@ function webPushSend(
             $p256dh,
             $auth
         );
-
 
     /*
      * VAPID JWT.
@@ -1045,9 +1037,9 @@ function webPushSend(
             VAPID_PUBLIC_KEY
         );
 
-
     /*
-     * Send with cURL.
+     * Send with cURL (RFC 8030 & RFC 8292 compliant).
+     * Includes Urgency: high to bypass Android Doze mode and prevent queued batch delays.
      */
 
     $curl = curl_init($endpoint);
@@ -1058,6 +1050,24 @@ function webPushSend(
         );
     }
 
+    $httpHeaders = [
+        'Content-Type: application/octet-stream',
+        'Content-Encoding: aes128gcm',
+        'TTL: 86400',
+        'Urgency: high',
+        'Authorization: vapid t=' .
+            $jwt .
+            ', k=' .
+            VAPID_PUBLIC_KEY,
+        'Content-Length: ' .
+            strlen($encrypted['body']),
+    ];
+
+    // RFC 8030 Topic header: sanitize tag to safe ASCII alphanumeric/underscore/hyphen
+    $topicSafe = preg_replace('/[^a-zA-Z0-9_\-]/', '', $tagStr);
+    if (!empty($topicSafe) && strlen($topicSafe) <= 32) {
+        $httpHeaders[] = 'Topic: ' . $topicSafe;
+    }
 
     curl_setopt_array(
         $curl,
@@ -1066,23 +1076,8 @@ function webPushSend(
             CURLOPT_POSTFIELDS     => $encrypted['body'],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER         => true,
-
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/octet-stream',
-                'Content-Encoding: aes128gcm',
-                'TTL: 86400',
-
-                'Authorization: vapid t=' .
-                    $jwt .
-                    ', k=' .
-                    VAPID_PUBLIC_KEY,
-
-                'Content-Length: ' .
-                    strlen($encrypted['body']),
-            ],
-
-            CURLOPT_TIMEOUT => 20,
-
+            CURLOPT_HTTPHEADER     => $httpHeaders,
+            CURLOPT_TIMEOUT        => 20,
             CURLOPT_CONNECTTIMEOUT => 10,
         ]
     );

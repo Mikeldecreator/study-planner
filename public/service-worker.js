@@ -71,69 +71,68 @@ self.addEventListener('push', function (event) {
     let data = {};
 
     try {
-
         if (event.data) {
             data = event.data.json();
         }
-
     } catch (error) {
-
         data = {
             title: 'Study Planner',
             body: event.data
                 ? event.data.text()
                 : 'You have a new study reminder.'
         };
-
     }
 
+    const title = data.title || 'Study Planner';
+    const tag = String(data.tag || 'study-planner-reminder');
 
-    const title =
-        data.title ||
-        'Study Planner';
-
+    // Resolve absolute URLs for icon and badge to avoid Android WebView / PWA path resolution failures
+    const origin = self.location.origin;
+    const iconUrl = data.icon && data.icon.startsWith('http')
+        ? data.icon
+        : new URL(data.icon || '/assets/images/icon-192x192.png', origin).href;
+    const badgeUrl = data.badge && data.badge.startsWith('http')
+        ? data.badge
+        : new URL(data.badge || '/assets/images/favicon-32x32.png', origin).href;
 
     const options = {
-
-        body:
-            data.body ||
-            'You have a new study reminder.',
-
-        icon:
-            data.icon ||
-            '/assets/images/icon-192x192.png',
-
-        badge:
-            data.badge ||
-            '/assets/images/favicon-32x32.png',
-
-        tag:
-            data.tag ||
-            'study-planner-reminder',
-
-        renotify:
-            data.renotify !== false,
-
-        requireInteraction:
-            data.requireInteraction === true,
-
-        data:
-            data.data || {
-                url:
-                    '/notifications.php'
-            }
-
+        body: data.body || 'You have a new study reminder.',
+        icon: iconUrl,
+        badge: badgeUrl,
+        tag: tag,
+        vibrate: Array.isArray(data.vibrate) ? data.vibrate : [200, 100, 200],
+        renotify: data.renotify !== false,
+        requireInteraction: data.requireInteraction === true,
+        timestamp: data.timestamp || Date.now(),
+        data: data.data || {
+            url: '/notifications.php'
+        }
     };
 
+    // Forward to any open client windows so in-app state updates immediately
+    const broadcastPromise = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(function (clients) {
+            clients.forEach(function (client) {
+                client.postMessage({
+                    type: 'PUSH_NOTIFICATION_RECEIVED',
+                    notification: data
+                });
+            });
+        })
+        .catch(function () {});
 
-    event.waitUntil(
+    // Guaranteed showNotification with graceful fallback if rich options fail on specific Android versions
+    const showPromise = self.registration.showNotification(title, options)
+        .catch(function (err) {
+            console.error('Service Worker showNotification error:', err);
+            return self.registration.showNotification(title, {
+                body: options.body,
+                icon: iconUrl,
+                tag: tag
+            });
+        });
 
-        self.registration.showNotification(
-            title,
-            options
-        )
-
-    );
+    event.waitUntil(Promise.all([showPromise, broadcastPromise]));
 
 });
 
@@ -178,6 +177,7 @@ self.addEventListener('pushsubscriptionchange', function (event) {
 
                 await fetch(saveUrl, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'

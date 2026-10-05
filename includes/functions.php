@@ -1719,6 +1719,73 @@ function isNotificationPushEligible(array $notification): bool
 }
 
 /**
+ * Check if a notification's relevant academic event window has expired.
+ * Prevents stale reminders from being pushed hours after a class ended or deadline passed.
+ */
+function isNotificationWindowExpired(PDO $db, array $notification): bool
+{
+    $eventKey = (string) ($notification['event_key'] ?? '');
+    $now = time();
+
+    // 1. Class reminders: class_{schedule_event_id}_{YYYY-MM-DD}_{window}
+    if (preg_match('/^class_(\d+)_(\d{4}-\d{2}-\d{2})_(\w+)$/', $eventKey, $m)) {
+        $eventId = (int)$m[1];
+        $dateStr = $m[2];
+        try {
+            $stmt = $db->prepare("SELECT start_time FROM schedule_events WHERE id = ?");
+            $stmt->execute([$eventId]);
+            $startTime = $stmt->fetchColumn();
+            if ($startTime) {
+                $classStartTs = strtotime("{$dateStr} {$startTime}");
+                if ($classStartTs && $now > $classStartTs) {
+                    return true;
+                }
+            } else {
+                return true; // Deleted event
+            }
+        } catch (Throwable $e) {}
+    }
+
+    // 2. Urgent task reminders: task_{task_id}_urgent_2h
+    if (preg_match('/^task_(\d+)_urgent_2h$/', $eventKey, $m)) {
+        $taskId = (int)$m[1];
+        try {
+            $stmt = $db->prepare("SELECT due_at, status FROM tasks WHERE id = ?");
+            $stmt->execute([$taskId]);
+            $t = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($t) {
+                if ($t['status'] === 'completed') {
+                    return true;
+                }
+                if (!empty($t['due_at']) && strtotime((string)$t['due_at']) < $now) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        } catch (Throwable $e) {}
+    }
+
+    // 3. Tomorrow reminders or daily summaries with date suffix
+    if (preg_match('/_(\d{4}-\d{2}-\d{2})$/', $eventKey, $m)) {
+        $keyDate = $m[1];
+        if (date('Y-m-d') > $keyDate) {
+            return true;
+        }
+    }
+
+    // 4. Stale notification older than 24 hours
+    if (!empty($notification['send_at'])) {
+        $sendAtTs = strtotime((string)$notification['send_at']);
+        if ($sendAtTs && ($now - $sendAtTs) > 86400) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Decorate a notification record with appropriate icon category, visual tone, human-readable title, and action_url.
  */
 function decorateNotification(array $notification): array

@@ -119,6 +119,30 @@ $db->exec("
     COLLATE=utf8mb4_unicode_ci
 ");
 
+$db->exec("
+    CREATE TABLE IF NOT EXISTS browser_push_dead_endpoints (
+        endpoint_hash CHAR(64) NOT NULL PRIMARY KEY,
+        user_id INT NOT NULL,
+        expired_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_dead_user_id (user_id)
+    )
+    ENGINE=InnoDB
+    DEFAULT CHARSET=utf8mb4
+    COLLATE=utf8mb4_unicode_ci
+");
+
+$db->exec("
+    CREATE TABLE IF NOT EXISTS system_heartbeats (
+        service_name VARCHAR(50) NOT NULL PRIMARY KEY,
+        last_run_at  DATETIME NOT NULL,
+        status       VARCHAR(20) NOT NULL DEFAULT 'ok',
+        meta_json    TEXT NULL
+    )
+    ENGINE=InnoDB
+    DEFAULT CHARSET=utf8mb4
+    COLLATE=utf8mb4_unicode_ci
+");
+
 
 /* ============================================================
    PROCESS PENDING NOTIFICATIONS & SMART DELIVERY
@@ -187,6 +211,12 @@ $deleteDeadSubStmt = $db->prepare("
     WHERE id = ?
 ");
 
+$recordDeadSubStmt = $db->prepare("
+    INSERT INTO browser_push_dead_endpoints (endpoint_hash, user_id, expired_at)
+    VALUES (?, ?, NOW())
+    ON DUPLICATE KEY UPDATE expired_at = NOW()
+");
+
 $checkDailyStmt = $db->prepare("
     SELECT id
     FROM push_daily_reminders
@@ -241,6 +271,14 @@ foreach ($pendingNotifications as $notification) {
      * 2. IN-APP & WEB PUSH DELIVERY
      */
     if ($channel === 'in_app') {
+        // Rule 0: Window Expiration Check (prevent stale alerts after event has passed)
+        if (isNotificationWindowExpired($db, $notification)) {
+            $markSentStmt->execute(['expired', $notifId]);
+            $processedNotifications++;
+            $pushExpired++;
+            continue;
+        }
+
         // Rule A: In-app only notification (tomorrow digest, P3 study suggestions, curriculum alerts)
         if (!isNotificationPushEligible($notification)) {
             $markSentStmt->execute(['in_app_only', $notifId]);
@@ -336,6 +374,7 @@ foreach ($pendingNotifications as $notification) {
                         str_contains($err, 'returned http 404') ||
                         str_contains($err, 'returned http 410')
                     ) {
+                        $recordDeadSubStmt->execute([hash('sha256', $sub['endpoint']), $userId]);
                         $deleteDeadSubStmt->execute([(int) $sub['id']]);
                         $pushExpired++;
                     }
@@ -357,6 +396,29 @@ foreach ($pendingNotifications as $notification) {
             error_log('Push delivery error: ' . $subEx->getMessage());
         }
     }
+}
+
+/* ============================================================
+   SCHEDULER HEARTBEAT OBSERVABILITY
+   ============================================================ */
+
+try {
+    $heartbeatStmt = $db->prepare("
+        INSERT INTO system_heartbeats (service_name, last_run_at, status, meta_json)
+        VALUES ('scheduler', NOW(), 'ok', ?)
+        ON DUPLICATE KEY UPDATE last_run_at = NOW(), status = VALUES(status), meta_json = VALUES(meta_json)
+    ");
+    $heartbeatStmt->execute([json_encode([
+        'checked' => count($pendingNotifications),
+        'processed' => $processedNotifications,
+        'failed' => $failedNotifications,
+        'push_sent' => $pushSent,
+        'push_skipped' => $pushSkipped,
+        'push_expired' => $pushExpired,
+        'push_errors' => $pushErrors
+    ])]);
+} catch (Throwable $e) {
+    // Non-blocking heartbeat log
 }
 
 /* ============================================================

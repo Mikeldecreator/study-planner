@@ -163,6 +163,28 @@ function ensurePushTableExists(PDO $pdo): void
           DEFAULT CHARSET=utf8mb4
           COLLATE=utf8mb4_unicode_ci
     ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS browser_push_dead_endpoints (
+            endpoint_hash CHAR(64) NOT NULL PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            expired_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_dead_user_id (user_id)
+        ) ENGINE=InnoDB
+          DEFAULT CHARSET=utf8mb4
+          COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS system_heartbeats (
+            service_name VARCHAR(50) NOT NULL PRIMARY KEY,
+            last_run_at  DATETIME NOT NULL,
+            status       VARCHAR(20) NOT NULL DEFAULT 'ok',
+            meta_json    TEXT NULL
+        ) ENGINE=InnoDB
+          DEFAULT CHARSET=utf8mb4
+          COLLATE=utf8mb4_unicode_ci
+    ");
 }
 
 
@@ -245,6 +267,16 @@ if (
         ");
         $findOldStmt->execute([$oldHash]);
         $verifiedUserId = (int) $findOldStmt->fetchColumn();
+        if ($verifiedUserId <= 0) {
+            $findDeadStmt = $pdo->prepare("
+                SELECT user_id
+                FROM browser_push_dead_endpoints
+                WHERE endpoint_hash = ?
+                LIMIT 1
+            ");
+            $findDeadStmt->execute([$oldHash]);
+            $verifiedUserId = (int) $findDeadStmt->fetchColumn();
+        }
         if ($verifiedUserId > 0) {
             $userId = $verifiedUserId;
         }
@@ -360,11 +392,18 @@ if (
      * atomically remove the old subscription so we don't retain dead endpoints.
      */
     if ($oldEndpoint !== '' && $oldEndpoint !== $endpoint) {
+        $oldHash = hash('sha256', $oldEndpoint);
         $delOldStmt = $pdo->prepare("
             DELETE FROM browser_push_subscriptions
             WHERE endpoint_hash = ?
         ");
-        $delOldStmt->execute([hash('sha256', $oldEndpoint)]);
+        $delOldStmt->execute([$oldHash]);
+
+        $delDeadStmt = $pdo->prepare("
+            DELETE FROM browser_push_dead_endpoints
+            WHERE endpoint_hash = ?
+        ");
+        $delDeadStmt->execute([$oldHash]);
     }
 
 
@@ -607,6 +646,12 @@ if (
         WHERE id = ?
     ");
 
+    $recordDeadStmt = $pdo->prepare("
+        INSERT INTO browser_push_dead_endpoints (endpoint_hash, user_id, expired_at)
+        VALUES (?, ?, NOW())
+        ON DUPLICATE KEY UPDATE expired_at = NOW()
+    ");
+
     foreach ($results as $result) {
         if (!empty($result['success'])) {
             $successful++;
@@ -616,6 +661,7 @@ if (
             if (str_contains($errorMsg, 'http 404') || str_contains($errorMsg, 'http 410')) {
                 foreach ($subscriptions as $sub) {
                     if ($sub['endpoint'] === ($result['endpoint'] ?? '')) {
+                        $recordDeadStmt->execute([hash('sha256', $sub['endpoint']), $userId]);
                         $deleteExpiredStmt->execute([(int)$sub['id']]);
                         break;
                     }
@@ -717,6 +763,12 @@ if (
         DELETE FROM browser_push_subscriptions WHERE id = ?
     ");
 
+    $recordDeadStmt = $pdo->prepare("
+        INSERT INTO browser_push_dead_endpoints (endpoint_hash, user_id, expired_at)
+        VALUES (?, ?, NOW())
+        ON DUPLICATE KEY UPDATE expired_at = NOW()
+    ");
+
     $markSentStmt = $pdo->prepare("
         UPDATE notifications SET sent_at = NOW(), push_status = ? WHERE id = ?
     ");
@@ -740,6 +792,13 @@ if (
     foreach ($pending as $notification) {
         $notifId = (int)$notification['id'];
         $taskId = !empty($notification['task_id']) ? (int)$notification['task_id'] : null;
+
+        // Rule 0: Window Expiration Check (prevent stale alerts after event has passed)
+        if (isNotificationWindowExpired($pdo, $notification)) {
+            $markSentStmt->execute(['expired', $notifId]);
+            $pushExpired++;
+            continue;
+        }
 
         // Rule A: In-app only (e.g. tomorrow digest, P3 suggestions)
         if (!isNotificationPushEligible($notification)) {
@@ -827,6 +886,7 @@ if (
                     str_contains($errLower, 'returned http 404') ||
                     str_contains($errLower, 'returned http 410')
                 ) {
+                    $recordDeadStmt->execute([hash('sha256', $sub['endpoint']), $userId]);
                     $deleteExpiredStmt->execute([(int)$sub['id']]);
                     $pushExpired++;
                 }
@@ -850,6 +910,20 @@ if (
         }
     }
 
+    try {
+        $hbStmt = $pdo->prepare("
+            INSERT INTO system_heartbeats (service_name, last_run_at, status, meta_json)
+            VALUES ('scheduler', NOW(), 'ok', ?)
+            ON DUPLICATE KEY UPDATE last_run_at = NOW(), status = VALUES(status), meta_json = VALUES(meta_json)
+        ");
+        $hbStmt->execute([json_encode([
+            'checked' => count($pending),
+            'push_sent' => $pushSent,
+            'push_skipped' => $pushSkipped,
+            'push_expired' => $pushExpired
+        ])]);
+    } catch (Throwable $e) {}
+
     jsonResponse(
         true,
         [
@@ -859,6 +933,38 @@ if (
             'push_skipped' => $pushSkipped,
             'push_expired' => $pushExpired,
             'results' => $results
+        ]
+    );
+}
+
+
+/* ============================================================
+   SCHEDULER STATUS (OBSERVABILITY & HEALTH)
+   ============================================================ */
+
+if ($action === 'scheduler_status') {
+    $stmt = $pdo->prepare("
+        SELECT service_name, last_run_at, status, meta_json,
+               TIMESTAMPDIFF(SECOND, last_run_at, NOW()) AS elapsed_seconds
+        FROM system_heartbeats
+        WHERE service_name = 'scheduler'
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $hb = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $meta = [];
+    if (!empty($hb['meta_json'])) {
+        $meta = json_decode((string)$hb['meta_json'], true) ?: [];
+    }
+
+    jsonResponse(
+        true,
+        [
+            'active' => $hb && (int)($hb['elapsed_seconds'] ?? 999) <= 120,
+            'heartbeat' => $hb ?: null,
+            'meta' => $meta,
+            'server_time' => date('Y-m-d H:i:s')
         ]
     );
 }

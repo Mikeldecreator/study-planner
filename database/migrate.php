@@ -205,8 +205,10 @@ $requiredTables = [
     'activity_log',
     'password_resets',
     'browser_push_subscriptions',
+    'browser_push_dead_endpoints',
     'push_daily_reminders',
-    'rate_limits'
+    'rate_limits',
+    'system_heartbeats'
 ];
 
 echo "\nVerifying required tables...\n";

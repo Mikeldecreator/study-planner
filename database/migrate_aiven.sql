@@ -263,3 +263,21 @@ CREATE TABLE IF NOT EXISTS rate_limits (
     expires_at  DATETIME NOT NULL,
     INDEX idx_rate_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 16. Browser Push Dead Endpoints (Rotation & Recovery Transition Log)
+CREATE TABLE IF NOT EXISTS browser_push_dead_endpoints (
+    endpoint_hash CHAR(64) NOT NULL,
+    user_id       INT NOT NULL,
+    expired_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (endpoint_hash),
+    KEY idx_dead_endpoint_user (user_id),
+    CONSTRAINT fk_dead_endpoint_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 17. System Heartbeats (Daemon & Scheduler Observability)
+CREATE TABLE IF NOT EXISTS system_heartbeats (
+    service_name VARCHAR(50) NOT NULL PRIMARY KEY,
+    last_run_at  DATETIME NOT NULL,
+    status       VARCHAR(20) NOT NULL DEFAULT 'ok',
+    meta_json    TEXT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -819,8 +819,8 @@ switch ($method) {
         $notifMsg = "Task {$taskLabel} added (due {$dueStr}).";
 
         $insNotif = $db->prepare(
-            "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, push_status)
-             VALUES (?, ?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+            "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, sent_at, push_status)
+             VALUES (?, ?, 'in_app', ?, ?, NOW(), NOW(), 'in_app_only')"
         );
         $insNotif->execute([$userId, $taskId, $eventKey, $notifMsg]);
         $notifId = (int)$db->lastInsertId();
@@ -1143,8 +1143,8 @@ switch ($method) {
             $existingNotifId = $stmtCheck->fetchColumn();
             if (!$existingNotifId) {
                 $stmtIns = $db->prepare(
-                    "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, push_status)
-                     VALUES (?, ?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+                    "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, sent_at, push_status)
+                     VALUES (?, ?, 'in_app', ?, ?, NOW(), NOW(), 'in_app_only')"
                 );
                 $stmtIns->execute([$userId, $id, $eventKey, $notifMsg]);
                 $notifId = (int)$db->lastInsertId();
@@ -1195,8 +1195,8 @@ switch ($method) {
             $notifMsg = "Your {$taskLabel} has been moved back to active work.";
 
             $stmtIns = $db->prepare(
-                "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, push_status)
-                 VALUES (?, ?, 'in_app', ?, ?, NOW(), 'in_app_only')"
+                "INSERT INTO notifications (user_id, task_id, channel, event_key, message, send_at, sent_at, push_status)
+                 VALUES (?, ?, 'in_app', ?, ?, NOW(), NOW(), 'in_app_only')"
             );
             $stmtIns->execute([$userId, $id, $eventKey, $notifMsg]);
             $notifId = (int)$db->lastInsertId();

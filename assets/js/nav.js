@@ -460,9 +460,19 @@ function displayIncomingNotifications(notifications) {
   if (!Array.isArray(notifications) || notifications.length === 0) return;
 
   const now = Date.now();
+  const FIFTEEN_MINS_MS = 15 * 60 * 1000;
   const unseen = [];
   for (const n of notifications) {
     if (!n || !n.id) continue;
+
+    // Filter out notifications older than 15 minutes to avoid popup storms on reopen
+    if (n.send_at || n.created_at) {
+      const sendTs = new Date(n.send_at || n.created_at).getTime();
+      if (!isNaN(sendTs) && (now - sendTs) > FIFTEEN_MINS_MS) {
+        continue;
+      }
+    }
+
     const seenIdKey = 'seen_popup_' + n.id;
     const seenEventKey = n.event_key ? ('seen_popup_key_' + n.event_key) : null;
     const localKey = 'notif_popped_' + (n.event_key || ('id_' + n.id));

@@ -1202,13 +1202,22 @@ requirePageLogin();
                     </small>
                   </div>
                 </div>
-                <button
-                  id="browser-push-enable"
-                  type="button"
-                  class="btn-press px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shrink-0 self-start sm:self-center"
-                >
-                  Enable
-                </button>
+                <div class="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                  <button
+                    id="browser-push-test"
+                    type="button"
+                    class="btn-press px-3 py-2 rounded-lg border border-emerald-600/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-semibold hidden"
+                  >
+                    Send Test Notification
+                  </button>
+                  <button
+                    id="browser-push-enable"
+                    type="button"
+                    class="btn-press px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
+                  >
+                    Enable
+                  </button>
+                </div>
               </div>
 
               <!-- GRANULAR CHANNELS CONTAINER -->

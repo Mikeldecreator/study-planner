@@ -304,23 +304,48 @@
             return {
                 supported: false,
                 permission: 'unsupported',
-                subscribed: false
+                subscribed: false,
+                browserSubscribed: false,
+                serverSubscribed: false,
+                serverCount: 0
             };
         }
 
         const permission = Notification.permission;
-        const registration = await navigator.serviceWorker.getRegistration();
-        let subscribed = false;
+        let browserSubscribed = false;
+        let serverSubscribed = false;
+        let serverCount = 0;
 
-        if (registration) {
-            const subscription = await registration.pushManager.getSubscription();
-            subscribed = !!subscription;
-        }
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                const subscription = await registration.pushManager.getSubscription();
+                browserSubscribed = !!subscription;
+            }
+        } catch (e) {}
+
+        try {
+            const res = await fetch(getPushApiUrl('status'), {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                cache: 'no-store'
+            });
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                if (data && data.success) {
+                    serverSubscribed = !!data.enabled;
+                    serverCount = data.count || 0;
+                }
+            }
+        } catch (e) {}
 
         return {
             supported: true,
             permission: permission,
-            subscribed: subscribed
+            subscribed: browserSubscribed && serverSubscribed,
+            browserSubscribed: browserSubscribed,
+            serverSubscribed: serverSubscribed,
+            serverCount: serverCount
         };
     }
 
@@ -343,9 +368,9 @@
 
         const data = await response.json().catch(() => ({}));
 
-        if (!response.ok || data.ok === false) {
+        if (!response.ok || data.success === false || data.ok === false) {
             throw new Error(
-                data.error || data.message || 'Could not send test notification.'
+                data.message || data.error || 'Could not send test notification.'
             );
         }
 
@@ -377,27 +402,42 @@
             }
 
             let subscription = await registration.pushManager.getSubscription();
-            let lastSync = 0;
             let lastEndpoint = '';
             try {
-                lastSync = parseInt(localStorage.getItem('study_planner_push_last_sync') || '0', 10);
                 lastEndpoint = localStorage.getItem('study_planner_push_endpoint') || '';
             } catch (e) {}
 
-            const now = Date.now();
-            const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+            // Check server status to verify if server actually has our subscription
+            let serverHasEndpoint = false;
+            try {
+                const statusRes = await fetch(getPushApiUrl('status'), {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                });
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json().catch(() => ({}));
+                    if (statusData && Array.isArray(statusData.subscriptions) && subscription) {
+                        serverHasEndpoint = statusData.subscriptions.some(function (s) {
+                            return s.endpoint === subscription.endpoint;
+                        });
+                    }
+                }
+            } catch (e) {
+                // If status check fails, proceed with client-side check
+            }
 
             if (!subscription) {
-                // Permission was granted, but subscription was rotated or expired
+                // Permission granted, but no browser subscription: subscribe and register with server
                 const publicKey = await getVapidPublicKey();
                 subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(publicKey)
                 });
                 await saveSubscription(subscription, lastEndpoint || undefined);
-            } else if (subscription.endpoint !== lastEndpoint || (now - lastSync) > TWENTY_FOUR_HOURS) {
-                // Refresh subscription with backend
-                await saveSubscription(subscription, lastEndpoint !== subscription.endpoint ? lastEndpoint : undefined);
+            } else if (!serverHasEndpoint || subscription.endpoint !== lastEndpoint) {
+                // Browser has subscription, but server is missing it or endpoint changed: re-save immediately!
+                await saveSubscription(subscription, lastEndpoint && lastEndpoint !== subscription.endpoint ? lastEndpoint : undefined);
             }
         } catch (err) {
             // Silently tolerate sync errors during normal background navigation
