@@ -73,7 +73,7 @@ try {
               AND n.send_at <= NOW()
               AND n.read_at IS NULL
               AND n.send_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-              AND (t.status IS NULL OR t.status != 'completed')
+              AND (t.status IS NULL OR t.status != 'completed' OR n.event_key LIKE 'task_completed%')
             ORDER BY n.send_at DESC, n.id DESC
             LIMIT 5
         ");
