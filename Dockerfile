@@ -26,9 +26,10 @@ COPY config/config.example.php config/config.php
 # Configure Apache virtual host with /api and /assets aliasing & directory protection
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 
-# Setup entrypoint script
+# Setup entrypoint script and scheduler daemon
 COPY docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY docker/scheduler-daemon.sh /usr/local/bin/scheduler-daemon.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/scheduler-daemon.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2-foreground"]

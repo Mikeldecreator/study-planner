@@ -1077,12 +1077,24 @@ if ($action === 'scheduler_status') {
         $meta = json_decode((string)$hb['meta_json'], true) ?: [];
     }
 
+    $daemonLog = '';
+    if (file_exists('/var/log/check_deadlines.log')) {
+        $daemonLog = (string)@file_get_contents('/var/log/check_deadlines.log');
+        if (strlen($daemonLog) > 3000) {
+            $daemonLog = substr($daemonLog, -3000);
+        }
+    }
+
+    $psAux = (string)@shell_exec('ps aux 2>&1');
+
     jsonResponse(
         true,
         [
             'active' => $hb && (int)($hb['elapsed_seconds'] ?? 999) <= 120,
             'heartbeat' => $hb ?: null,
             'meta' => $meta,
+            'daemon_log' => $daemonLog,
+            'ps_aux' => $psAux,
             'server_time' => date('Y-m-d H:i:s')
         ]
     );
