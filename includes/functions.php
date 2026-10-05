@@ -2193,7 +2193,7 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
              FROM schedule_events se
              LEFT JOIN courses c ON c.id = se.course_id
              WHERE se.user_id = ? 
-               AND se.event_type = 'lecture'
+               AND (se.event_type IN ('lecture', 'class', 'exam') OR se.event_type IS NULL)
                AND se.day_of_week = ?
              ORDER BY se.start_time ASC"
         );

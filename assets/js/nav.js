@@ -460,15 +460,15 @@ function displayIncomingNotifications(notifications) {
   if (!Array.isArray(notifications) || notifications.length === 0) return;
 
   const now = Date.now();
-  const FIFTEEN_MINS_MS = 15 * 60 * 1000;
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
   const unseen = [];
   for (const n of notifications) {
     if (!n || !n.id) continue;
 
-    // Filter out notifications older than 15 minutes to avoid popup storms on reopen
+    // Filter out notifications older than 24 hours
     if (n.send_at || n.created_at) {
       const sendTs = new Date(n.send_at || n.created_at).getTime();
-      if (!isNaN(sendTs) && (now - sendTs) > FIFTEEN_MINS_MS) {
+      if (!isNaN(sendTs) && (now - sendTs) > TWENTY_FOUR_HOURS_MS) {
         continue;
       }
     }

@@ -89,7 +89,8 @@ if ($db) {
                  FROM notifications n
                  LEFT JOIN tasks t ON t.id = n.task_id AND t.user_id = n.user_id
                  WHERE n.user_id = ? AND n.channel = 'in_app' AND n.send_at <= NOW() AND n.read_at IS NULL
-                   AND n.send_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+                   AND n.send_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                   AND (t.status IS NULL OR t.status != 'completed')
                  ORDER BY n.send_at DESC LIMIT 5"
             );
             $stmt->execute([$userId]);

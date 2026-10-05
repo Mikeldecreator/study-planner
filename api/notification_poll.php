@@ -18,6 +18,13 @@ if ($userId <= 0) {
     exit;
 }
 
+$nowTs = time();
+$lastEvalKey = 'last_academic_eval_' . $userId;
+$shouldEval = empty($_SESSION[$lastEvalKey]) || ($nowTs - (int)$_SESSION[$lastEvalKey]) >= 30;
+if ($shouldEval) {
+    $_SESSION[$lastEvalKey] = $nowTs;
+}
+
 // Release session lock immediately so parallel page requests execute without waiting
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -25,6 +32,14 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 
 $db = getDb();
 ensureNotificationSchema($db);
+
+if ($shouldEval) {
+    try {
+        generateAcademicReminders($db, $userId);
+    } catch (Throwable $e) {
+        // Non-blocking opportunistic evaluation
+    }
+}
 
 $unreadCount = 0;
 $latestNotifications = [];
@@ -57,7 +72,8 @@ try {
               AND n.channel = 'in_app'
               AND n.send_at <= NOW()
               AND n.read_at IS NULL
-              AND n.send_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+              AND n.send_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+              AND (t.status IS NULL OR t.status != 'completed')
             ORDER BY n.send_at DESC, n.id DESC
             LIMIT 5
         ");
