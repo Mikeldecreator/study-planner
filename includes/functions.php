@@ -1650,11 +1650,12 @@ function academicNotificationExists(PDO $db, int $userId, string $eventKey, ?str
 
     if ($messagePattern !== null) {
         try {
+            $hours = max(1, (int)$withinHours);
             $stmt2 = $db->prepare(
                 "SELECT id FROM notifications 
                  WHERE user_id = ? 
                    AND message LIKE ? 
-                   AND (read_at IS NULL OR send_at >= DATE_SUB(NOW(), INTERVAL {$withinHours} HOUR)) 
+                   AND send_at >= DATE_SUB(NOW(), INTERVAL {$hours} HOUR) 
                  LIMIT 1"
             );
             $stmt2->execute([$userId, $messagePattern]);
@@ -1783,6 +1784,132 @@ function isNotificationWindowExpired(PDO $db, array $notification): bool
     }
 
     return false;
+}
+
+/**
+ * Diagnostic explainability engine for academic notifications.
+ * Answers with complete clarity: Why was or wasn't an alert generated,
+ * why was or wasn't it pushed, and what is its exact lifecycle status?
+ */
+function explainAcademicNotification(PDO $db, int $userId, int $taskId): array
+{
+    ensureNotificationSchema($db);
+
+    $now = time();
+    $result = [
+        'user_id' => $userId,
+        'task_id' => $taskId,
+        'timestamp' => date('Y-m-d H:i:s'),
+        'task' => null,
+        'rules_evaluation' => [],
+        'existing_notifications' => [],
+        'push_subscriptions' => [],
+        'user_state' => [],
+        'verdict' => ''
+    ];
+
+    // 1. Task Metadata
+    $taskStmt = $db->prepare("
+        SELECT t.id, t.title, t.due_at, t.status, t.priority, t.type,
+               c.code AS course_code, c.name AS course_name
+        FROM tasks t
+        LEFT JOIN courses c ON c.id = t.course_id
+        WHERE t.id = ? AND t.user_id = ?
+    ");
+    $taskStmt->execute([$taskId, $userId]);
+    $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$task) {
+        $result['verdict'] = "Task #{$taskId} does not exist or does not belong to user #{$userId}.";
+        return $result;
+    }
+    $result['task'] = $task;
+
+    $dueTs = !empty($task['due_at']) ? strtotime($task['due_at']) : null;
+    $diffMins = $dueTs !== null ? (int)round(($dueTs - $now) / 60) : null;
+    $isCompleted = ($task['status'] === 'completed');
+    $isOverdue = ($dueTs !== null && $now > $dueTs && !$isCompleted);
+    $isUrgent2h = ($dueTs !== null && $diffMins !== null && $diffMins >= 0 && $diffMins <= 120 && !$isCompleted);
+    $isToday = ($dueTs !== null && date('Y-m-d', $dueTs) === date('Y-m-d'));
+
+    // 2. Rules Evaluation
+    $prefs = getUserNotificationPreferences($db, $userId);
+    $result['rules_evaluation'] = [
+        'minutes_until_due' => $diffMins,
+        'is_completed' => $isCompleted,
+        'is_overdue' => $isOverdue,
+        'is_urgent_2h' => $isUrgent2h,
+        'is_today' => $isToday,
+        'prefs' => $prefs,
+        'qualifies_for_overdue_rule' => ($isOverdue && !empty($prefs['deadline_overdue'])),
+        'qualifies_for_urgent_rule' => ($isUrgent2h && !empty($prefs['deadline_2h'])),
+        'qualifies_for_push' => ($isOverdue || $isUrgent2h)
+    ];
+
+    // 3. User State & Subscriptions
+    $userStmt = $db->prepare("SELECT notifications_enabled, last_active_at FROM users WHERE id = ?");
+    $userStmt->execute([$userId]);
+    $uRow = $userStmt->fetch(PDO::FETCH_ASSOC);
+    $lastActiveAt = $uRow['last_active_at'] ?? null;
+    $isActive = isUserRecentlyActive($db, $userId, 2);
+
+    $subStmt = $db->prepare("SELECT id, endpoint_hash, created_at FROM browser_push_subscriptions WHERE user_id = ?");
+    $subStmt->execute([$userId]);
+    $subs = $subStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $result['user_state'] = [
+        'notifications_enabled' => (bool)($uRow['notifications_enabled'] ?? false),
+        'last_active_at' => $lastActiveAt,
+        'is_active_within_2m' => $isActive,
+        'push_subscriptions_count' => count($subs)
+    ];
+    $result['push_subscriptions'] = array_map(function($s) {
+        return ['id' => $s['id'], 'hash' => substr($s['endpoint_hash'], 0, 16) . '...', 'created_at' => $s['created_at']];
+    }, $subs);
+
+    // 4. Existing Notification Records
+    $notifStmt = $db->prepare("
+        SELECT id, event_key, message, channel, send_at, sent_at, push_status, read_at, created_at
+        FROM notifications
+        WHERE user_id = ? AND (task_id = ? OR event_key LIKE ?)
+        ORDER BY id DESC
+    ");
+    $notifStmt->execute([$userId, $taskId, "task_{$taskId}%"]);
+    $existing = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
+    $result['existing_notifications'] = $existing;
+
+    // 5. Verdict Synthesis
+    if ($isCompleted) {
+        $result['verdict'] = "Task #{$taskId} is marked COMPLETED. Pending reminders are resolved or suppressed.";
+    } elseif (empty($uRow['notifications_enabled'])) {
+        $result['verdict'] = "User #{$userId} has disabled all notifications in settings.";
+    } elseif (empty($existing)) {
+        if ($isOverdue || $isUrgent2h) {
+            $result['verdict'] = "Task qualifies for notification but no row has been generated yet. (Waiting for scheduler run).";
+        } else {
+            $result['verdict'] = "Task is scheduled for later ({$diffMins} minutes away). No urgency window reached yet.";
+        }
+    } else {
+        $latest = $existing[0];
+        $pStatus = $latest['push_status'] ?? 'pending';
+        if ($latest['sent_at'] !== null) {
+            $result['verdict'] = "Notification #{$latest['id']} ({$latest['event_key']}) was sent at {$latest['sent_at']} (push_status: {$pStatus}).";
+        } elseif ($pStatus === 'skipped_active') {
+            $result['verdict'] = "Notification #{$latest['id']} ({$latest['event_key']}) was postponed because user was recently active in app. Will push next cycle if inactive.";
+        } elseif ($pStatus === 'in_app_only') {
+            $result['verdict'] = "Notification #{$latest['id']} ({$latest['event_key']}) is configured as in-app only (displayed via toasts/bell badge, no background push needed).";
+        } elseif ($pStatus === 'no_subscription') {
+            $result['verdict'] = "Notification #{$latest['id']} ({$latest['event_key']}) could not be pushed because user has no registered browser push subscriptions.";
+        } elseif ($pStatus === 'expired') {
+            $result['verdict'] = "Notification #{$latest['id']} ({$latest['event_key']}) expired because the deadline/event passed before delivery.";
+        } elseif ($pStatus === 'resolved') {
+            $result['verdict'] = "Notification #{$latest['id']} was resolved (task completed or notification read).";
+        } else {
+            $result['verdict'] = "Notification #{$latest['id']} ({$latest['event_key']}) is pending delivery (push_status: {$pStatus}).";
+        }
+    }
+
+    return $result;
 }
 
 /**

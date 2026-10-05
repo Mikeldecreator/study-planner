@@ -778,6 +778,25 @@ if (
 
 
 /* ============================================================
+   EXPLAIN ACADEMIC TASK NOTIFICATION (DIAGNOSTIC EXPLAINABILITY)
+   ============================================================ */
+
+if ($action === 'explain_task' && ($method === 'GET' || $method === 'POST')) {
+    if ($userId <= 0) {
+        jsonResponse(false, ['message' => 'Not authenticated.'], 401);
+    }
+
+    $taskId = isset($_REQUEST['task_id']) ? (int)$_REQUEST['task_id'] : 0;
+    if ($taskId <= 0) {
+        jsonResponse(false, ['message' => 'Missing task_id.'], 400);
+    }
+
+    $explanation = explainAcademicNotification($pdo, $userId, $taskId);
+    jsonResponse(true, $explanation);
+}
+
+
+/* ============================================================
    CHECK DEADLINES (ON-DEMAND AUDIT & SCHEDULING TRIGGER)
    ============================================================ */
 
@@ -872,7 +891,7 @@ if (
     $results = [];
 
     $ignoreSuppression = !empty($_REQUEST['ignore_suppression']) || !empty($_REQUEST['force']);
-    $isActive = !$ignoreSuppression && isUserRecentlyActive($pdo, $userId, 15);
+    $isActive = !$ignoreSuppression && isUserRecentlyActive($pdo, $userId, 2);
 
     foreach ($pending as $notification) {
         $notifId = (int)$notification['id'];
@@ -897,19 +916,34 @@ if (
             $markSentStmt->execute(['resolved', $notifId]);
             continue;
         }
+
+        $isImminent = false;
         if ($taskId !== null) {
-            $taskStatusStmt->execute([$taskId]);
-            $tStatus = $taskStatusStmt->fetchColumn();
-            if ($tStatus === 'completed') {
-                $markSentStmt->execute(['resolved', $notifId]);
-                continue;
+            $taskMetaStmt = $pdo->prepare("SELECT due_at, status FROM tasks WHERE id = ?");
+            $taskMetaStmt->execute([$taskId]);
+            $taskMeta = $taskMetaStmt->fetch(PDO::FETCH_ASSOC);
+            if ($taskMeta) {
+                if ($taskMeta['status'] === 'completed') {
+                    $markSentStmt->execute(['resolved', $notifId]);
+                    continue;
+                }
+                if (!empty($taskMeta['due_at'])) {
+                    $dueTime = strtotime($taskMeta['due_at']);
+                    if ($dueTime <= time() + 1800) {
+                        $isImminent = true;
+                    }
+                }
             }
+        } elseif (!empty($notification['event_key']) && (str_contains($notification['event_key'], 'class_') || str_contains($notification['event_key'], 'urgent_') || str_contains($notification['event_key'], 'overdue_'))) {
+            $isImminent = true;
         }
 
         // Rule B: Active user push postponement
-        if ($isActive) {
-            // User was active in the app within the last 15 minutes: postpone Web Push!
-            // Do NOT mark sent_at; keep push_status = 'skipped_active' for later retry
+        // Active window calibrated to 2 minutes (120s) to avoid delaying pushes by 15 minutes.
+        // We postpone at most once: if already 'skipped_active', proceed with push.
+        // Imminent events (<= 30 mins or overdue) are never postponed.
+        $alreadyPostponed = ($notification['push_status'] === 'skipped_active');
+        if ($isActive && !$alreadyPostponed && !$isImminent) {
             $updatePushStatusStmt->execute(['skipped_active', $notifId]);
             $pushSkipped++;
             continue;

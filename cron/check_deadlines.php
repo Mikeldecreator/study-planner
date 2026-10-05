@@ -149,6 +149,7 @@ $db->exec("
    ============================================================ */
 
 ensureNotificationSchema($db);
+generateAcademicReminders($db);
 
 $notificationStmt = $db->query("
     SELECT
@@ -294,21 +295,36 @@ foreach ($pendingNotifications as $notification) {
             continue;
         }
 
+        $isImminent = false;
         if ($taskId !== null) {
-            $taskStatusStmt->execute([$taskId]);
-            $tStatus = $taskStatusStmt->fetchColumn();
-            if ($tStatus === 'completed') {
-                $markSentStmt->execute(['resolved', $notifId]);
-                $processedNotifications++;
-                continue;
+            $taskMetaStmt = $db->prepare("SELECT due_at, status FROM tasks WHERE id = ?");
+            $taskMetaStmt->execute([$taskId]);
+            $taskMeta = $taskMetaStmt->fetch(PDO::FETCH_ASSOC);
+            if ($taskMeta) {
+                if ($taskMeta['status'] === 'completed') {
+                    $markSentStmt->execute(['resolved', $notifId]);
+                    $processedNotifications++;
+                    continue;
+                }
+                if (!empty($taskMeta['due_at'])) {
+                    $dueTime = strtotime($taskMeta['due_at']);
+                    if ($dueTime <= time() + 1800) {
+                        $isImminent = true;
+                    }
+                }
             }
+        } elseif (!empty($notification['event_key']) && (str_contains($notification['event_key'], 'class_') || str_contains($notification['event_key'], 'urgent_') || str_contains($notification['event_key'], 'overdue_'))) {
+            $isImminent = true;
         }
 
         // Rule B: Active user push postponement
-        $isActive = isUserRecentlyActive($db, $userId, 15);
-        if ($isActive) {
-            // User was active in the app within the last 15 minutes: postpone Web Push!
-            // Do NOT mark sent_at; keep push_status = 'skipped_active' for later retry
+        // Active window calibrated to 2 minutes (120s) to avoid delaying pushes by 15 minutes.
+        // We postpone at most once: if already 'skipped_active', proceed with push.
+        // Imminent events (<= 30 mins or overdue) are never postponed.
+        $isActive = isUserRecentlyActive($db, $userId, 2);
+        $alreadyPostponed = ($notification['push_status'] === 'skipped_active');
+
+        if ($isActive && !$alreadyPostponed && !$isImminent) {
             $updatePushStatusStmt->execute(['skipped_active', $notifId]);
             $pushSkipped++;
             continue;

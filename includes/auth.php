@@ -233,9 +233,9 @@ function touchUserLastActive(?PDO $db = null, ?int $userId = null): void
 }
 
 /**
- * Check if the user was active within the given number of minutes (default: 15).
+ * Check if the user was active within the given number of minutes (default: 2).
  */
-function isUserRecentlyActive(?PDO $db = null, int $userId = 0, int $minutes = 15): bool
+function isUserRecentlyActive(?PDO $db = null, int $userId = 0, int $minutes = 2): bool
 {
     if ($userId <= 0) {
         return false;
