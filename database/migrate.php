@@ -206,6 +206,7 @@ $requiredTables = [
     'password_resets',
     'browser_push_subscriptions',
     'browser_push_dead_endpoints',
+    'browser_push_telemetry',
     'push_daily_reminders',
     'rate_limits',
     'system_heartbeats'

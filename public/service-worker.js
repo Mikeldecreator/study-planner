@@ -109,6 +109,28 @@ self.addEventListener('push', function (event) {
         }
     };
 
+    // Helper to send telemetry back to server for empirical proof
+    async function sendTelemetry(eventType, extraData) {
+        try {
+            const sub = await self.registration.pushManager.getSubscription();
+            const logUrl = getPushApiUrl('sw_log');
+            await fetch(logUrl, {
+                method: 'POST',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.assign({
+                    event: eventType,
+                    endpoint: sub ? sub.endpoint : null,
+                    timestamp: Date.now(),
+                    tag: tag,
+                    title: title
+                }, extraData || {}))
+            });
+        } catch (e) {
+            // Telemetry failure should never prevent notification display
+        }
+    }
+
     // Forward to any open client windows so in-app state updates immediately
     const broadcastPromise = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then(function (clients) {
@@ -121,16 +143,27 @@ self.addEventListener('push', function (event) {
         })
         .catch(function () {});
 
-    // Guaranteed showNotification with graceful fallback if rich options fail on specific Android versions
-    const showPromise = self.registration.showNotification(title, options)
-        .catch(function (err) {
+    // Guaranteed showNotification with empirical telemetry and graceful fallback
+    const showPromise = (async function () {
+        await sendTelemetry('push_received', { title: title, tag: tag });
+        try {
+            await self.registration.showNotification(title, options);
+            await sendTelemetry('notification_shown_success', { title: title, tag: tag });
+        } catch (err) {
             console.error('Service Worker showNotification error:', err);
+            await sendTelemetry('notification_shown_error', {
+                error: String(err),
+                stack: err ? err.stack : null,
+                tag: tag
+            });
+            // Fallback attempt with minimal options
             return self.registration.showNotification(title, {
                 body: options.body,
                 icon: iconUrl,
                 tag: tag
             });
-        });
+        }
+    })();
 
     event.waitUntil(Promise.all([showPromise, broadcastPromise]));
 
@@ -219,8 +252,27 @@ self.addEventListener(
             data.url ||
             '/notifications.php';
 
+        const clickLogPromise = (async function () {
+            try {
+                const sub = await self.registration.pushManager.getSubscription();
+                const logUrl = getPushApiUrl('sw_log');
+                await fetch(logUrl, {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: 'notification_clicked',
+                        endpoint: sub ? sub.endpoint : null,
+                        tag: event.notification ? event.notification.tag : null,
+                        timestamp: Date.now()
+                    })
+                });
+            } catch (e) {}
+        })();
 
         event.waitUntil(
+            Promise.all([
+                clickLogPromise,
 
             self.clients
                 .matchAll({
@@ -263,7 +315,7 @@ self.addEventListener(
                     return null;
 
                 })
-
+            ])
         );
 
     }

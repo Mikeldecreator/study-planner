@@ -281,3 +281,21 @@ CREATE TABLE IF NOT EXISTS system_heartbeats (
     status       VARCHAR(20) NOT NULL DEFAULT 'ok',
     meta_json    TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 18. Browser Push Telemetry (Physical Device Observability & Proof)
+CREATE TABLE IF NOT EXISTS browser_push_telemetry (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id INT NULL,
+    endpoint_hash CHAR(64) NULL,
+    event VARCHAR(64) NOT NULL,
+    user_agent VARCHAR(500) NULL,
+    payload_json MEDIUMTEXT NULL,
+    error_message TEXT NULL,
+    device_timestamp BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_telemetry_user (user_id),
+    KEY idx_telemetry_endpoint (endpoint_hash),
+    KEY idx_telemetry_event (event),
+    KEY idx_telemetry_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

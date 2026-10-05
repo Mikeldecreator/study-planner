@@ -401,6 +401,11 @@
                 return;
             }
 
+            // Immediately check for updated service worker (e.g. telemetry instrumentation)
+            try {
+                await registration.update();
+            } catch (e) {}
+
             let subscription = await registration.pushManager.getSubscription();
             let lastEndpoint = '';
             try {

@@ -171,6 +171,24 @@ CREATE TABLE IF NOT EXISTS system_heartbeats (
     meta_json    TEXT NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS browser_push_telemetry (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id INT NULL,
+    endpoint_hash CHAR(64) NULL,
+    event VARCHAR(64) NOT NULL,
+    user_agent VARCHAR(500) NULL,
+    payload_json MEDIUMTEXT NULL,
+    error_message TEXT NULL,
+    device_timestamp BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_telemetry_user (user_id),
+    KEY idx_telemetry_endpoint (endpoint_hash),
+    KEY idx_telemetry_event (event),
+    KEY idx_telemetry_created (created_at)
+) ENGINE=InnoDB;
+
+
 -- ============================================================
 -- SEED DATA — one demo user + a few tasks/courses so the dashboard
 -- isn't empty on first run.  Password is "password123" (hashed below).

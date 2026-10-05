@@ -185,6 +185,24 @@ function ensurePushTableExists(PDO $pdo): void
           DEFAULT CHARSET=utf8mb4
           COLLATE=utf8mb4_unicode_ci
     ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS browser_push_telemetry (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NULL,
+            endpoint_hash CHAR(64) NULL,
+            event VARCHAR(50) NOT NULL,
+            user_agent VARCHAR(500) NULL,
+            payload_json TEXT NULL,
+            error_message TEXT NULL,
+            device_timestamp BIGINT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_telemetry_created (created_at),
+            KEY idx_telemetry_hash (endpoint_hash)
+        ) ENGINE=InnoDB
+          DEFAULT CHARSET=utf8mb4
+          COLLATE=utf8mb4_unicode_ci
+    ");
 }
 
 
@@ -461,6 +479,60 @@ if (
 
 
 /* ============================================================
+   SW TELEMETRY LOGGER (PUBLIC / CALLED BY BACKGROUND SW)
+   ============================================================ */
+
+if ($action === 'sw_log' && $method === 'POST') {
+    $raw = file_get_contents('php://input');
+    $payload = json_decode($raw ?: '', true) ?: [];
+
+    $event = trim((string)($payload['event'] ?? 'unknown'));
+    $endpoint = trim((string)($payload['endpoint'] ?? ''));
+    $userAgent = substr(trim((string)($_SERVER['HTTP_USER_AGENT'] ?? ($payload['user_agent'] ?? ''))), 0, 500);
+    $deviceTs = isset($payload['timestamp']) && is_numeric($payload['timestamp']) ? (int)$payload['timestamp'] : null;
+    $errorMsg = !empty($payload['error']) ? (string)$payload['error'] : null;
+
+    $endpointHash = $endpoint !== '' ? hash('sha256', $endpoint) : null;
+    $loggedUserId = null;
+
+    if ($endpointHash !== null) {
+        $findUser = $pdo->prepare("SELECT user_id FROM browser_push_subscriptions WHERE endpoint_hash = ? LIMIT 1");
+        $findUser->execute([$endpointHash]);
+        $found = (int)$findUser->fetchColumn();
+        if ($found > 0) {
+            $loggedUserId = $found;
+        } else {
+            $findDead = $pdo->prepare("SELECT user_id FROM browser_push_dead_endpoints WHERE endpoint_hash = ? LIMIT 1");
+            $findDead->execute([$endpointHash]);
+            $foundDead = (int)$findDead->fetchColumn();
+            if ($foundDead > 0) {
+                $loggedUserId = $foundDead;
+            }
+        }
+    }
+    if ($loggedUserId === null && $userId > 0) {
+        $loggedUserId = $userId;
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO browser_push_telemetry (user_id, endpoint_hash, event, user_agent, payload_json, error_message, device_timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $loggedUserId,
+        $endpointHash,
+        $event,
+        $userAgent,
+        $raw,
+        $errorMsg,
+        $deviceTs
+    ]);
+
+    jsonResponse(true, ['message' => 'Telemetry logged.']);
+}
+
+
+/* ============================================================
    LOGIN REQUIRED FOR ALL REMAINING ACTIONS
    ============================================================ */
 
@@ -669,6 +741,19 @@ if (
             }
         }
     }
+
+    try {
+        $tStmt = $pdo->prepare("
+            INSERT INTO browser_push_telemetry (user_id, event, user_agent, payload_json, device_timestamp)
+            VALUES (?, 'server_test_push_dispatched', ?, ?, ?)
+        ");
+        $tStmt->execute([
+            $userId,
+            substr($_SERVER['HTTP_USER_AGENT'] ?? 'Server', 0, 500),
+            json_encode(['successful' => $successful, 'failed' => $failed, 'results' => $results]),
+            (int)(microtime(true) * 1000)
+        ]);
+    } catch (Throwable $e) {}
 
     jsonResponse(
         $successful > 0,
@@ -967,6 +1052,37 @@ if ($action === 'scheduler_status') {
             'server_time' => date('Y-m-d H:i:s')
         ]
     );
+}
+
+
+/* ============================================================
+   PUSH TELEMETRY LOGS (OBSERVABILITY & REAL-DEVICE PROOF)
+   ============================================================ */
+
+if ($action === 'telemetry') {
+    $stmt = $pdo->prepare("
+        SELECT id, user_id, endpoint_hash, event, user_agent, payload_json, error_message, device_timestamp, created_at
+        FROM browser_push_telemetry
+        WHERE user_id = ? OR user_id IS NULL
+        ORDER BY id DESC
+        LIMIT 100
+    ");
+    $stmt->execute([$userId]);
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    jsonResponse(
+        true,
+        [
+            'count' => count($logs),
+            'logs' => $logs
+        ]
+    );
+}
+
+if ($action === 'clear_telemetry' && $method === 'POST') {
+    $stmt = $pdo->prepare("DELETE FROM browser_push_telemetry WHERE user_id = ? OR user_id IS NULL");
+    $stmt->execute([$userId]);
+    jsonResponse(true, ['message' => 'Push telemetry logs cleared.']);
 }
 
 
