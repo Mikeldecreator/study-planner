@@ -871,244 +871,25 @@ if (
         );
     }
 
+        $ignoreSuppression = !empty($_REQUEST['ignore_suppression']) || !empty($_REQUEST['force']);
+
     // Run unified decision engine to produce prioritized, deduplicated notifications
     generateAcademicReminders($pdo, $userId);
 
-    // Query pending notifications for this user
-    $notifStmt = $pdo->prepare("
-        SELECT id, user_id, task_id, channel, event_key, message, send_at, read_at, push_status
-        FROM notifications
-        WHERE user_id = ?
-          AND (sent_at IS NULL AND (push_status IS NULL OR push_status = 'skipped_active'))
-          AND send_at <= NOW()
-        ORDER BY send_at ASC, id ASC
-    ");
-    $notifStmt->execute([$userId]);
-    $pending = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $subStmt = $pdo->prepare("
-        SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
-        FROM browser_push_subscriptions
-        WHERE user_id = ?
-        ORDER BY id DESC
-    ");
-    $subStmt->execute([$userId]);
-    $subscriptions = $subStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $alreadySentStmt = $pdo->prepare("
-        SELECT id FROM push_daily_reminders
-        WHERE user_id = ? AND task_id = ? AND reminder_date = CURDATE()
-        LIMIT 1
-    ");
-
-    $insertDailyStmt = $pdo->prepare("
-        INSERT IGNORE INTO push_daily_reminders (user_id, task_id, reminder_date)
-        VALUES (?, ?, CURDATE())
-    ");
-
-    $deleteExpiredStmt = $pdo->prepare("
-        DELETE FROM browser_push_subscriptions WHERE id = ?
-    ");
-
-    $recordDeadStmt = $pdo->prepare("
-        INSERT INTO browser_push_dead_endpoints (endpoint_hash, user_id, expired_at)
-        VALUES (?, ?, NOW())
-        ON DUPLICATE KEY UPDATE expired_at = NOW()
-    ");
-
-    $markSentStmt = $pdo->prepare("
-        UPDATE notifications SET sent_at = NOW(), push_status = ? WHERE id = ?
-    ");
-
-    $updatePushStatusStmt = $pdo->prepare("
-        UPDATE notifications SET push_status = ? WHERE id = ?
-    ");
-
-    $taskStatusStmt = $pdo->prepare("
-        SELECT status FROM tasks WHERE id = ?
-    ");
-
-    $taskMetaStmt = $pdo->prepare("
-        SELECT due_at, status FROM tasks WHERE id = ?
-    ");
-
-    $pushSent = 0;
-    $pushSkipped = 0;
-    $pushExpired = 0;
-    $results = [];
-
-    $ignoreSuppression = !empty($_REQUEST['ignore_suppression']) || !empty($_REQUEST['force']);
-    $isActive = !$ignoreSuppression && isUserRecentlyActive($pdo, $userId, 2);
-
-    foreach ($pending as $notification) {
-        $notifId = (int)$notification['id'];
-        $taskId = !empty($notification['task_id']) ? (int)$notification['task_id'] : null;
-
-        // Rule 0: Window Expiration Check (prevent stale alerts after event has passed)
-        if (isNotificationWindowExpired($pdo, $notification)) {
-            $markSentStmt->execute(['expired', $notifId]);
-            $pushExpired++;
-            continue;
-        }
-
-        // Rule A: In-app only (e.g. tomorrow digest, P3 suggestions)
-        if (!isNotificationPushEligible($notification)) {
-            $markSentStmt->execute(['in_app_only', $notifId]);
-            $pushSkipped++;
-            continue;
-        }
-
-        // Push-eligible: Check if task completed or already read
-        if (!empty($notification['read_at'])) {
-            $markSentStmt->execute(['resolved', $notifId]);
-            continue;
-        }
-
-        $isImminent = false;
-        $eventKey = (string)($notification['event_key'] ?? '');
-        if (str_contains($eventKey, 'class_') || str_contains($eventKey, 'urgent_') || str_contains($eventKey, 'overdue')) {
-            $isImminent = true;
-        }
-        if ($taskId !== null) {
-            $taskMetaStmt->execute([$taskId]);
-            $taskMeta = $taskMetaStmt->fetch(PDO::FETCH_ASSOC);
-            if ($taskMeta) {
-                if ($taskMeta['status'] === 'completed') {
-                    $markSentStmt->execute(['resolved', $notifId]);
-                    continue;
-                }
-                if (!empty($taskMeta['due_at'])) {
-                    $dueTime = strtotime($taskMeta['due_at']);
-                    if ($dueTime <= time() + 7200) {
-                        $isImminent = true;
-                    }
-                }
-            }
-        }
-
-        // Rule B: Active user push postponement
-        // Active window calibrated to 2 minutes (120s) to avoid delaying pushes by 15 minutes.
-        // We postpone at most once: if already 'skipped_active', proceed with push.
-        // Imminent events (<= 2h or overdue) are never postponed.
-        $alreadyPostponed = ($notification['push_status'] === 'skipped_active');
-        if ($isActive && !$alreadyPostponed && !$isImminent) {
-            $updatePushStatusStmt->execute(['skipped_active', $notifId]);
-            $pushSkipped++;
-            continue;
-        }
-
-        // User is outside active window: check daily reminder deduplication (only for non-imminent notifications)
-        $alreadyReminded = false;
-        if ($taskId !== null && !$isImminent) {
-            $alreadySentStmt->execute([$userId, $taskId]);
-            if ($alreadySentStmt->fetchColumn()) {
-                $alreadyReminded = true;
-                $pushSkipped++;
-                $markSentStmt->execute(['already_reminded_today', $notifId]);
-                continue;
-            }
-        }
-
-        // Rule C: No browser subscription registered
-        if (empty($subscriptions)) {
-            // Do not fabricate delivery success (sent_at stays NULL); avoid infinite reprocessing
-            $updatePushStatusStmt->execute(['no_subscription', $notifId]);
-            $pushSkipped++;
-            continue;
-        }
-
-        // Rule D: Subscriptions exist: dispatch Web Push
-        $pushTag = $taskId !== null ? 'deadline-task-' . $taskId : 'academic-notif-' . $notifId;
-        $eventKey = (string)($notification['event_key'] ?? '');
-        $notificationPayload = [
-            'title' => 'Study Planner',
-            'body'  => (string)$notification['message'],
-            'tag'   => $pushTag,
-            'renotify' => true,
-            'data'  => [
-                'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
-                'notification_id' => $notifId,
-                'task_id' => $taskId,
-                'event_key' => $eventKey
-            ]
-        ];
-
-        $taskSent = false;
-        foreach ($subscriptions as $sub) {
-            try {
-                $subHash = $sub['endpoint_hash'] ?? hash('sha256', (string)($sub['endpoint'] ?? ''));
-                $subFp = substr($subHash, 0, 16);
-                $subPayload = $notificationPayload;
-                $subPayload['data']['sub_id'] = (int)($sub['id'] ?? 0);
-                $subPayload['data']['endpoint_hash'] = $subHash;
-                $subPayload['data']['sub_fingerprint'] = $subFp;
-                $sendRes = webPushSend($sub, $subPayload);
-                if (!empty($sendRes['success'])) {
-                    $taskSent = true;
-                    $pushSent++;
-                    $results[] = [
-                        'task_id' => $taskId,
-                        'notification_id' => $notifId,
-                        'endpoint' => $sub['endpoint'],
-                        'fingerprint' => $subFp,
-                        'success' => true
-                    ];
-                }
-            } catch (Throwable $e) {
-                $errLower = strtolower($e->getMessage());
-                if (
-                    str_contains($errLower, 'http 404') ||
-                    str_contains($errLower, 'http 410') ||
-                    str_contains($errLower, 'returned http 404') ||
-                    str_contains($errLower, 'returned http 410')
-                ) {
-                    $recordDeadStmt->execute([hash('sha256', $sub['endpoint']), $userId]);
-                    $deleteExpiredStmt->execute([(int)$sub['id']]);
-                    $pushExpired++;
-                }
-                $results[] = [
-                    'task_id' => $taskId,
-                    'notification_id' => $notifId,
-                    'endpoint' => $sub['endpoint'],
-                    'success' => false,
-                    'error' => $e->getMessage()
-                ];
-            }
-        }
-
-        if ($taskSent) {
-            if ($taskId !== null) {
-                $insertDailyStmt->execute([$userId, $taskId]);
-            }
-            $markSentStmt->execute(['sent', $notifId]);
-        } else {
-            $updatePushStatusStmt->execute(['failed', $notifId]);
-        }
-    }
-
-    try {
-        $hbStmt = $pdo->prepare("
-            INSERT INTO system_heartbeats (service_name, last_run_at, status, meta_json)
-            VALUES ('scheduler', NOW(), 'ok', ?)
-            ON DUPLICATE KEY UPDATE last_run_at = NOW(), status = VALUES(status), meta_json = VALUES(meta_json)
-        ");
-        $hbStmt->execute([json_encode([
-            'checked' => count($pending),
-            'push_sent' => $pushSent,
-            'push_skipped' => $pushSkipped,
-            'push_expired' => $pushExpired
-        ])]);
-    } catch (Throwable $e) {}
+    // Delegate to shared lightweight dispatcher
+    $dispatchRes = dispatchPendingPushesForUser($pdo, $userId, [
+        'ignore_suppression' => $ignoreSuppression
+    ]);
 
     jsonResponse(
         true,
         [
-            'message' => "Deadline reminder check completed: {$pushSent} sent, {$pushSkipped} skipped, {$pushExpired} expired removed.",
-            'notifications_checked' => count($pending),
-            'push_sent' => $pushSent,
-            'push_skipped' => $pushSkipped,
-            'push_expired' => $pushExpired,
-            'results' => $results
+            'message' => "Deadline reminder check completed: {$dispatchRes['push_sent']} sent, {$dispatchRes['push_skipped']} skipped, {$dispatchRes['push_expired']} expired removed.",
+            'notifications_checked' => $dispatchRes['checked'],
+            'push_sent' => $dispatchRes['push_sent'],
+            'push_skipped' => $dispatchRes['push_skipped'],
+            'push_expired' => $dispatchRes['push_expired'],
+            'results' => $dispatchRes['results']
         ]
     );
 }
@@ -1123,15 +904,25 @@ if ($action === 'scheduler_status') {
         SELECT service_name, last_run_at, status, meta_json,
                TIMESTAMPDIFF(SECOND, last_run_at, NOW()) AS elapsed_seconds
         FROM system_heartbeats
-        WHERE service_name = 'scheduler'
-        LIMIT 1
+        WHERE service_name IN ('scheduler', 'scheduler_dispatcher', 'scheduler_generator')
     ");
     $stmt->execute();
-    $hb = $stmt->fetch(PDO::FETCH_ASSOC);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $meta = [];
-    if (!empty($hb['meta_json'])) {
-        $meta = json_decode((string)$hb['meta_json'], true) ?: [];
+    $dispatcherHb = null;
+    $generatorHb = null;
+    $legacyHb = null;
+
+    foreach ($rows as $r) {
+        $meta = !empty($r['meta_json']) ? json_decode((string)$r['meta_json'], true) : [];
+        $r['meta'] = $meta ?: [];
+        if ($r['service_name'] === 'scheduler_dispatcher') {
+            $dispatcherHb = $r;
+        } elseif ($r['service_name'] === 'scheduler_generator') {
+            $generatorHb = $r;
+        } elseif ($r['service_name'] === 'scheduler') {
+            $legacyHb = $r;
+        }
     }
 
     $daemonLog = '';
@@ -1144,12 +935,19 @@ if ($action === 'scheduler_status') {
 
     $psAux = (string)@shell_exec('ps aux 2>&1');
 
+    $isDispatcherActive = $dispatcherHb && (int)($dispatcherHb['elapsed_seconds'] ?? 999) <= 30;
+    $isGeneratorActive = $generatorHb && (int)($generatorHb['elapsed_seconds'] ?? 999) <= 360;
+    $isLegacyActive = $legacyHb && (int)($legacyHb['elapsed_seconds'] ?? 999) <= 120;
+
     jsonResponse(
         true,
         [
-            'active' => $hb && (int)($hb['elapsed_seconds'] ?? 999) <= 120,
-            'heartbeat' => $hb ?: null,
-            'meta' => $meta,
+            'active' => $isDispatcherActive || $isLegacyActive,
+            'dispatcher_active' => $isDispatcherActive,
+            'generator_active' => $isGeneratorActive,
+            'dispatcher_heartbeat' => $dispatcherHb,
+            'generator_heartbeat' => $generatorHb,
+            'heartbeat' => $legacyHb ?: $dispatcherHb,
             'daemon_log' => $daemonLog,
             'ps_aux' => $psAux,
             'server_time' => date('Y-m-d H:i:s')

@@ -2481,6 +2481,376 @@ function syncContextualNotifications(PDO $db, int $userId): array
 }
 
 /**
+ * Lightweight pending push dispatcher.
+ * Fast, atomic, and safe to execute frequently (every 5-10 seconds or immediately on task mutation).
+ * Queries only indexed notifications where send_at <= NOW() and sent_at IS NULL.
+ * Uses atomic leasing (push_status = 'disp:<lease_expiry>') for race protection and crash recovery.
+ */
+function dispatchPendingPushes(PDO $db, ?int $targetUserId = null, array $options = []): array
+{
+    if (!function_exists('webPushSend')) {
+        require_once __DIR__ . '/webpush.php';
+    }
+    if (!function_exists('sendReminderEmail')) {
+        @require_once __DIR__ . '/../cron/Mailer.php';
+    }
+
+    $nowTs = time();
+
+    // Query pending notifications
+    $query = "
+        SELECT
+            n.id,
+            n.user_id,
+            n.task_id,
+            n.channel,
+            n.event_key,
+            n.message,
+            n.send_at,
+            n.sent_at,
+            n.read_at,
+            n.push_status,
+            u.email,
+            u.full_name,
+            u.notifications_enabled,
+            u.last_active_at
+        FROM notifications n
+        INNER JOIN users u
+            ON u.id = n.user_id
+        WHERE n.sent_at IS NULL
+          AND (
+            n.push_status IS NULL
+            OR n.push_status = 'skipped_active'
+            OR (n.push_status LIKE 'disp:%' AND CAST(SUBSTRING(n.push_status, 6) AS UNSIGNED) < :now_ts)
+          )
+          AND n.send_at <= NOW()
+    ";
+
+    $params = [':now_ts' => $nowTs];
+    if ($targetUserId !== null) {
+        $query .= " AND n.user_id = :target_user_id";
+        $params[':target_user_id'] = $targetUserId;
+    }
+    $query .= " ORDER BY n.send_at ASC, n.id ASC";
+
+    $notificationStmt = $db->prepare($query);
+    $notificationStmt->execute($params);
+    $pendingNotifications = $notificationStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $processedNotifications = 0;
+    $failedNotifications = 0;
+    $pushSent = 0;
+    $pushSkipped = 0;
+    $pushExpired = 0;
+    $pushErrors = 0;
+    $results = [];
+
+    if (empty($pendingNotifications)) {
+        return [
+            'checked' => 0,
+            'processed' => 0,
+            'failed' => 0,
+            'push_sent' => 0,
+            'push_skipped' => 0,
+            'push_expired' => 0,
+            'push_errors' => 0,
+            'results' => []
+        ];
+    }
+
+    // Atomic claim statement with 120s crash-recovery lease
+    $claimStmt = $db->prepare("
+        UPDATE notifications
+        SET push_status = :new_lease
+        WHERE id = :id
+          AND sent_at IS NULL
+          AND (
+            push_status IS NULL
+            OR push_status = 'skipped_active'
+            OR (push_status LIKE 'disp:%' AND CAST(SUBSTRING(push_status, 6) AS UNSIGNED) < :now_ts)
+          )
+    ");
+
+    $markSentStmt = $db->prepare("
+        UPDATE notifications
+        SET sent_at = NOW(), push_status = ?
+        WHERE id = ?
+    ");
+
+    $updatePushStatusStmt = $db->prepare("
+        UPDATE notifications
+        SET push_status = ?
+        WHERE id = ?
+    ");
+
+    $taskMetaStmt = $db->prepare("SELECT due_at, status FROM tasks WHERE id = ?");
+
+    $userPushStmt = $db->prepare("
+        SELECT id, endpoint, p256dh, auth, content_encoding, expiration_time
+        FROM browser_push_subscriptions
+        WHERE user_id = ?
+        ORDER BY id DESC
+    ");
+
+    $deleteDeadSubStmt = $db->prepare("
+        DELETE FROM browser_push_subscriptions
+        WHERE id = ?
+    ");
+
+    $recordDeadSubStmt = $db->prepare("
+        INSERT INTO browser_push_dead_endpoints (endpoint_hash, user_id, expired_at)
+        VALUES (?, ?, NOW())
+        ON DUPLICATE KEY UPDATE expired_at = NOW()
+    ");
+
+    $checkDailyStmt = $db->prepare("
+        SELECT id
+        FROM push_daily_reminders
+        WHERE user_id = ?
+          AND task_id = ?
+          AND reminder_date = CURDATE()
+        LIMIT 1
+    ");
+
+    $insertDailyStmt = $db->prepare("
+        INSERT IGNORE INTO push_daily_reminders
+            (user_id, task_id, reminder_date)
+        VALUES
+            (?, ?, CURDATE())
+    ");
+
+    $ignoreSuppression = !empty($options['ignore_suppression']);
+
+    foreach ($pendingNotifications as $notification) {
+        $userId = (int) $notification['user_id'];
+        $notifId = (int) $notification['id'];
+        $taskId = !empty($notification['task_id']) ? (int) $notification['task_id'] : null;
+        $channel = (string) $notification['channel'];
+
+        // Atomic claim: acquire a 120-second lease to prevent race conditions
+        $leaseExpiry = time() + 120;
+        $newLease = 'disp:' . $leaseExpiry;
+        $claimStmt->execute([
+            ':new_lease' => $newLease,
+            ':id' => $notifId,
+            ':now_ts' => time()
+        ]);
+        if ($claimStmt->rowCount() === 0) {
+            // Another concurrent process or thread already claimed or dispatched this notification
+            continue;
+        }
+
+        // If notifications disabled for this user, mark processed and skip
+        if (empty($notification['notifications_enabled'])) {
+            $markSentStmt->execute(['disabled', $notifId]);
+            $processedNotifications++;
+            continue;
+        }
+
+        /*
+         * 1. EMAIL DELIVERY
+         */
+        if ($channel === 'email') {
+            $emailOk = function_exists('sendReminderEmail') && sendReminderEmail(
+                (string) $notification['email'],
+                (string) $notification['full_name'],
+                'Study Planner reminder',
+                (string) $notification['message']
+            );
+
+            if (!$emailOk) {
+                $failedNotifications++;
+                $updatePushStatusStmt->execute(['failed', $notifId]);
+                continue;
+            }
+
+            $markSentStmt->execute(['sent', $notifId]);
+            $processedNotifications++;
+            continue;
+        }
+
+        /*
+         * 2. IN-APP & WEB PUSH DELIVERY
+         */
+        if ($channel === 'in_app') {
+            // Rule 0: Window Expiration Check (prevent stale alerts after event has passed)
+            if (isNotificationWindowExpired($db, $notification)) {
+                $markSentStmt->execute(['expired', $notifId]);
+                $processedNotifications++;
+                $pushExpired++;
+                continue;
+            }
+
+            // Rule A: In-app only notification (tomorrow digest, P3 study suggestions, curriculum alerts)
+            if (!isNotificationPushEligible($notification)) {
+                $markSentStmt->execute(['in_app_only', $notifId]);
+                $processedNotifications++;
+                $pushSkipped++;
+                continue;
+            }
+
+            // Push-eligible notification: check if task is completed or already read
+            if (!empty($notification['read_at'])) {
+                $markSentStmt->execute(['resolved', $notifId]);
+                $processedNotifications++;
+                continue;
+            }
+
+            $isImminent = false;
+            $eventKey = (string)($notification['event_key'] ?? '');
+            if (str_contains($eventKey, 'class_') || str_contains($eventKey, 'urgent_') || str_contains($eventKey, 'overdue')) {
+                $isImminent = true;
+            }
+            if ($taskId !== null) {
+                $taskMetaStmt->execute([$taskId]);
+                $taskMeta = $taskMetaStmt->fetch(PDO::FETCH_ASSOC);
+                if ($taskMeta) {
+                    if ($taskMeta['status'] === 'completed') {
+                        $markSentStmt->execute(['resolved', $notifId]);
+                        $processedNotifications++;
+                        continue;
+                    }
+                    if (!empty($taskMeta['due_at'])) {
+                        $dueTime = strtotime($taskMeta['due_at']);
+                        if ($dueTime <= time() + 7200) {
+                            $isImminent = true;
+                        }
+                    }
+                }
+            }
+
+            // Rule B: Active user push postponement
+            // Active window calibrated to 2 minutes (120s) to avoid delaying pushes by 15 minutes.
+            // We postpone at most once: if already 'skipped_active', proceed with push.
+            // Imminent events (<= 2h or overdue) are never postponed.
+            $isActive = !$ignoreSuppression && isUserRecentlyActive($db, $userId, 2);
+            $alreadyPostponed = ($notification['push_status'] === 'skipped_active');
+
+            if ($isActive && !$alreadyPostponed && !$isImminent) {
+                $updatePushStatusStmt->execute(['skipped_active', $notifId]);
+                $pushSkipped++;
+                continue;
+            }
+
+            // User is outside the active window: check daily reminder deduplication (only for non-imminent notifications)
+            if ($taskId !== null && !$isImminent) {
+                $checkDailyStmt->execute([$userId, $taskId]);
+                if ($checkDailyStmt->fetchColumn()) {
+                    $pushSkipped++;
+                    $markSentStmt->execute(['already_reminded_today', $notifId]);
+                    $processedNotifications++;
+                    continue;
+                }
+            }
+
+            // Check registered browser subscriptions
+            try {
+                $userPushStmt->execute([$userId]);
+                $userSubs = $userPushStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Rule C: No browser subscription registered
+                if (empty($userSubs)) {
+                    $updatePushStatusStmt->execute(['no_subscription', $notifId]);
+                    $pushSkipped++;
+                    continue;
+                }
+
+                // Subscriptions exist: dispatch Web Push
+                $pushTag = $taskId !== null
+                    ? 'deadline-task-' . $taskId
+                    : 'academic-notif-' . $notifId;
+
+                $baseUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+                $pushPayload = [
+                    'title' => 'Study Planner',
+                    'body'  => (string) $notification['message'],
+                    'tag'   => $pushTag,
+                    'renotify' => true,
+                    'data'  => [
+                        'url' => $baseUrl . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
+                        'notification_id' => $notifId,
+                        'task_id' => $taskId,
+                        'event_key' => $eventKey
+                    ]
+                ];
+
+                $taskPushed = false;
+                foreach ($userSubs as $sub) {
+                    try {
+                        $subHash = $sub['endpoint_hash'] ?? hash('sha256', (string)($sub['endpoint'] ?? ''));
+                        $subFp = substr($subHash, 0, 16);
+                        $subPayload = $pushPayload;
+                        $subPayload['data']['sub_id'] = (int)($sub['id'] ?? 0);
+                        $subPayload['data']['endpoint_hash'] = $subHash;
+                        $subPayload['data']['sub_fingerprint'] = $subFp;
+                        $sendRes = webPushSend($sub, $subPayload);
+                        if (!empty($sendRes['success'])) {
+                            $pushSent++;
+                            $taskPushed = true;
+                            $results[] = [
+                                'task_id' => $taskId,
+                                'notification_id' => $notifId,
+                                'endpoint' => $sub['endpoint'],
+                                'fingerprint' => $subFp,
+                                'success' => true
+                            ];
+                        }
+                    } catch (Throwable $pushEx) {
+                        $pushErrors++;
+                        $err = strtolower($pushEx->getMessage());
+                        if (
+                            str_contains($err, 'http 404') ||
+                            str_contains($err, 'http 410') ||
+                            str_contains($err, 'returned http 404') ||
+                            str_contains($err, 'returned http 410')
+                        ) {
+                            $recordDeadSubStmt->execute([hash('sha256', $sub['endpoint']), $userId]);
+                            $deleteDeadSubStmt->execute([(int) $sub['id']]);
+                            $pushExpired++;
+                        }
+                    }
+                }
+
+                // Rule D: Web Push successfully dispatched
+                if ($taskPushed) {
+                    if ($taskId !== null) {
+                        $insertDailyStmt->execute([$userId, $taskId]);
+                    }
+                    $markSentStmt->execute(['sent', $notifId]);
+                    $processedNotifications++;
+                } else {
+                    $updatePushStatusStmt->execute(['failed', $notifId]);
+                    $pushErrors++;
+                }
+            } catch (Throwable $subEx) {
+                error_log('Push delivery error: ' . $subEx->getMessage());
+                $updatePushStatusStmt->execute(['failed', $notifId]);
+                $pushErrors++;
+            }
+        }
+    }
+
+    return [
+        'checked' => count($pendingNotifications),
+        'processed' => $processedNotifications,
+        'failed' => $failedNotifications,
+        'push_sent' => $pushSent,
+        'push_skipped' => $pushSkipped,
+        'push_expired' => $pushExpired,
+        'push_errors' => $pushErrors,
+        'results' => $results
+    ];
+}
+
+/**
+ * Convenience wrapper for targeted user push dispatch.
+ */
+function dispatchPendingPushesForUser(PDO $db, int $userId, array $options = []): array
+{
+    return dispatchPendingPushes($db, $userId, $options);
+}
+
+/**
  * Compute study hours completed by the user with request-level memoization.
  */
 function getUserCompletedStudyHours(PDO $db, int $userId): float
