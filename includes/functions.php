@@ -2178,7 +2178,13 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
 
                 $urgentKey = "task_{$taskId}_urgent_2h";
                 if ($prefs['deadline_2h'] && !academicNotificationExists($db, $userId, $urgentKey, "%Urgent Deadline: '{$taskTitle}'%")) {
-                    $timeStr = ($diffMins <= 60) ? "due in {$diffMins} minutes" : "due in ~2 hours";
+                    if ($diffMins <= 60) {
+                        $timeStr = "due in {$diffMins} minutes";
+                    } else {
+                        $hours = intdiv($diffMins, 60);
+                        $remMins = $diffMins % 60;
+                        $timeStr = $remMins > 0 ? "due in {$hours}h {$remMins}m" : "due in {$hours} hour" . ($hours > 1 ? 's' : '');
+                    }
                     $msg = "Urgent Deadline: '{$taskTitle}' is {$timeStr} ({$dueFormatted})! Finalize and submit.";
                     $insertStmt->execute([$userId, $taskId, $urgentKey, $msg]);
                     $totalGenerated++;
