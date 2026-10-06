@@ -843,6 +843,13 @@ switch ($method) {
         $notificationData['push_status'] = 'in_app_only';
         $notificationData['unread_count'] = $unreadCount;
 
+        // Opportunistic smart reminder generation if task is imminent (<=2h) or overdue
+        if ($status !== 'completed' && $dueDate->getTimestamp() <= time() + 7200) {
+            try {
+                generateAcademicReminders($db, $userId);
+            } catch (Throwable $e) {}
+        }
+
         taskApiJson([
             'ok' => true,
             'id' => $taskId,
@@ -1216,6 +1223,13 @@ switch ($method) {
             ]);
             $mutatedNotification['push_status'] = 'in_app_only';
             $mutatedNotification['unread_count'] = getUnreadNotificationCount($db, $userId);
+        }
+
+        // Opportunistic smart reminder generation if task is active and imminent (<=2h) or overdue
+        if ($newStatus !== 'completed' && $dueDate->getTimestamp() <= time() + 7200) {
+            try {
+                generateAcademicReminders($db, $userId);
+            } catch (Throwable $e) {}
         }
 
         $resPayload = [

@@ -2102,6 +2102,7 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                AND t.status != 'completed'
                AND t.due_at IS NOT NULL
                AND t.due_at < NOW()
+               AND t.due_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
              ORDER BY t.due_at ASC"
         );
         $stmtOverdue->execute([$userId]);
@@ -2109,6 +2110,16 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
 
         if (!empty($overdueTasks)) {
             $hasP1orP2 = true;
+            $resolveStmt = $db->prepare(
+                "UPDATE notifications 
+                 SET read_at = NOW() 
+                 WHERE user_id = ? 
+                   AND task_id = ? 
+                   AND read_at IS NULL 
+                   AND (event_key LIKE 'task_%_24h' OR event_key LIKE 'task_%_urgent_2h' OR event_key LIKE 'task_%_2h' OR event_key LIKE 'task_%_tomorrow%')"
+            );
+            $actCheck = $db->prepare("SELECT id FROM activity_log WHERE user_id = ? AND message = ? LIMIT 1");
+
             foreach ($overdueTasks as $task) {
                 $taskId = (int)$task['id'];
                 $dueTs = strtotime($task['due_at']);
@@ -2121,30 +2132,21 @@ function generateAcademicReminders(PDO $db, ?int $targetUserId = null): array
                     $msg = "Overdue Task: '{$taskTitle}' was due on {$dueFormatted}. Prioritize or update its status.";
                     $insertStmt->execute([$userId, $taskId, $overdueKey, $msg]);
                     $totalGenerated++;
+
+                    // Auto-resolve older deadline reminders for this task so "due soon" is not shown alongside "overdue"
+                    try {
+                        $resolveStmt->execute([$userId, $taskId]);
+                    } catch (Throwable $e) {}
+
+                    // Genuine Academic Activity Log: log once per overdue task crossing
+                    try {
+                        $overdueActMsg = "Task overdue: '{$taskTitle}'";
+                        $actCheck->execute([$userId, $overdueActMsg]);
+                        if (!$actCheck->fetchColumn()) {
+                            logActivity($userId, $overdueActMsg, 'warning');
+                        }
+                    } catch (Throwable $e) {}
                 }
-
-                // Auto-resolve older deadline reminders for this task so "due soon" is not shown alongside "overdue"
-                try {
-                    $resolveStmt = $db->prepare(
-                        "UPDATE notifications 
-                         SET read_at = NOW() 
-                         WHERE user_id = ? 
-                           AND task_id = ? 
-                           AND read_at IS NULL 
-                           AND (event_key LIKE 'task_%_24h' OR event_key LIKE 'task_%_urgent_2h' OR event_key LIKE 'task_%_2h' OR event_key LIKE 'task_%_tomorrow%')"
-                    );
-                    $resolveStmt->execute([$userId, $taskId]);
-                } catch (Throwable $e) {}
-
-                // Genuine Academic Activity Log: log once per overdue task crossing
-                try {
-                    $actCheck = $db->prepare("SELECT id FROM activity_log WHERE user_id = ? AND message = ? LIMIT 1");
-                    $overdueActMsg = "Task overdue: '{$taskTitle}'";
-                    $actCheck->execute([$userId, $overdueActMsg]);
-                    if (!$actCheck->fetchColumn()) {
-                        logActivity($userId, $overdueActMsg, 'warning');
-                    }
-                } catch (Throwable $e) {}
             }
         }
 

@@ -234,6 +234,8 @@ $insertDailyStmt = $db->prepare("
         (?, ?, CURDATE())
 ");
 
+$taskMetaStmt = $db->prepare("SELECT due_at, status FROM tasks WHERE id = ?");
+
 foreach ($pendingNotifications as $notification) {
     $userId = (int) $notification['user_id'];
     $notifId = (int) $notification['id'];
@@ -296,8 +298,11 @@ foreach ($pendingNotifications as $notification) {
         }
 
         $isImminent = false;
+        $eventKey = (string)($notification['event_key'] ?? '');
+        if (str_contains($eventKey, 'class_') || str_contains($eventKey, 'urgent_') || str_contains($eventKey, 'overdue')) {
+            $isImminent = true;
+        }
         if ($taskId !== null) {
-            $taskMetaStmt = $db->prepare("SELECT due_at, status FROM tasks WHERE id = ?");
             $taskMetaStmt->execute([$taskId]);
             $taskMeta = $taskMetaStmt->fetch(PDO::FETCH_ASSOC);
             if ($taskMeta) {
@@ -308,19 +313,17 @@ foreach ($pendingNotifications as $notification) {
                 }
                 if (!empty($taskMeta['due_at'])) {
                     $dueTime = strtotime($taskMeta['due_at']);
-                    if ($dueTime <= time() + 1800) {
+                    if ($dueTime <= time() + 7200) {
                         $isImminent = true;
                     }
                 }
             }
-        } elseif (!empty($notification['event_key']) && (str_contains($notification['event_key'], 'class_') || str_contains($notification['event_key'], 'urgent_') || str_contains($notification['event_key'], 'overdue_'))) {
-            $isImminent = true;
         }
 
         // Rule B: Active user push postponement
         // Active window calibrated to 2 minutes (120s) to avoid delaying pushes by 15 minutes.
         // We postpone at most once: if already 'skipped_active', proceed with push.
-        // Imminent events (<= 30 mins or overdue) are never postponed.
+        // Imminent events (<= 2h or overdue) are never postponed.
         $isActive = isUserRecentlyActive($db, $userId, 2);
         $alreadyPostponed = ($notification['push_status'] === 'skipped_active');
 
@@ -330,9 +333,9 @@ foreach ($pendingNotifications as $notification) {
             continue;
         }
 
-        // User is outside the 15-minute active window: check daily reminder deduplication
+        // User is outside the active window: check daily reminder deduplication (only for non-imminent notifications)
         $alreadyReminded = false;
-        if ($taskId !== null) {
+        if ($taskId !== null && !$isImminent) {
             $checkDailyStmt->execute([$userId, $taskId]);
             if ($checkDailyStmt->fetchColumn()) {
                 $alreadyReminded = true;

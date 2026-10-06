@@ -145,9 +145,10 @@ self.addEventListener('push', function (event) {
 
     // Guaranteed showNotification with empirical telemetry and graceful fallback
     const showPromise = (async function () {
-        await sendTelemetry('push_received', { title: title, tag: tag });
+        const receivedPromise = sendTelemetry('push_received', { title: title, tag: tag });
+        let showResult;
         try {
-            await self.registration.showNotification(title, options);
+            showResult = await self.registration.showNotification(title, options);
             await sendTelemetry('notification_shown_success', { title: title, tag: tag });
         } catch (err) {
             console.error('Service Worker showNotification error:', err);
@@ -157,12 +158,14 @@ self.addEventListener('push', function (event) {
                 tag: tag
             });
             // Fallback attempt with minimal options
-            return self.registration.showNotification(title, {
+            showResult = await self.registration.showNotification(title, {
                 body: options.body,
                 icon: iconUrl,
                 tag: tag
             });
         }
+        await receivedPromise;
+        return showResult;
     })();
 
     event.waitUntil(Promise.all([showPromise, broadcastPromise]));
