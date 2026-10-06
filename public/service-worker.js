@@ -109,22 +109,65 @@ self.addEventListener('push', function (event) {
         }
     };
 
-    // Helper to send telemetry back to server for empirical proof
-    async function sendTelemetry(eventType, extraData) {
+    // Resolve correlation data from payload
+    const extraData = data.data || {};
+    const notificationId = extraData.notification_id || data.notification_id || null;
+    const eventKey = extraData.event_key || data.event_key || null;
+    const payloadSubHash = extraData.endpoint_hash || data.endpoint_hash || null;
+    const payloadFingerprint = extraData.sub_fingerprint || data.sub_fingerprint || null;
+    const subId = extraData.sub_id || data.sub_id || null;
+
+    // Helper to safely derive active subscription fingerprint using existing web crypto
+    async function getSubscriptionFingerprint() {
         try {
             const sub = await self.registration.pushManager.getSubscription();
+            if (sub && sub.endpoint) {
+                let hash = null;
+                if (self.crypto && self.crypto.subtle) {
+                    const msgUint8 = new TextEncoder().encode(sub.endpoint);
+                    const hashBuffer = await self.crypto.subtle.digest('SHA-256', msgUint8);
+                    hash = Array.from(new Uint8Array(hashBuffer))
+                        .map(function (b) { return b.toString(16).padStart(2, '0'); })
+                        .join('');
+                }
+                return {
+                    endpoint: sub.endpoint,
+                    endpointHash: hash,
+                    fingerprint: hash ? hash.substring(0, 16) : null
+                };
+            }
+        } catch (e) {}
+        return { endpoint: null, endpointHash: null, fingerprint: null };
+    }
+
+    // Helper to send telemetry back to server with non-sensitive correlation data
+    async function sendTelemetry(eventType, extraFields) {
+        try {
+            const subInfo = await getSubscriptionFingerprint();
             const logUrl = getPushApiUrl('sw_log');
+            const epHash = subInfo.endpointHash || payloadSubHash || null;
+            const fp = subInfo.fingerprint || payloadFingerprint || (epHash ? epHash.substring(0, 16) : null);
+            const now = Date.now();
+
+            const bodyData = Object.assign({
+                event: eventType,
+                endpoint: subInfo.endpoint || null,
+                endpoint_hash: epHash,
+                sub_fingerprint: fp,
+                sub_id: subId,
+                notification_id: notificationId,
+                event_key: eventKey,
+                tag: tag,
+                title: title,
+                timestamp: now,
+                utc_timestamp: new Date(now).toISOString()
+            }, extraFields || {});
+
             await fetch(logUrl, {
                 method: 'POST',
                 keepalive: true,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(Object.assign({
-                    event: eventType,
-                    endpoint: sub ? sub.endpoint : null,
-                    timestamp: Date.now(),
-                    tag: tag,
-                    title: title
-                }, extraData || {}))
+                body: JSON.stringify(bodyData)
             });
         } catch (e) {
             // Telemetry failure should never prevent notification display
@@ -258,6 +301,17 @@ self.addEventListener(
         const clickLogPromise = (async function () {
             try {
                 const sub = await self.registration.pushManager.getSubscription();
+                let hash = null;
+                if (sub && sub.endpoint && self.crypto && self.crypto.subtle) {
+                    const msgUint8 = new TextEncoder().encode(sub.endpoint);
+                    const hashBuffer = await self.crypto.subtle.digest('SHA-256', msgUint8);
+                    hash = Array.from(new Uint8Array(hashBuffer))
+                        .map(function (b) { return b.toString(16).padStart(2, '0'); })
+                        .join('');
+                }
+                const epHash = hash || data.endpoint_hash || null;
+                const fp = (hash ? hash.substring(0, 16) : null) || data.sub_fingerprint || null;
+                const now = Date.now();
                 const logUrl = getPushApiUrl('sw_log');
                 await fetch(logUrl, {
                     method: 'POST',
@@ -266,8 +320,14 @@ self.addEventListener(
                     body: JSON.stringify({
                         event: 'notification_clicked',
                         endpoint: sub ? sub.endpoint : null,
+                        endpoint_hash: epHash,
+                        sub_fingerprint: fp,
+                        sub_id: data.sub_id || null,
+                        notification_id: data.notification_id || null,
+                        event_key: data.event_key || null,
                         tag: event.notification ? event.notification.tag : null,
-                        timestamp: Date.now()
+                        timestamp: now,
+                        utc_timestamp: new Date(now).toISOString()
                     })
                 });
             } catch (e) {}

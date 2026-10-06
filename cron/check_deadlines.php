@@ -364,6 +364,7 @@ foreach ($pendingNotifications as $notification) {
                 ? 'deadline-task-' . $taskId
                 : 'academic-notif-' . $notifId;
 
+            $eventKey = (string)($notification['event_key'] ?? '');
             $pushPayload = [
                 'title' => 'Study Planner',
                 'body'  => (string) $notification['message'],
@@ -372,14 +373,21 @@ foreach ($pendingNotifications as $notification) {
                 'data'  => [
                     'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
                     'notification_id' => $notifId,
-                    'task_id' => $taskId
+                    'task_id' => $taskId,
+                    'event_key' => $eventKey
                 ]
             ];
 
             $taskPushed = false;
             foreach ($userSubs as $sub) {
                 try {
-                    $sendRes = webPushSend($sub, $pushPayload);
+                    $subHash = $sub['endpoint_hash'] ?? hash('sha256', (string)($sub['endpoint'] ?? ''));
+                    $subFp = substr($subHash, 0, 16);
+                    $subPayload = $pushPayload;
+                    $subPayload['data']['sub_id'] = (int)($sub['id'] ?? 0);
+                    $subPayload['data']['endpoint_hash'] = $subHash;
+                    $subPayload['data']['sub_fingerprint'] = $subFp;
+                    $sendRes = webPushSend($sub, $subPayload);
                     if (!empty($sendRes['success'])) {
                         $pushSent++;
                         $taskPushed = true;

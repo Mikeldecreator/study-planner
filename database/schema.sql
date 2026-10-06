@@ -175,6 +175,9 @@ CREATE TABLE IF NOT EXISTS browser_push_telemetry (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id INT NULL,
     endpoint_hash CHAR(64) NULL,
+    device_fingerprint VARCHAR(64) NULL,
+    notification_id BIGINT UNSIGNED NULL,
+    event_key VARCHAR(100) NULL,
     event VARCHAR(64) NOT NULL,
     user_agent VARCHAR(500) NULL,
     payload_json MEDIUMTEXT NULL,
@@ -184,6 +187,9 @@ CREATE TABLE IF NOT EXISTS browser_push_telemetry (
     PRIMARY KEY (id),
     KEY idx_telemetry_user (user_id),
     KEY idx_telemetry_endpoint (endpoint_hash),
+    KEY idx_telemetry_fp (device_fingerprint),
+    KEY idx_telemetry_notif (notification_id),
+    KEY idx_telemetry_key (event_key),
     KEY idx_telemetry_event (event),
     KEY idx_telemetry_created (created_at)
 ) ENGINE=InnoDB;

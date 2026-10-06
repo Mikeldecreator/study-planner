@@ -191,6 +191,9 @@ function ensurePushTableExists(PDO $pdo): void
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT UNSIGNED NULL,
             endpoint_hash CHAR(64) NULL,
+            device_fingerprint VARCHAR(64) NULL,
+            notification_id BIGINT UNSIGNED NULL,
+            event_key VARCHAR(100) NULL,
             event VARCHAR(50) NOT NULL,
             user_agent VARCHAR(500) NULL,
             payload_json TEXT NULL,
@@ -198,11 +201,24 @@ function ensurePushTableExists(PDO $pdo): void
             device_timestamp BIGINT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             KEY idx_telemetry_created (created_at),
-            KEY idx_telemetry_hash (endpoint_hash)
+            KEY idx_telemetry_hash (endpoint_hash),
+            KEY idx_telemetry_fp (device_fingerprint),
+            KEY idx_telemetry_notif (notification_id),
+            KEY idx_telemetry_key (event_key)
         ) ENGINE=InnoDB
           DEFAULT CHARSET=utf8mb4
           COLLATE=utf8mb4_unicode_ci
     ");
+
+    try {
+        $pdo->exec("ALTER TABLE browser_push_telemetry ADD COLUMN device_fingerprint VARCHAR(64) NULL AFTER endpoint_hash");
+    } catch (Throwable $e) {}
+    try {
+        $pdo->exec("ALTER TABLE browser_push_telemetry ADD COLUMN notification_id BIGINT UNSIGNED NULL AFTER device_fingerprint");
+    } catch (Throwable $e) {}
+    try {
+        $pdo->exec("ALTER TABLE browser_push_telemetry ADD COLUMN event_key VARCHAR(100) NULL AFTER notification_id");
+    } catch (Throwable $e) {}
 }
 
 
@@ -492,7 +508,23 @@ if ($action === 'sw_log' && $method === 'POST') {
     $deviceTs = isset($payload['timestamp']) && is_numeric($payload['timestamp']) ? (int)$payload['timestamp'] : null;
     $errorMsg = !empty($payload['error']) ? (string)$payload['error'] : null;
 
-    $endpointHash = $endpoint !== '' ? hash('sha256', $endpoint) : null;
+    $endpointHash = trim((string)($payload['endpoint_hash'] ?? ''));
+    if ($endpointHash === '' && $endpoint !== '') {
+        $endpointHash = hash('sha256', $endpoint);
+    } elseif ($endpointHash === '') {
+        $endpointHash = null;
+    }
+
+    $subFingerprint = trim((string)($payload['sub_fingerprint'] ?? ''));
+    if ($subFingerprint === '' && $endpointHash !== null) {
+        $subFingerprint = substr($endpointHash, 0, 16);
+    } elseif ($subFingerprint === '') {
+        $subFingerprint = null;
+    }
+
+    $notificationId = !empty($payload['notification_id']) ? (int)$payload['notification_id'] : null;
+    $eventKey = !empty($payload['event_key']) ? trim((string)$payload['event_key']) : null;
+
     $loggedUserId = null;
 
     if ($endpointHash !== null) {
@@ -510,17 +542,28 @@ if ($action === 'sw_log' && $method === 'POST') {
             }
         }
     }
+    if ($loggedUserId === null && $notificationId !== null) {
+        $findNotifUser = $pdo->prepare("SELECT user_id FROM notifications WHERE id = ? LIMIT 1");
+        $findNotifUser->execute([$notificationId]);
+        $foundNotifUser = (int)$findNotifUser->fetchColumn();
+        if ($foundNotifUser > 0) {
+            $loggedUserId = $foundNotifUser;
+        }
+    }
     if ($loggedUserId === null && $userId > 0) {
         $loggedUserId = $userId;
     }
 
     $stmt = $pdo->prepare("
-        INSERT INTO browser_push_telemetry (user_id, endpoint_hash, event, user_agent, payload_json, error_message, device_timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO browser_push_telemetry (user_id, endpoint_hash, device_fingerprint, notification_id, event_key, event, user_agent, payload_json, error_message, device_timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute([
         $loggedUserId,
         $endpointHash,
+        $subFingerprint,
+        $notificationId,
+        $eventKey,
         $event,
         $userAgent,
         $raw,
@@ -528,7 +571,7 @@ if ($action === 'sw_log' && $method === 'POST') {
         $deviceTs
     ]);
 
-    jsonResponse(true, ['message' => 'Telemetry logged.']);
+    jsonResponse(true, ['message' => 'Telemetry logged.', 'fingerprint' => $subFingerprint]);
 }
 
 
@@ -976,6 +1019,7 @@ if (
 
         // Rule D: Subscriptions exist: dispatch Web Push
         $pushTag = $taskId !== null ? 'deadline-task-' . $taskId : 'academic-notif-' . $notifId;
+        $eventKey = (string)($notification['event_key'] ?? '');
         $notificationPayload = [
             'title' => 'Study Planner',
             'body'  => (string)$notification['message'],
@@ -984,14 +1028,21 @@ if (
             'data'  => [
                 'url' => APP_URL . ($taskId !== null ? '/deadlines.php' : '/notifications.php'),
                 'notification_id' => $notifId,
-                'task_id' => $taskId
+                'task_id' => $taskId,
+                'event_key' => $eventKey
             ]
         ];
 
         $taskSent = false;
         foreach ($subscriptions as $sub) {
             try {
-                $sendRes = webPushSend($sub, $notificationPayload);
+                $subHash = $sub['endpoint_hash'] ?? hash('sha256', (string)($sub['endpoint'] ?? ''));
+                $subFp = substr($subHash, 0, 16);
+                $subPayload = $notificationPayload;
+                $subPayload['data']['sub_id'] = (int)($sub['id'] ?? 0);
+                $subPayload['data']['endpoint_hash'] = $subHash;
+                $subPayload['data']['sub_fingerprint'] = $subFp;
+                $sendRes = webPushSend($sub, $subPayload);
                 if (!empty($sendRes['success'])) {
                     $taskSent = true;
                     $pushSent++;
@@ -999,6 +1050,7 @@ if (
                         'task_id' => $taskId,
                         'notification_id' => $notifId,
                         'endpoint' => $sub['endpoint'],
+                        'fingerprint' => $subFp,
                         'success' => true
                     ];
                 }
@@ -1112,7 +1164,7 @@ if ($action === 'scheduler_status') {
 
 if ($action === 'telemetry') {
     $stmt = $pdo->prepare("
-        SELECT id, user_id, endpoint_hash, event, user_agent, payload_json, error_message, device_timestamp, created_at
+        SELECT id, user_id, endpoint_hash, device_fingerprint, notification_id, event_key, event, user_agent, payload_json, error_message, device_timestamp, created_at
         FROM browser_push_telemetry
         WHERE user_id = ? OR user_id IS NULL
         ORDER BY id DESC
