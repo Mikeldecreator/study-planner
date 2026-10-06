@@ -23,6 +23,7 @@
     const searchInput = document.getElementById('notification-search');
     const searchInputMobile = document.getElementById('notification-search-mobile');
     const markAllBtn = document.getElementById('mark-all-read');
+    const clearAllBtn = document.getElementById('clear-all-btn');
     const summaryEl = document.getElementById('notification-summary');
 
     // Quick Stats elements
@@ -342,7 +343,12 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between gap-1">
                                     <span class="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">${escapeHtml(item.title || 'Notification')}</span>
-                                    ${unread ? '<span class="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>' : ''}
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        ${unread ? '<span class="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>' : ''}
+                                        <button data-action="delete-dropdown" data-id="${item.id}" type="button" class="p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition rounded" title="Delete notification" aria-label="Delete notification">
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2 leading-relaxed">${escapeHtml(item.message)}</p>
                                 <span class="text-[10px] text-gray-400 mt-1 block">${relTime}</span>
@@ -366,8 +372,16 @@
             });
         }
 
+        bellDropdown.querySelectorAll('[data-action="delete-dropdown"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteNotification(btn.dataset.id);
+            });
+        });
+
         bellDropdown.querySelectorAll('[data-dropdown-id]').forEach(el => {
-            el.addEventListener('click', () => {
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('[data-action="delete-dropdown"]')) return;
                 const id = el.dataset.dropdownId;
                 const item = allNotifications.find(n => String(n.id) === String(id));
                 markOneAsRead(id);
@@ -471,6 +485,9 @@
                                 <i data-lucide="external-link" class="w-4 h-4"></i>
                             </a>
                         ` : ''}
+                        <button data-action="delete" data-id="${item.id}" type="button" class="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30" title="Delete notification" aria-label="Delete notification">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
                     </div>
                 </div>
             `;
@@ -480,6 +497,13 @@
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 markOneAsRead(btn.dataset.id);
+            });
+        });
+
+        feedEl.querySelectorAll('[data-action="delete"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteNotification(btn.dataset.id);
             });
         });
 
@@ -610,6 +634,92 @@
         }
     }
 
+    async function deleteNotification(id) {
+        if (!id) return;
+        const index = allNotifications.findIndex(n => String(n.id) === String(id));
+        if (index === -1) return;
+
+        const [removed] = allNotifications.splice(index, 1);
+        if (isUnread(removed)) {
+            unreadCount = Math.max(0, unreadCount - 1);
+            if (authoritativeStats.unread) authoritativeStats.unread = Math.max(0, authoritativeStats.unread - 1);
+        }
+        if (authoritativeStats.total) authoritativeStats.total = Math.max(0, authoritativeStats.total - 1);
+
+        updateBadges();
+        updateQuickStats();
+        renderBellDropdown();
+        renderFeed();
+
+        try {
+            const res = await fetch(`${API}/notifications.php`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    id: (intId => isNaN(intId) ? id : intId)(parseInt(id, 10)),
+                    csrf_token: getCsrfToken()
+                })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        } catch (err) {
+            console.warn('Failed to delete notification:', err);
+            loadNotifications();
+        }
+    }
+
+    async function clearAllNotifications() {
+        if (!allNotifications.length) {
+            if (typeof window.showToast === 'function') {
+                window.showToast('No notifications to clear', 'info');
+            }
+            return;
+        }
+        if (!confirm('Are you sure you want to clear all notifications?')) return;
+
+        allNotifications = [];
+        unreadCount = 0;
+        authoritativeStats = {
+            total: 0,
+            unread: 0,
+            academic: 0,
+            deadline: 0,
+            class: 0,
+            study: 0,
+            general: 0
+        };
+
+        updateBadges();
+        updateQuickStats();
+        renderBellDropdown();
+        renderFeed();
+
+        try {
+            const res = await fetch(`${API}/notifications.php`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    all: true,
+                    csrf_token: getCsrfToken()
+                })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (typeof window.showToast === 'function') {
+                window.showToast('All notifications cleared', 'success');
+            }
+        } catch (err) {
+            console.warn('Failed to clear all notifications:', err);
+            loadNotifications();
+        }
+    }
+
     /* =====================================================
        EVENT LISTENERS
     ===================================================== */
@@ -700,6 +810,11 @@
         // Hero mark all read
         if (markAllBtn) {
             markAllBtn.addEventListener('click', markAllAsRead);
+        }
+
+        // Hero clear all
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', clearAllNotifications);
         }
     }
 

@@ -30,7 +30,7 @@ function ownedItem(PDO $db, string $type, int $id, int $userId): ?array {
     } elseif ($type === 'course') {
         $sql = 'SELECT id, status, progress_percent, estimated_hours AS estimate_hours, CONCAT(code, " — ", name) AS title FROM courses WHERE id=? AND user_id=? LIMIT 1';
     } else {
-        $sql = 'SELECT id, IF(is_completed=1,"completed","pending") AS status, progress_percent, TIMESTAMPDIFF(SECOND,start_time,end_time)/3600 AS estimate_hours, title FROM schedule_events WHERE id=? AND user_id=? LIMIT 1';
+        $sql = "SELECT id, IF(is_completed=1, 'completed', 'pending') AS status, progress_percent, TIME_TO_SEC(TIMEDIFF(end_time, start_time))/3600 AS estimate_hours, title FROM schedule_events WHERE id=? AND user_id=? LIMIT 1";
     }
     $stmt=$db->prepare($sql); $stmt->execute([$id,$userId]); $row=$stmt->fetch();
     return $row ?: null;
@@ -126,7 +126,7 @@ if($action==='start' || $action==='resume') {
     if($timer) {
         $total=secondsNow($timer); $progress=progressFromTime($timer,(float)$item['estimate_hours']);
         $stmt=$db->prepare("UPDATE work_timers SET total_work_seconds=?, status='paused', started_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?"); $stmt->execute([$total,$timer['id'],$userId]);
-        syncItem($db,$type,$id,$progress,false);
+        syncItem($db,$type,$id,$userId,$progress,false);
     }
 } elseif($action==='complete') {
     $total=$timer?secondsNow($timer):0;
@@ -135,10 +135,10 @@ if($action==='start' || $action==='resume') {
     } else {
         $stmt=$db->prepare("INSERT INTO work_timers(user_id,item_type,item_id,total_work_seconds,base_progress,status,paused_at,completed_at) VALUES(?,?,?,?,?,'completed',NOW(),NOW())"); $stmt->execute([$userId,$type,$id,0,(int)$item['progress_percent']]);
     }
-    syncItem($db,$type,$id,100,true); logActivity($userId,"Completed {$item['title']}",'success');
+    syncItem($db,$type,$id,$userId,100,true); logActivity($userId,"Completed {$item['title']}",'success');
 } elseif($action==='reopen') {
     if($timer) { $stmt=$db->prepare("UPDATE work_timers SET status='paused', started_at=NULL, completed_at=NULL, paused_at=NOW() WHERE id=? AND user_id=?"); $stmt->execute([$timer['id'],$userId]); }
-    syncItem($db,$type,$id,min(99,(int)$item['progress_percent']),false);
+    syncItem($db,$type,$id,$userId,min(99,(int)$item['progress_percent']),false);
 } else timerError('Unknown timer action.',422);
 
 $stmt=$db->prepare('SELECT * FROM work_timers WHERE user_id=? AND item_type=? AND item_id=? LIMIT 1'); $stmt->execute([$userId,$type,$id]); $timer=$stmt->fetch(); $item=ownedItem($db,$type,$id,$userId)?:$item;

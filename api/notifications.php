@@ -8,6 +8,8 @@ $userId = currentUserId();
 $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
+ensureNotificationSchema($db);
+
 if ($method === 'GET') {
     session_write_close();
     if (function_exists('syncContextualNotifications')) {
@@ -20,13 +22,13 @@ if ($method === 'GET') {
 
     $limit = isset($_GET['limit']) ? max(1, min(200, (int)$_GET['limit'])) : 100;
 
-    // Fetch notifications whose send_at has arrived
+    // Fetch active notifications whose send_at has arrived and have not been deleted
     $stmt = $db->prepare(
         "SELECT n.id, n.user_id, n.task_id, n.channel, n.event_key, n.message, n.send_at, n.sent_at, n.push_status, n.read_at, n.created_at,
                 t.title AS task_title
          FROM notifications n
          LEFT JOIN tasks t ON t.id = n.task_id AND t.user_id = n.user_id
-         WHERE n.user_id = ? AND n.channel = 'in_app' AND n.send_at <= NOW()
+         WHERE n.user_id = ? AND n.channel = 'in_app' AND n.send_at <= NOW() AND n.deleted_at IS NULL
          ORDER BY n.send_at DESC LIMIT " . (int)$limit
     );
     $stmt->execute([$userId]);
@@ -37,7 +39,7 @@ if ($method === 'GET') {
     // True unread count
     $stmt = $db->prepare(
         "SELECT COUNT(*) AS n FROM notifications
-         WHERE user_id = ? AND channel = 'in_app' AND send_at <= NOW() AND read_at IS NULL"
+         WHERE user_id = ? AND channel = 'in_app' AND send_at <= NOW() AND read_at IS NULL AND deleted_at IS NULL"
     );
     $stmt->execute([$userId]);
     $unread = (int) $stmt->fetchColumn();
@@ -45,7 +47,7 @@ if ($method === 'GET') {
     // Authoritative Quick Stats & tab counts calculation across all active in-app notifications
     $stmt = $db->prepare(
         "SELECT id, message, read_at FROM notifications
-         WHERE user_id = ? AND channel = 'in_app' AND send_at <= NOW()"
+         WHERE user_id = ? AND channel = 'in_app' AND send_at <= NOW() AND deleted_at IS NULL"
     );
     $stmt->execute([$userId]);
     $allUserNotifs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -91,7 +93,7 @@ if ($method === 'GET') {
     exit;
 }
 
-if ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
+if ($method === 'DELETE' || $method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
     $raw = file_get_contents('php://input');
     $body = json_decode($raw ?: '', true);
     if (!is_array($body)) {
@@ -99,23 +101,39 @@ if ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
     }
 
     // CSRF verification (permissive fallback if token passed in headers)
-    $token = $body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+    $token = $body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_GET['csrf_token'] ?? null));
     verifyCsrf($token);
 
-    $isMarkAll = !empty($body['all']) || (($body['action'] ?? '') === 'mark_all_read');
+    $action = $body['action'] ?? ($_GET['action'] ?? '');
+    $isDelete = ($method === 'DELETE') || in_array($action, ['delete', 'clear_all', 'delete_all'], true);
 
-    if ($isMarkAll) {
-        $stmt = $db->prepare('UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL');
-        $stmt->execute([$userId]);
-    } elseif (!empty($body['id'])) {
-        $stmt = $db->prepare('UPDATE notifications SET read_at = NOW() WHERE id = ? AND user_id = ? AND read_at IS NULL');
-        $stmt->execute([(int)$body['id'], $userId]);
+    if ($isDelete) {
+        $isClearAll = !empty($body['all']) || in_array($action, ['clear_all', 'delete_all'], true) || (!empty($_GET['all']));
+        if ($isClearAll) {
+            $stmt = $db->prepare('UPDATE notifications SET deleted_at = NOW() WHERE user_id = ? AND deleted_at IS NULL');
+            $stmt->execute([$userId]);
+        } else {
+            $targetId = (int)($body['id'] ?? ($_GET['id'] ?? 0));
+            if ($targetId > 0) {
+                $stmt = $db->prepare('UPDATE notifications SET deleted_at = NOW() WHERE id = ? AND user_id = ?');
+                $stmt->execute([$targetId, $userId]);
+            }
+        }
+    } else {
+        $isMarkAll = !empty($body['all']) || ($action === 'mark_all_read');
+        if ($isMarkAll) {
+            $stmt = $db->prepare('UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL AND deleted_at IS NULL');
+            $stmt->execute([$userId]);
+        } elseif (!empty($body['id'])) {
+            $stmt = $db->prepare('UPDATE notifications SET read_at = NOW() WHERE id = ? AND user_id = ? AND read_at IS NULL AND deleted_at IS NULL');
+            $stmt->execute([(int)$body['id'], $userId]);
+        }
     }
 
     // Recalculate unread count
     $stmt = $db->prepare(
         "SELECT COUNT(*) AS n FROM notifications
-         WHERE user_id = ? AND channel = 'in_app' AND send_at <= NOW() AND read_at IS NULL"
+         WHERE user_id = ? AND channel = 'in_app' AND send_at <= NOW() AND read_at IS NULL AND deleted_at IS NULL"
     );
     $stmt->execute([$userId]);
     $unread = (int) $stmt->fetchColumn();

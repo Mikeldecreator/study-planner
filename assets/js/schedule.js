@@ -2985,6 +2985,12 @@ function renderTodaySessions() {
 
     todays.forEach(
         event => {
+            if (!event || !event.id) return;
+
+            const startTimeStr = String(event.start_time || '00:00:00').slice(0, 5);
+            const endTimeStr = String(event.end_time || '00:00:00').slice(0, 5);
+            const titleStr = event.title || 'Untitled Session';
+            const isCompleted = Boolean(event.is_completed);
 
             html += `
 
@@ -2999,7 +3005,7 @@ function renderTodaySessions() {
                             event.id
                         )}"
                         ${
-                            event.is_completed
+                            isCompleted
                                 ? 'checked'
                                 : ''
                         }
@@ -3007,7 +3013,7 @@ function renderTodaySessions() {
 
                     <div
                         class="min-w-0 ${
-                            event.is_completed
+                            isCompleted
                                 ? 'opacity-50 line-through'
                                 : ''
                         }"
@@ -3017,7 +3023,7 @@ function renderTodaySessions() {
                             class="font-semibold truncate text-gray-800 dark:text-gray-100"
                         >
                             ${escapeHtml(
-                                event.title
+                                titleStr
                             )}
                         </div>
 
@@ -3025,17 +3031,11 @@ function renderTodaySessions() {
                             class="text-xs text-gray-400 dark:text-gray-500 mt-0.5"
                         >
                             ${escapeHtml(
-                                event.start_time.slice(
-                                    0,
-                                    5
-                                )
+                                startTimeStr
                             )}
                             –
                             ${escapeHtml(
-                                event.end_time.slice(
-                                    0,
-                                    5
-                                )
+                                endTimeStr
                             )}
                         </div>
 
@@ -3053,7 +3053,7 @@ function renderTodaySessions() {
 
                     </div>
 
-                    ${event.is_completed ? '' : `<button type="button" class="ml-auto shrink-0 mt-0.5 px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 timer-session-btn" data-work-item-type="session" data-work-item-id="${escapeAttribute(event.id)}" data-work-item-title="${escapeAttribute(event.title)}" data-work-complete="false"><span data-work-label>Start</span></button>`}
+                    ${isCompleted ? '' : `<button type="button" class="ml-auto shrink-0 mt-0.5 px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 timer-session-btn" data-work-item-type="session" data-work-item-id="${escapeAttribute(event.id)}" data-work-item-title="${escapeAttribute(titleStr)}" data-work-complete="false"><span data-work-label>Start</span></button>`}
 
                 </label>
 
@@ -3067,6 +3067,7 @@ function renderTodaySessions() {
 
     todaysTasks.forEach(
         task => {
+            if (!task || !task.id) return;
 
             html += `
 

@@ -1552,6 +1552,11 @@ function ensureNotificationSchema(PDO $db): void
             $db->exec("ALTER TABLE notifications ADD COLUMN push_status VARCHAR(30) NULL DEFAULT NULL AFTER sent_at");
             $db->exec("ALTER TABLE notifications ADD INDEX idx_notif_push_status (user_id, push_status, send_at)");
         }
+        $delCols = $db->query("SHOW COLUMNS FROM notifications LIKE 'deleted_at'")->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($delCols)) {
+            $db->exec("ALTER TABLE notifications ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL AFTER read_at");
+            $db->exec("ALTER TABLE notifications ADD INDEX idx_notif_deleted (user_id, deleted_at, send_at)");
+        }
         $userCols = $db->query("SHOW COLUMNS FROM users LIKE 'notification_preferences'")->fetchAll(PDO::FETCH_ASSOC);
         if (empty($userCols)) {
             $db->exec("ALTER TABLE users ADD COLUMN notification_preferences TEXT NULL AFTER notifications_enabled");
@@ -1577,6 +1582,7 @@ function getUnreadNotificationCount(PDO $db, int $userId): int
               AND channel = 'in_app'
               AND send_at <= NOW()
               AND read_at IS NULL
+              AND deleted_at IS NULL
         ");
         $stmt->execute([$userId]);
         return (int) $stmt->fetchColumn();
@@ -2524,6 +2530,7 @@ function dispatchPendingPushes(PDO $db, ?int $targetUserId = null, array $option
             OR (n.push_status LIKE 'disp:%' AND CAST(SUBSTRING(n.push_status, 6) AS UNSIGNED) < :now_ts)
           )
           AND n.send_at <= NOW()
+          AND n.deleted_at IS NULL
     ";
 
     $params = [':now_ts' => $nowTs];

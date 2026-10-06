@@ -201,14 +201,25 @@ requirePageLogin();
           </div>
 
 
-          <button
-            id="mark-all-read"
-            type="button"
-            class="btn-press inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-white/60 dark:bg-emerald-950/20 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-white dark:hover:bg-emerald-950/40 transition-colors shrink-0"
-          >
-            <i data-lucide="check-check" class="w-4 h-4"></i>
-            Mark all as read
-          </button>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              id="mark-all-read"
+              type="button"
+              class="btn-press inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-white/60 dark:bg-emerald-950/20 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-white dark:hover:bg-emerald-950/40 transition-colors"
+            >
+              <i data-lucide="check-check" class="w-4 h-4"></i>
+              Mark all as read
+            </button>
+            <button
+              id="clear-all-btn"
+              type="button"
+              class="btn-press inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-red-200 dark:border-red-900/50 bg-white/60 dark:bg-red-950/20 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+              title="Delete all notifications"
+            >
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+              Clear all
+            </button>
+          </div>
 
         </div>
 

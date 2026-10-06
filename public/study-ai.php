@@ -321,8 +321,17 @@ requirePageLogin();
             aria-label="Ask Study AI"
           ></textarea>
 
-          <div class="flex items-center gap-2 pb-1 pr-1 shrink-0">
+          <div class="flex items-center gap-1.5 sm:gap-2 pb-1 pr-1 shrink-0">
             <span id="ai-char-counter" class="text-[11px] text-gray-400 hidden sm:inline select-none">0/1000</span>
+            <button
+              id="ai-mic-btn"
+              type="button"
+              class="w-9 h-9 rounded-xl border border-gray-200 dark:border-white/10 hover:border-emerald-500/50 text-gray-500 hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-center transition-all duration-150 relative"
+              aria-label="Voice input (Speech to text)"
+              title="Voice input (Speech to text)"
+            >
+              <i data-lucide="mic" class="w-4 h-4"></i>
+            </button>
             <button
               id="ai-send-btn"
               type="submit"

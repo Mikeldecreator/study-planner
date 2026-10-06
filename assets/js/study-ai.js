@@ -23,6 +23,7 @@
   let chatForm = null;
   let promptInput = null;
   let sendBtn = null;
+  let micBtn = null;
   let charCounter = null;
   let quickChips = null;
   let clearChatBtn = null;
@@ -30,6 +31,9 @@
   // State
   let isSubmitting = false;
   let conversationHistory = [];
+  let isListening = false;
+  let recognition = null;
+  let speechBaseText = '';
 
   /**
    * Safe HTML entity encoder to prevent XSS
@@ -672,6 +676,12 @@
   function clearConversation() {
     if (isSubmitting) return;
 
+    if (isListening && recognition) {
+      try { recognition.stop(); } catch (e) {}
+      isListening = false;
+      updateMicBtnState('idle');
+    }
+
     conversationHistory = [];
     try {
       sessionStorage.removeItem(STORAGE_KEY);
@@ -733,6 +743,12 @@
    * Send a question to the Study AI endpoint
    */
   async function sendMessage(questionText) {
+    if (isListening && recognition) {
+      try { recognition.stop(); } catch (e) {}
+      isListening = false;
+      updateMicBtnState('idle');
+    }
+
     const message = (questionText || (promptInput ? promptInput.value : '')).trim();
 
     if (!message || isSubmitting) return;
@@ -876,6 +892,147 @@
   }
 
   /**
+   * Update visual state of the microphone button
+   */
+  function updateMicBtnState(state) {
+    if (!micBtn) return;
+
+    if (state === 'listening') {
+      micBtn.className = 'w-9 h-9 rounded-xl bg-red-500 hover:bg-red-600 text-white animate-pulse ring-2 ring-red-400 ring-offset-2 dark:ring-offset-[#141C18] flex items-center justify-center transition-all duration-150 relative shadow-md';
+      micBtn.innerHTML = '<i data-lucide="mic-off" class="w-4 h-4"></i>';
+      micBtn.setAttribute('title', 'Listening... Click to stop voice input');
+      micBtn.setAttribute('aria-label', 'Stop voice input');
+    } else if (state === 'unsupported') {
+      micBtn.className = 'w-9 h-9 rounded-xl border border-gray-200 dark:border-white/10 text-gray-300 dark:text-gray-600 opacity-40 cursor-not-allowed flex items-center justify-center transition-all duration-150 relative';
+      micBtn.innerHTML = '<i data-lucide="mic-off" class="w-4 h-4"></i>';
+      micBtn.setAttribute('title', 'Voice input is not supported in this browser');
+      micBtn.setAttribute('aria-label', 'Voice input not supported');
+      micBtn.disabled = true;
+    } else {
+      // idle
+      micBtn.className = 'w-9 h-9 rounded-xl border border-gray-200 dark:border-white/10 hover:border-emerald-500/50 text-gray-500 hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-center transition-all duration-150 relative';
+      micBtn.innerHTML = '<i data-lucide="mic" class="w-4 h-4"></i>';
+      micBtn.setAttribute('title', 'Voice input (Speech to text)');
+      micBtn.setAttribute('aria-label', 'Start voice input');
+      micBtn.disabled = false;
+    }
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  }
+
+  /**
+   * Initialize speech recognition API
+   */
+  function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      updateMicBtnState('unsupported');
+      return;
+    }
+
+    try {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en-US';
+
+      recognition.onstart = function () {
+        isListening = true;
+        updateMicBtnState('listening');
+      };
+
+      recognition.onresult = function (event) {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = 0; i < event.results.length; ++i) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalTranscript += res[0].transcript;
+          } else {
+            interimTranscript += res[0].transcript;
+          }
+        }
+
+        const fullTranscript = (finalTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+        const combined = (speechBaseText + fullTranscript).slice(0, MAX_PROMPT_LENGTH);
+        if (promptInput) {
+          promptInput.value = combined;
+          autoResizeTextarea();
+          updateInputState();
+        }
+      };
+
+      recognition.onerror = function (event) {
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          if (typeof window.showToast === 'function') {
+            window.showToast('Microphone access denied. Please allow microphone permissions in your browser.', 'error');
+          }
+        } else if (event.error === 'network') {
+          if (typeof window.showToast === 'function') {
+            window.showToast('Speech recognition network error. Please check your connection.', 'error');
+          }
+        } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          if (typeof window.showToast === 'function') {
+            window.showToast('Voice input error: ' + event.error, 'error');
+          }
+        }
+        isListening = false;
+        updateMicBtnState('idle');
+      };
+
+      recognition.onend = function () {
+        isListening = false;
+        updateMicBtnState('idle');
+      };
+    } catch (e) {
+      console.warn('Failed to initialize speech recognition:', e);
+      updateMicBtnState('unsupported');
+    }
+  }
+
+  /**
+   * Toggle voice input listening on / off
+   */
+  function toggleVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Voice input is not supported in this browser.', 'warning');
+      }
+      return;
+    }
+
+    if (isListening) {
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+      isListening = false;
+      updateMicBtnState('idle');
+      return;
+    }
+
+    if (!recognition) {
+      initSpeechRecognition();
+    }
+
+    speechBaseText = promptInput ? promptInput.value : '';
+    if (speechBaseText.length > 0 && !/\s$/.test(speechBaseText)) {
+      speechBaseText += ' ';
+    }
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.warn('Recognition start failed:', err);
+      updateMicBtnState('idle');
+    }
+  }
+
+  /**
    * Initialize DOM listeners and state
    */
   function init() {
@@ -886,9 +1043,16 @@
     chatForm = document.getElementById('ai-chat-form');
     promptInput = document.getElementById('ai-prompt-input');
     sendBtn = document.getElementById('ai-send-btn');
+    micBtn = document.getElementById('ai-mic-btn');
     charCounter = document.getElementById('ai-char-counter');
     quickChips = document.getElementById('ai-quick-chips');
     clearChatBtn = document.getElementById('clear-chat-btn');
+
+    // 0. Voice input microphone button
+    if (micBtn) {
+      micBtn.addEventListener('click', toggleVoiceInput);
+      initSpeechRecognition();
+    }
 
     // 1. Textarea input handling
     if (promptInput) {

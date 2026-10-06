@@ -20,7 +20,7 @@
     return value;
   };
   const liveProgress = timer => {
-    if (!timer) return 0;
+    if (!timer || !timer.status) return 0;
     if (timer.status === 'completed') return 100;
     const estimate = Number(timer.estimate_hours || 0) * 3600;
     const base = Math.max(0, Math.min(100, Number(timer.base_progress ?? timer.progress_percent ?? 0)));
@@ -42,7 +42,7 @@
   async function getTimer(type,id) {
     const res = await fetch(`${API}/work-timer.php?item_type=${encodeURIComponent(type)}&item_id=${encodeURIComponent(id)}`, {credentials:'same-origin',cache:'no-store'});
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Could not load timer.');
+    if (!res.ok || !data.ok || !data.timer) throw new Error(data.error || 'Could not load timer.');
     cache.set(cacheKey(type,id), data.timer);
     return data.timer;
   }
@@ -107,8 +107,12 @@
   async function start(type,id,title) {
     try {
       const current = cache.get(cacheKey(type,id)) || await getTimer(type,id);
-      const action = current.status==='paused' && Number(current.total_work_seconds||0)>0 ? 'resume' : 'start';
+      if (!current || typeof current !== 'object') {
+        throw new Error('Could not load timer details for this item.');
+      }
+      const action = (current.status==='paused' && Number(current.total_work_seconds||0)>0) ? 'resume' : 'start';
       const data=await request({item_type:type,item_id:id,action,csrf_token:window.CSRF_TOKEN||''});
+      if (!data?.timer) throw new Error('Timer update failed.');
       active={type,id:String(id),title,timer:data.timer}; cache.set(cacheKey(type,id),data.timer);
       startInterval(); renderOverlay(); renderButtons();
       window.dispatchEvent(new CustomEvent('work-item-updated',{detail:{type,id:String(id),action}}));
